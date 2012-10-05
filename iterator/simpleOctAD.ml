@@ -237,8 +237,6 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
     else
       failwith "Variable to increase has not been initialized using reset_var."
 
-  let add env v cv =
-    failwith "simpleOctAD: add not implemented"
   
   (* Returns Nb octagon or Bot if the octagon is empty.  *)
   let oct_bot (octAD: t) : t add_bottom = 

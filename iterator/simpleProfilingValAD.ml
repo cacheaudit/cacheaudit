@@ -37,9 +37,6 @@ module SimpleProfilingValAD(S:SIMPLE_VALUE_AD) : SIMPLE_VALUE_AD = struct
     let r = S.inc_var ad v in
     stop "inc_var";
     r
-
-  let add env v cv =
-      failwith "simpleProfilingValAd: add not implemented"
   
   let init_with_max f max = 
     S.init_with_max f max 

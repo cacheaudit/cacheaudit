@@ -68,7 +68,6 @@ module type ABSTRACT_DOMAIN = sig
   val print_delta : t -> Format.formatter -> t -> unit
 end
 
-type cache_status_t = H | M | T
 
 module type CALL_ABSTRACT_DOMAIN = sig
   include ABSTRACT_DOMAIN
@@ -95,9 +94,6 @@ module type CALL_ABSTRACT_DOMAIN = sig
   val flagop : t -> op32 flagop -> t
   val stackop : t -> stackop -> op32 -> t
   val shift : t -> X86Types.shift_op -> op32 -> op8 -> t
-  
-  val reset_cache_status: t -> t
-  val get_cache_status : t -> cache_status_t option
 end
 
 
@@ -121,9 +117,6 @@ module type MEMORY_ABSTRACT_DOMAIN = sig
   val movzx : t -> op32 -> op8 -> t
   val flagop : t -> op32 flagop -> t
   val shift : t -> X86Types.shift_op -> op32 -> op8 -> t
-  
-  val reset_cache_status: t -> t
-  val get_cache_status : t -> cache_status_t option
 end
 
 
@@ -171,9 +164,6 @@ module type SIMPLE_VALUE_AD = sig
      if variable does not exist, create it *)
   val set_var : t -> var -> int -> t
   
-  (* Add a variable to another variable or to a constant *)
-  val add : t -> var -> int -> t
-  
   (* Filter domain according to simple comparison of two variables x1 and x2*)
   (* the first result is approximates the cases when x1 < x2 and
      the second one when x1 > x2 *)
@@ -190,8 +180,6 @@ module type CACHE_ABSTRACT_DOMAIN = sig
   val init : (int * int * int) -> t
   (* reads or writes an address into cache *)
   val touch : t -> int64 -> t
-  val reset_status: t -> t
-  val get_status: t -> cache_status_t option
 end
 
 
