@@ -47,10 +47,6 @@ possible, so it approximates Bottom *)
         | Nb nyenv -> V.join yenv nyenv
     in {env with val_ad = new_valad}
       
-    
-  let add env v c =
-    {env with val_ad = flatten (V.update_var env.val_ad v NoMask (Cons(Int64.of_int c)) NoMask (Op X86Types.Add))}
-  
   let get_keys map = let keys,_ = List.split (ValMap.bindings map)
                      in keys
                      

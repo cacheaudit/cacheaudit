@@ -147,7 +147,6 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
   * an incoming non-bottom environment *)
   (* may raise Bottom *)
   let rec interpret_instruction inv (addr, inst) = try (
-    let inv = C.reset_cache_status inv in
     let ftrace inv2 = if !trace then 
         Format.printf "@[<v 2>%a %a @, %a@]@."
         pp_block_addr addr X86Print.pp_instr inst (C.print_delta inv) inv2;
@@ -208,25 +207,12 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
         (try (find_out_edge oe ad, ad_inv)::res
          with Not_found -> res) ) [] output
 
-   let cache_status_to_str s = (match s with 
-                                              | Some H -> "H"
-                                              | Some M -> "M" 
-                                              | Some T -> "T"
-                                              | None -> "N")
   (* returns a list of out_edges * non-empty env for that edge *)
   let interpret_block inv b = 
     if !trace then Format.printf "Entering block %a@\n" pp_block_header b;
     try (
-    let (last_inv,hms) = List.fold_left 
-      (fun (inv,hms) a -> let ninv = (interpret_instruction inv a) in
-            let status = C.get_cache_status ninv in
-            if !verbose then Format.printf "Cache status: %s\n" (cache_status_to_str status); 
-            (ninv,status::hms)) (inv,[]) b.content in
-    let hms = List.rev hms in
-    if !verbose then (Format.printf "Block trace: ";
-    List.iter (fun x -> Format.printf "%s " (cache_status_to_str x)) (hms);
-    Format.printf "\n%!";
-    );
+    let last_inv = List.fold_left 
+      (fun inv a -> interpret_instruction inv a) inv b.content in
     match b.out_edges with
       [] -> assert(b.content = []);[] (*we only have error and final blocks that don't have out edges. TODO: treat the Halt instruction... *)
     | [oe] -> (match b.jump_command with

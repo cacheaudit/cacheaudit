@@ -66,10 +66,6 @@ module StackAD (M: MEMORY_ABSTRACT_DOMAIN) : CALL_ABSTRACT_DOMAIN = struct
      
   let print = M.print
   let print_delta = M.print_delta
-  
-  let get_cache_status = M.get_cache_status
-  let reset_cache_status = M.reset_cache_status
-
 end 
 
 

@@ -29,9 +29,6 @@ module SimpleRelSetAD : SIMPLE_VALUE_AD  = struct
 
   let inc_var (rsAD:t) (v:var) =
     {rsAD with map = M.mapi (fun vset afs -> if VarSet.mem v vset then AFS.inc_var afs v rsAD.max else afs) rsAD.map}
-
-  let add env v cv =
-    failwith "simpleRelSetAD: add not implemented"
   
   let print (fmt:Format.formatter) (rsAD:t) = M.print fmt rsAD.map
 

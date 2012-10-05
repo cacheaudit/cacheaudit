@@ -131,24 +131,6 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     let comb = List.concat (List.map (fun (x,e) -> List.map (fun (y,e') -> (Int64.add x y, F.meet e e')) index) base) in
     List.map (fun (x, e) -> (Int64.add addr.addrDisp x, e)) comb
     ) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
-
-(*(*   type cache_status = H | M | T *)
-  let print_status env addrList =
-    let status = List.fold_left (fun status_sofar (addr,f) ->
-      let current_status = 
-        if not (CA.is_var env.cache addr) then Some M 
-        else let ages = CA.get_ages env.cache addr in
-          if ages = [4] then Some M
-          else if not (List.mem 4 ages) then Some H
-          else Some T in
-      if status_sofar = None or status_sofar = current_status then current_status
-      else Some T                         
-    ) None addrList
-    in Format.printf "\nCache status: %s\n" (match status with 
-                                              | Some H -> "H"
-                                              | Some M -> "M" 
-                                              | Some T -> "T"
-                                              | None -> assert false)*)
     
     
   (** Create an unitialized variable; assume it is not already created. *) 
@@ -158,7 +140,6 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
   (* var_of_op : t -> op32 -> rw_t -> (cons_var, t) list *)
   (** @return the list of constants or variables corresponding to the constant, register or address passed *)
   let var_of_op env gop rw = 
-    let env = {env with cache = (CA.reset_status env.cache)} in
     match gop with
     | Imm x -> [(Cons x, env)]
     | Reg r -> [(VarOp (reg_to_var r), env)]
@@ -191,7 +172,6 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
         in
         (* Get list of possible addresses and return either a var if it existed in the MemSet
         * or a cons (with the value) otherwise *)
-(*         print_status env addrList;  *)
         List.map read addrList
 
   (** @return the 32-bit register that contains the given 8-bit register *)
@@ -231,7 +211,6 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
               else (VarOp n, env) in
           new_n, address_mask, {new_env with cache = new_cache}
         in
-(*         print_status env addrList;  *)
         List.map read addrList
 
   (** @return the enviroment that corresponds to a memory access *)
@@ -274,11 +253,6 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
         let s_to_d_vals = list_join (List.concat (List.map doOpD slist)) in
         let d_to_s_vals = list_join (List.concat (List.map doOpS dlist)) in
         join s_to_d_vals d_to_s_vals
-  (*  in Format.printf "\nCache status M: %s\n" (match CA.get_status res.cache with 
-                                              | Some H -> "H"
-                                              | Some M -> "M" 
-                                              | Some T -> "T"
-                                              | None -> "None");*)
     in res
   ) with Bottom -> failwith "MemAD.memop: Bottom in memAD after an operation on non bottom env"
 
@@ -388,8 +362,6 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
           Finite (List.fold_left appendLists [] fsList)
         ) with Is_Top -> Top env)
         
-  let get_cache_status env = CA.get_status env.cache
-  let reset_cache_status env = {env with cache = CA.reset_status env.cache}
 end 
 
 module SimpleMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.SimpleCacheAD)
