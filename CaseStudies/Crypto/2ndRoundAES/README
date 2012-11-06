@@ -1,0 +1,4 @@
+
+This is a set of C-implementations that were used to evaluate the performance of the 2nd round of AES candidates. This set could make for an impressive (however slightly outdated) case study.
+
+TODO: Turn into executables that can be analyzed by CacheCow. 
