@@ -5,8 +5,11 @@ let precise_touch = ref true
 
 module CacheMap = Map.Make(struct type t = int let compare = compare end)
 module AddrSet = Set.Make(Int64)
+module AddrMap = Map.Make(Int64)
+module IntSet = Set.Make(struct type t = int let compare = compare end)
 
-module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
+
+module RelCacheAD (SV: SIMPLE_REL_SET_DOMAIN) : CACHE_ABSTRACT_DOMAIN = struct
   type t = {
     (* holds addresses handled so far *)
     handled_addrs : AddrSet.t;
@@ -53,6 +56,74 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
   let absolute_cache_states (cache:t) : int64 = 
      List.fold_left (fun sol set_sol -> Int64.mul sol (Int64.of_int set_sol)) Int64.one (cache_states_per_set cache)
 
+  (*partition helper *)
+  let rec add_to_setlist setlist set  =     match setlist with 
+      hd::tl -> if IntSet.exists (fun v -> IntSet.mem v hd) set then 
+                add_to_setlist tl (IntSet.union set hd) else
+                hd::add_to_setlist tl set
+    | []     -> [set]
+
+  let merge_sets (unmerged_sets:IntSet.t list) : IntSet.t list  = 
+    List.fold_left (fun merged_sets set -> add_to_setlist merged_sets set) [] unmerged_sets
+  
+
+type af = (var*int) list
+  (* Compute Cache states of one partition *)
+  let cache_states_of_partition (cache:t) (setnums:IntSet.t) : int = let fmt = Format.std_formatter in
+    (* *)
+     let all_addresses = CacheMap.fold (fun num set result -> if IntSet.mem num setnums then AddrSet.union set result else result ) cache.cache_sets  AddrSet.empty in
+    (* Compute all tuples for a given cache set *) 
+    let tuples (setnum:int): var list list = 
+      let addr_set = CacheMap.find setnum cache.cache_sets in
+      List.fold_left (fun l i -> List.append l (n_tuples i addr_set)) [] [0;1;2;3;4] in 
+    (* Convert tuples into a list of pair lists (var*age) *)
+    let agelist (tuples :var list list) (setnum:int) : af list = 
+      let rec helper (tuple: var list) (i:int) = match tuple with
+        [] -> [] | hd::tl -> (hd,i)::helper tl (i+1) in
+      List.fold_left (fun newlist tuple -> 
+         let tmplist = helper tuple 0 in 
+         (* Add missing ones to all ages with age associativity  *) 
+         (AddrSet.fold (fun addr result -> if List.exists (fun (v,i) -> v = addr) result then result else (addr,cache.associativity)::result) (CacheMap.find setnum cache.cache_sets) tmplist)::newlist) [] tuples in
+     let all_ages : af list list = IntSet.fold (fun setnum result -> agelist (tuples setnum) setnum::result) setnums [] in
+     (* Compute all combinations *)
+     let rec comb_helper (newlist:af list)(l:af list list) = match l with 
+         [] -> newlist
+       | hd::tl -> let newnewlist : af list = List.fold_left (fun (result:af list) (l:af) -> List.fold_left (fun (result':af list) (l':af) -> List.append l l'::result') result hd) [] newlist in
+ comb_helper newnewlist tl in
+    let combinations : (var*int) list list = match all_ages with
+      [] -> [] | hd::tl -> comb_helper hd tl in 
+    (* Count valid combinations *)
+    let valid_solutions = List.filter (fun (l: af) -> SV.mem cache.ages l) combinations in
+      (*List.iter (fun af -> Format.fprintf fmt "{"; List.iter (fun (v,i) -> Format.fprintf fmt " (%Lx, %d), " v i) af; Format.fprintf fmt "}\n") valid_solutions;*)
+    List.length valid_solutions
+
+
+  let cache_states_per_partition (cache:t) (setnums:IntSet.t list) : int list = 
+    List.fold_left (fun l setnums -> cache_states_of_partition cache setnums::l) [] setnums
+(* Combine agelists *)
+
+  let comp_setnums (cache:t) : IntSet.t list = let fmt = Format.std_formatter in
+    (* Compute partitions induced by constraints *)
+    let partitions = List.map (fun vlist -> List.fold_left (fun result elem -> AddrSet.add elem result) AddrSet.empty vlist) (SV.partition cache.ages) in
+    (* invert cache map *)
+    let inv_cachemap = CacheMap.fold (fun setnum addrset map -> AddrSet.fold (fun addr map'-> AddrMap.add addr setnum map')addrset map) cache.cache_sets AddrMap.empty in
+    (* convert variables to their respective set number *)
+    let setnums = List.fold_left (fun newlist set -> (AddrSet.fold (fun addr intset -> IntSet.add (AddrMap.find addr inv_cachemap) intset) set IntSet.empty)::newlist) [] partitions in
+    (* merge sets containing the same set numbers *)
+    let result = merge_sets setnums in
+    (*List.iter (fun set -> Format.fprintf fmt "{"; IntSet.iter (fun i -> Format.fprintf fmt " %d, " i) set; Format.fprintf fmt "}\n") result; *)
+    result
+
+  let rel_absolute_cache_states (cache:t) : int64 = 
+    let setnums = comp_setnums cache in
+    (* Multiply numbers *)
+    List.fold_left (fun sol set_sol -> Int64.mul sol (Int64.of_int set_sol)) Int64.one (cache_states_per_partition cache setnums)
+
+  let rel_log_cache_states (cache:t) : int = 
+     let setnums = comp_setnums cache in
+     let sum = List.fold_left (fun sol set_sol -> log10 (float_of_int set_sol) +. sol) 0.0 (cache_states_per_partition cache setnums) in
+     int_of_float (ceil(sum /. (log10 2.0)))
+
   let print fmt cache =
     Format.fprintf fmt "@[";
     CacheMap.iter (fun i all_elts -> 
@@ -63,7 +134,9 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
         )
       ) cache.cache_sets;
      Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" SV.print cache.ages;
-Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d bits.\n" (absolute_cache_states cache) (log_cache_states cache)
+Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d bits.\n" (absolute_cache_states cache) (log_cache_states cache);
+Format.fprintf fmt "Valid cache configurations computed with relational Information : 0x%Lx" (rel_absolute_cache_states cache);
+Format.fprintf fmt ",that is %d bits.\n" (rel_log_cache_states cache) 
  
   let var_to_string x = Printf.sprintf "%Lx" x 
   
@@ -215,10 +288,5 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d b
   
 end 
 
-module SimpleCacheAD = CacheAD (SimpleValAD.SimpleValAD)
-module RelSetCacheAD = CacheAD (SimpleRelSetAD.SimpleRelSetAD)
-module OctCacheAD = CacheAD (SimpleOctAD.OctAD)
-module ProfSimpleCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleValAD.SimpleValAD))
-module ProfRelSetCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleRelSetAD.SimpleRelSetAD))
-module ProfOctCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleOctAD.OctAD))
+module RelSetCacheAD = RelCacheAD (SimpleRelSetAD.SimpleRelSetAD)
 

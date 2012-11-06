@@ -1,5 +1,9 @@
 open Signatures
 
+module VarSet = Set.Make(struct type t = var let compare = Pervasives.compare end)
+
+module AgeMap = Map.Make(struct type t = var let compare = Pervasives.compare end)
+
 (* An AgeFunction module provides a mapping from variables to their respective age. *)
 module type AGE_FUNCTION = sig
   type t
@@ -12,15 +16,14 @@ module type AGE_FUNCTION = sig
   val empty : t
   (* Returns the most recent binding for the variable. *)
   val get : var -> t -> int
+
+  val project : t -> var list -> t
   (* Given two maps with distinct input spaces, it returns a mapping that contains the mapping of both AgeFunctions. *)
   val join : t -> t -> t
   (* Returns a string representation of the AgeFunction. *)
   val toString : t -> string
+  val vars : t -> VarSet.t
 end
-
-module VarSet = Set.Make(struct type t = var let compare = Pervasives.compare end)
-
-module AgeMap = Map.Make(struct type t = var let compare = Pervasives.compare end)
 
 (* An implementation of an AgeFunction using Maps *)
 module MapAgeFunction : AGE_FUNCTION = struct
@@ -34,9 +37,15 @@ module MapAgeFunction : AGE_FUNCTION = struct
   let join af1 af2 = AgeMap.merge (fun v opt1 opt2 -> match opt1,opt2 with 
               Some x,None -> Some x | None, Some x -> Some x | _,_ -> failwith "AF.join: unexpected case") af1 af2
   let empty = AgeMap.empty
+
+  let project af l = List.fold_left (fun af' v -> add v (get v af) af') empty l
+
   let toString af = 
     let s = AgeMap.fold (fun v e s -> s ^ (string_of_int e) ^ ",") af "" in
     "(" ^ (String.sub s 0 (String.length s -1)) ^ ")" 
+
+  let vars af = 
+    List.fold_left (fun varset (v,i) -> VarSet.add v varset) VarSet.empty (AgeMap.bindings af)
 end
 
 (* An implementation of an AgeFunction using Lists *)
@@ -62,6 +71,8 @@ module ListAgeFunction : AGE_FUNCTION = struct
   let pos set v = 
     match VarSet.split v set with (l,e,g) -> VarSet.cardinal l
 
+  let empty = {vals = []; vars = VarSet.empty}
+
   let get v af = let pos_v = pos af.vars v in
     List.nth af.vals pos_v
 
@@ -73,11 +84,13 @@ module ListAgeFunction : AGE_FUNCTION = struct
 
   let join af1 af2 = VarSet.fold (fun v af' -> add v (get v af2) af') af2.vars af1
 
+  let project af l = List.fold_left (fun af' v -> add v (get v af) af') empty l
+
   let toString af = 
     let s = List.fold_left (fun s e -> s ^ (string_of_int e) ^ ",") "" af.vals in
-    "(" ^ (String.sub s 0 (String.length s -1)) ^ ")" 
- 
-  let empty = {vals = []; vars = VarSet.empty}
+    "(" ^ (String.sub s 0 (String.length s -1)) ^ ")"  
+
+  let vars af = af.vars
 end
 
 
@@ -88,6 +101,8 @@ module PairListAgeFunction : AGE_FUNCTION = struct
      [],[] -> 0
    | (_,i1)::tl1,(_,i2)::tl2 -> let c = Pervasives.compare i1 i2 in if c = 0 then compare tl1 tl2 else c
    |  _,_  -> -1
+
+  let empty = []
 
   let rec get v af = 
     match af with
@@ -105,11 +120,14 @@ module PairListAgeFunction : AGE_FUNCTION = struct
   let join af1 af2 = 
     List.fold_left (fun l (v,i) -> add v i l) af1 af2
      
+  let project af l = List.fold_left (fun af' v -> add v (get v af) af') empty l
 
   let toString af = 
     let s = List.fold_left (fun s (_,e) -> s ^ (string_of_int e) ^ ",") "" af in
     "(" ^ (String.sub s 0 (String.length s -1)) ^ ")" 
- 
-  let empty = []
-end
+
+  let rec vars af = match af with
+     [] -> VarSet.empty
+   | (v,i)::l -> VarSet.add v (vars l)
+ end
 

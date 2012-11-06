@@ -6,9 +6,21 @@ open RelSetMap
 
 let debug = ref false
 
-module SimpleRelSetAD : SIMPLE_VALUE_AD  = struct
+module SimpleRelSetAD : SIMPLE_REL_SET_DOMAIN  = struct
   module M = RelSetMap
   type t = {map : M.t; arity : int; max : int}
+
+  (* partition helper *)
+  let rec add_to_setlist (setlist:VarSet.t list) (vset:VarSet.t) : VarSet.t list = 
+    match setlist with 
+      hd::tl -> if VarSet.exists (fun v -> VarSet.mem v hd) vset then 
+                add_to_setlist tl (VarSet.union vset hd) else
+                hd::add_to_setlist tl vset
+    | []     -> [vset]
+
+  let partition rsAD = 
+    let tmp = KeySet.fold (fun vset setlist -> add_to_setlist setlist vset) (M.keys rsAD.map) [] in
+    List.fold_left (fun result vset -> VarSet.elements vset::result) [] tmp
 
   let init_with_max v2s max = {map = M.init_with_max v2s max; arity = 2; max = max}
 
@@ -16,6 +28,10 @@ module SimpleRelSetAD : SIMPLE_VALUE_AD  = struct
     let vset = VarSet.add v VarSet.empty in
     AFS.values (M.find vset rsAD.map) v
 
+  let mem (rsAD:t) (part_state:(var * int) list) : bool = 
+    let af = List.fold_left (fun af' (v,i) -> AF.add v i af') AF.empty part_state in
+    M.for_all (fun vset afs -> not (AFS.contradicts afs af)) rsAD.map
+    
   let forget_rel_info map (v:var) = 
     M.filter (fun vset _ -> not (VarSet.mem v vset)) map
 

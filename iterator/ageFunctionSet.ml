@@ -6,6 +6,8 @@ module AF = PairListAgeFunction
 module type AGE_FUNCTION_SET = sig
   type t 
   val combine : t -> t -> t (* Combines two AgeFunctionSets with distinct variables *)
+  (* True if there is a common variable v , s.t. there is no AF' in AFS with AF(v)=AF'(v) *)  
+  val contradicts: t -> AF.t -> bool 
   val empty : t
   val equal : t -> t -> bool
   val filter : (AF.t -> bool) -> t -> t
@@ -31,6 +33,15 @@ module AgeFunctionSet : AGE_FUNCTION_SET = struct
     if is_empty afs2 then afs1 else
     let cross_join set1 set2 = S.fold (fun af1 set -> S.fold (fun af2 set' -> S.add (AF.join af1 af2) set') set2 set) set1 S.empty in
     {set = cross_join afs1.set afs2.set; vars = VarSet.union afs1.vars afs2.vars}
+
+  let project afs vlist = 
+    {set = S.fold (fun e set'-> S.add (AF.project e vlist) set') afs.set S.empty; 
+     vars = VarSet.filter (fun v -> List.mem v vlist) afs.vars}
+
+  let contradicts (afs:t) (af:AF.t) = 
+    let common_vars : VarSet.t = VarSet.inter afs.vars (AF.vars af) in
+    not (S.exists (fun (af':AF.t) -> VarSet.for_all (fun (v:var) -> (AF.get v af) = (AF.get v af')) common_vars) afs.set)
+    
 
   let empty = {set = S.empty; vars = VarSet.empty}
 
