@@ -2,7 +2,7 @@ open Signatures
 
 module MemSet = Set.Make(Int64)
 
-(**)
+(* *)
 module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_ABSTRACT_DOMAIN = struct
   open X86Types
 
@@ -366,7 +366,7 @@ end
 
 module SimpleMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.SimpleCacheAD)
 module OctMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.OctCacheAD)
-module RelSetMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.RelSetCacheAD)
+module RelSetMemAD = MemAD(FlagAD.FlagsAD)(RelCacheAD.RelSetCacheAD)
 module ProfSimpleMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.ProfSimpleCacheAD)
 module ProfOctMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.ProfOctCacheAD)
 module ProfRelSetMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.ProfRelSetCacheAD)

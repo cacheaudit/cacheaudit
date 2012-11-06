@@ -163,13 +163,19 @@ module type SIMPLE_VALUE_AD = sig
   (* Set variable to a value;
      if variable does not exist, create it *)
   val set_var : t -> var -> int -> t
-  
   (* Filter domain according to simple comparison of two variables x1 and x2*)
   (* the first result is approximates the cases when x1 < x2 and
      the second one when x1 > x2 *)
   val comp : t -> var -> var -> (t add_bottom)*(t add_bottom)
   val get_values : t -> var -> int list
   val is_var : t -> var -> bool
+end
+
+module type SIMPLE_REL_SET_DOMAIN = sig
+  include SIMPLE_VALUE_AD
+
+  val mem : t -> (var * int) list -> bool 
+  val partition: t -> var list list
 end
 
 

@@ -32,6 +32,7 @@ ML_FILES := \
 	iterator/simpleRelSetAD.ml\
 	iterator/simpleProfilingValAD.ml\
 	iterator/cacheAD.ml\
+	iterator/relCacheAD.ml\
 	iterator/memAD.ml\
 	iterator/iterator.ml\
 	concrete_interpreter/registers.ml \
