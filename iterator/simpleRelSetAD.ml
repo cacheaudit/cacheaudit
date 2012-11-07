@@ -97,9 +97,11 @@ module SimpleRelSetAD : SIMPLE_REL_SET_DOMAIN  = struct
     let ls  = M.mapi (fun vset afs -> update_ages vset rsAD.map Pervasives.compare gt_v2) rsAD.map in
     let gt = M.mapi (fun vset afs -> update_ages vset rsAD.map (fun x y -> Pervasives.compare y x) sm_v2) rsAD.map in 
     (check_validity {rsAD with map = ls},check_validity {rsAD with map = gt})
+
+  let comp_with_val rsAD v c = failwith "comp_with_val (needed for FIFO) not yet implemented in relational sets" (*TODO*)
+
+
 end
-
-
 
 (* 
    Speed comparison

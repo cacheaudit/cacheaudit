@@ -23,6 +23,12 @@ module SimpleProfilingValAD(S:SIMPLE_VALUE_AD) : SIMPLE_VALUE_AD = struct
     stop "comp";
     r
 
+  let comp_with_val ad v c =
+    start "comp_with_val";
+    let r = S.comp_with_val ad v c in
+    stop "comp_with_val";
+    r
+
   exception NotImplemented
   let is_var env a = raise NotImplemented
   
