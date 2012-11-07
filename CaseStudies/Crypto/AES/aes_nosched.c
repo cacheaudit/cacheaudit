@@ -78,7 +78,7 @@ int main(){
   aes_context* ctx=&mycontext;
   const unsigned char* key = mykey;
   
-
+  unsigned int i;
   unsigned long *RK;
   
   /*Fixed keysize to 128 and number of rounds to 10 */
