@@ -3,8 +3,8 @@
 
 int main(){
 
-  unsigned int a[128];
-  unsigned int array_size=128;  
+  unsigned int a[64];
+  unsigned int array_size=64;  
 
   int i;
   for (i = 0; i < array_size - 1; ++i)

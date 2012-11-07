@@ -1,0 +1,12 @@
+Experiments performed on Virtual Machine while doing other stuff, so analysis times are not representative.
+
+Bubblesort:
+* Array length 64 (ints). Cache: 4 way, 32b lines, 4096b size
+Final State (non-relational sets): 0 bit leakage, analysis time 78s
+
+Insertion Sort:
+* Array length 64 (ints). Cache: 4 way, 32b lines, 4096b size
+Final State (non-relational sets): 0 bit leakage, analysis time 35s
+
+* Array length 64 (ints). Cache: 4 way, 32b lines, 4096b size
+Final State (non-relational sets): 0 bit leakage, analysis time 84s
