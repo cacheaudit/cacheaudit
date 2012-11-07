@@ -1,3 +1,5 @@
+(* TODO: I don't understand why we need a special cacheAD for relational domains? This is bad design...*)
+
 open Signatures
 
 let verbose = ref false
@@ -23,6 +25,7 @@ module RelCacheAD (SV: SIMPLE_REL_SET_DOMAIN) : CACHE_ABSTRACT_DOMAIN = struct
     line_size: int; (* same as "data block size" *)
     associativity: int;
     num_sets : int; (* computed from the previous three *)
+    strategy : cache_strategy;
   }
 
   let print_addr_set fmt = AddrSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
@@ -140,7 +143,7 @@ Format.fprintf fmt ",that is %d bits.\n" (rel_log_cache_states cache)
  
   let var_to_string x = Printf.sprintf "%Lx" x 
   
-  let init (cs,ls,ass) =
+  let init (cs,ls,ass,strategy) =
     let ns = cs / ls / ass in
     let rec init_csets csets i = match i with
       | 0 -> csets
@@ -152,6 +155,7 @@ Format.fprintf fmt ",that is %d bits.\n" (rel_log_cache_states cache)
       line_size = ls;
       associativity = ass;
       num_sets = ns;
+      strategy = strategy;
     }
 
   (* Determine the set in which an address is cached *)

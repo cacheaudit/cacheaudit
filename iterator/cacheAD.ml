@@ -20,6 +20,7 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
     line_size: int; (* same as "data block size" *)
     associativity: int;
     num_sets : int; (* computed from the previous three *)
+    strategy : cache_strategy; (*Can be LRU or FIFO so far *)
   }
 
   let print_addr_set fmt = AddrSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
@@ -67,7 +68,7 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d b
  
   let var_to_string x = Printf.sprintf "%Lx" x 
   
-  let init (cs,ls,ass) =
+  let init (cs,ls,ass,strategy) =
     let ns = cs / ls / ass in
     let rec init_csets csets i = match i with
       | 0 -> csets
@@ -79,6 +80,7 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d b
       line_size = ls;
       associativity = ass;
       num_sets = ns;
+      strategy = strategy;
     }
 
   (* Determine the set in which an address is cached *)
@@ -127,7 +129,7 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d b
 (* when addr is touched (and already in the cache set) update of the age of addr_in *)
 (* In case where addr_in can be either older or youner than the intial age of addr, splits the cases and returns two cache configurations to allow some precision gain *)
   let age_one_element cache addr addr_in =
-    if addr = addr_in then cache,None
+    if addr = addr_in then cache,None (*This case is treated later in touch*)
     else
       let young,nyoung = SV.comp cache.ages addr_in addr in
       match young with
@@ -137,10 +139,11 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d b
         | Nb nyenv -> {cache with ages = nyenv}, None)
       | Nb yenv ->
          {cache with ages = SV.inc_var yenv addr_in},
-         match nyoung with
-           | Bot -> None
-           | Nb nyenv -> Some {cache with ages = nyenv }
+           match nyoung with
+             | Bot -> None
+             | Nb nyenv -> Some {cache with ages = nyenv }
 
+(* Given a cache and a block adress adrr, the first element is the list of blocks in that block's set that can be in the cache *)
   let rec precise_age_elements cache addr = function
     [] -> cache
   | addr_in::clist -> (match age_one_element cache addr addr_in with
@@ -163,17 +166,19 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d b
     let set_addr = get_set_addr cache addr in
     let cset = CacheMap.find set_addr cache.cache_sets in
     if AddrSet.mem addr cache.handled_addrs then begin
-      let cache = if !precise_touch 
-      then precise_age_elements cache addr (AddrSet.elements cset)
-      else AddrSet.fold (fun addr_in curr_cache ->
-	    match age_one_element curr_cache addr addr_in with
-	      c, None -> c
-	    | c1, Some c2 -> (* in this case, only the ages differ *)
-		{c1 with ages = SV.join c1.ages c2.ages}
-	  ) cset cache
-      in 
-      {cache with ages = SV.set_var cache.ages addr 0}
-    end else begin
+      match cache.strategy with
+        LRU -> let cache = if !precise_touch 
+          then precise_age_elements cache addr (AddrSet.elements cset)
+          else AddrSet.fold (fun addr_in curr_cache ->
+	          match age_one_element curr_cache addr addr_in with
+	            c, None -> c
+	          | c1, Some c2 -> (* in this case, only the ages differ *)
+		            {c1 with ages = SV.join c1.ages c2.ages}
+	                        ) cset cache
+        in {cache with ages = SV.set_var cache.ages addr 0}
+      | FIFO -> failwith "FIFO cache strategy not analyzed yet\n"
+      | PLRU -> failwith "Pseudo LRU cache strategy not analyzed yet\n"
+    end else begin (* this works for FIFO and LRU. We will need something different for PLRU *)
       let ages = SV.set_var cache.ages addr 0 in
       let h_addrs = AddrSet.add addr cache.handled_addrs in
       (* increment the ages of elements in cache set *)

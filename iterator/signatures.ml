@@ -53,6 +53,10 @@ let mask_to_intoff = function
 
 type varop = Op of X86Types.arith_op | Move
 
+type cache_strategy = LRU | PLRU | FIFO
+
+type cache_param = int * int * int * cache_strategy (* total size, line size, associativity. TODO use a record *)
+
 module ValMap = Map.Make(Int64)
 
 
@@ -72,7 +76,7 @@ end
 module type CALL_ABSTRACT_DOMAIN = sig
   include ABSTRACT_DOMAIN
 
-  val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> (int * int * int) -> t
+  val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> cache_param -> t
 
   (* from a genop32 expression, returns a finite list of possible values,
      each value associated with an approximation of the corresponding memory 
@@ -102,7 +106,7 @@ module type MEMORY_ABSTRACT_DOMAIN = sig
   
   (* init is used to return an initial abstract state *)
   (* the first arguments returns the initial value at a given address if it is defined, None otherwize (meaning it's random *)
-  val init: (int64 -> int64 option) -> (X86Types.reg32 * int64 * int64) list -> (int * int * int) -> t
+  val init: (int64 -> int64 option) -> (X86Types.reg32 * int64 * int64) list -> cache_param -> t
 
   (* from a genop32 expression, returns a finite list of possible values,
      each value associated with an approximation of the corresponding memory 
@@ -183,7 +187,7 @@ module type CACHE_ABSTRACT_DOMAIN = sig
   include ABSTRACT_DOMAIN
   (* initialize an empty cache
    takes arguments cache_size (in bytes), line_size (in bytes) and associativity *)
-  val init : (int * int * int) -> t
+  val init : cache_param -> t
   (* reads or writes an address into cache *)
   val touch : t -> int64 -> t
 end
@@ -192,7 +196,7 @@ end
 
 module DummyCache = struct
   type t = unit
-  let init _ _ _ = ()
+  let init _ _ _ _ = ()
   let join () () = ()
   let widen () () = ()
   let subseteq () () = true

@@ -8,6 +8,7 @@ let end_addr = ref 0
 let cache_s = ref 0
 let line_s = ref 0
 let assoc = ref 0
+let cache_strategy = ref Signatures.LRU
 
 let build_cfg = ref false
 let do_inter = ref false
@@ -62,7 +63,8 @@ let speclist = [
     ("-f", Arg.String anon_fun,                      "give the name of the binary file");
     ("--oct", Arg.Unit (fun () -> oct := true), "use the octagon abstract domain for the cache.") ;
     ("--rset", Arg.Unit (fun () -> rset := true), "use the relational set abstract domain for the cache.") ;
-    ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.") 
+    ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.");
+    ("--fifo", Arg.Unit (fun () -> cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.")
   ] 
 
 let _ =
@@ -105,7 +107,7 @@ let _ =
       (read_from_file !bin_name), None ) in
   if !print_ass then print_assembly (read_assembly bits);
   (*  if !print_ass then debug bits;*)
-  let cache_params = (!cache_s,!line_s,!assoc) in
+  let cache_params = (!cache_s,!line_s,!assoc,!cache_strategy) in
   match mem with
     Some sections ->
       if !build_cfg then Cfg.printcfg (Cfg.makecfg !start_addr sections);
