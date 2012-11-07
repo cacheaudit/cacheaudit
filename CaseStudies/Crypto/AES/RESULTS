@@ -1,0 +1,33 @@
+These are experiments with AES from the PolarSSL library
+
+AES with key-schedule and without preloading
+---------------------------------------
+
+
+
+
+AES without key-schedule and without preloading
+------------------------------------------
+* Cache: size 4096 bytes, lines 32b, assoc 4.
+
+Number of valid final cache configurations: 0x10256c839436f800, that is 204 bits.
+Analysis took 500 seconds.
+
+* Cache: size 16384 bytes, lines 32b, assoc 4.
+
+Number of valid cache configurations : 0x0, that is 146 bits.
+Analysis took 132 seconds.
+
+AES without key-schedule and with preloading
+---------------------------------------
+
+* Cache: size 4096 bytes, lines 32b, assoc 4.
+
+Number of valid final cache configurations : 0x0(???), that is 175 bits. 
+Analysis took 470 seconds.
+
+
+* Cache: size 16384 bytes, lines 32b, assoc 4.
+
+Number of valid final cache configurations : 0x2000, that is 14 bits. 
+Analysis took 98 seconds.
