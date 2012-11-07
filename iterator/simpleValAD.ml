@@ -74,6 +74,10 @@ possible, so it approximates Bottom *)
   let comp env x1 x2 = 
     let smaller, eq, bigger = vcomp env.val_ad (VarOp x1) (VarOp x2) in
     vNewEnv env smaller, vNewEnv env bigger
+
+  let comp_with_val env x v =
+    let smaller, eq, bigger = vguard env.val_ad x v in
+    vNewEnv env smaller, lift_combine join (vNewEnv env eq) (vNewEnv env bigger)
   
   let print_delta env1 fmt env2 = V.print_delta env1.val_ad fmt env2.val_ad
   let print fmt env = V.print fmt env.val_ad

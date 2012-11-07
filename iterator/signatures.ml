@@ -168,9 +168,12 @@ module type SIMPLE_VALUE_AD = sig
      if variable does not exist, create it *)
   val set_var : t -> var -> int -> t
   (* Filter domain according to simple comparison of two variables x1 and x2*)
-  (* the first result is approximates the cases when x1 < x2 and
+  (* the first result approximates the cases when x1 < x2 and
      the second one when x1 > x2 *)
   val comp : t -> var -> var -> (t add_bottom)*(t add_bottom)
+  (* Filter domain according to whether thvariable takes the value or not.
+     the first result is the cases where the var age < max_value and the second one >= max_value *)
+  val comp_with_val : t -> var -> int -> (t add_bottom)*(t add_bottom)
   val get_values : t -> var -> int list
   val is_var : t -> var -> bool
 end

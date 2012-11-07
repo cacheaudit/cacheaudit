@@ -176,7 +176,20 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d b
 		            {c1 with ages = SV.join c1.ages c2.ages}
 	                        ) cset cache
         in {cache with ages = SV.set_var cache.ages addr 0}
-      | FIFO -> failwith "FIFO cache strategy not analyzed yet\n"
+      | FIFO -> (* We first split the cache ages in cases where addr is in the blocck and cases where it is not *)
+        let ages_in, ages_out = 
+          SV.comp_with_val cache.ages addr cache.associativity in
+        let cache1 = match ages_in with Bot -> Bot
+          | Nb ages_in -> Nb {cache with ages=ages_in} (*nothing changes in that case *)
+        and cache2 = (*in this case we increment the age of all blocks in the set *)
+          match ages_out with Bot -> Bot
+          | Nb ages_out -> 
+              let ages = AddrSet.fold (fun addr_in a -> SV.inc_var a addr_in)
+                                  cset ages_out
+              in Nb {cache with ages=SV.set_var ages addr 0}
+        in (match lift_combine join cache1 cache2 with 
+          Bot -> failwith "Unxepected bottom in touch when the strategy is FIFO"
+        | Nb c -> c)
       | PLRU -> failwith "Pseudo LRU cache strategy not analyzed yet\n"
     end else begin (* this works for FIFO and LRU. We will need something different for PLRU *)
       let ages = SV.set_var cache.ages addr 0 in

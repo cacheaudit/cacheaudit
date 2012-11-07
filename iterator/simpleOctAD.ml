@@ -252,6 +252,8 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
     let oct_gt = Oct.add_bin_constraints octAD.oct constr_gt in
     oct_bot {octAD with oct =  oct_lt}, oct_bot {octAD with oct = oct_gt} 
 
+  let comp_with_val t v c = failwith "comp_with_val (needed for FIFO) not yet implemented in octagons" (*TODO*)
+
   (* Computes the union of two octagons. *)
   let join (octAD1: t) (octAD2: t) : t = 
     let (fixed_octAD1, fixed_octAD2) = merge_domains octAD1 octAD2 in
