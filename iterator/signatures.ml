@@ -53,7 +53,7 @@ let mask_to_intoff = function
 
 type varop = Op of X86Types.arith_op | Move
 
-type cache_strategy = LRU | PLRU | FIFO
+type cache_strategy = LRU | PLRU | FIFO (* PLRU stands for tree-based pseudo LRU *)
 
 type cache_param = int * int * int * cache_strategy (* total size, line size, associativity. TODO use a record *)
 
@@ -150,6 +150,7 @@ module type VALUE_ABSTRACT_DOMAIN = sig
   val delete_var : t -> var -> t
  (* val guard : t -> var_name -> guardop -> int64 -> t add_bottom *)
   val get_var : t -> var -> (t ValMap.t) add_top
+ (* set_var env x l h sets the value of x to be in the interval [l,h] *)
   val set_var : t -> var -> int64 -> int64 -> t
   val update_var : t -> var -> mask -> cons_var -> mask -> varop -> (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
   val is_var : t -> var -> bool
@@ -174,6 +175,10 @@ module type SIMPLE_VALUE_AD = sig
   (* Filter domain according to whether thvariable takes the value or not.
      the first result is the cases where the var age < max_value and the second one >= max_value *)
   val comp_with_val : t -> var -> int -> (t add_bottom)*(t add_bottom)
+  (* returns the environments where the variable  take exactly that vallue *)
+  val exact_val : t -> var -> int -> (t add_bottom)
+  (* applies a permutation to the values of the variable *)
+  val permute : t -> (int -> int) -> var -> t
   val get_values : t -> var -> int list
   val is_var : t -> var -> bool
 end

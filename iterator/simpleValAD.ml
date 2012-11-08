@@ -78,6 +78,23 @@ possible, so it approximates Bottom *)
   let comp_with_val env x v =
     let smaller, eq, bigger = vguard env.val_ad x v in
     vNewEnv env smaller, lift_combine join (vNewEnv env eq) (vNewEnv env bigger)
+
+  let exact_val env x c =
+    let smaller, eq, bigger = vguard env.val_ad x c in vNewEnv env eq
+
+  (* apply the permutation perm to the age of variable x *)
+  let permute env perm x = 
+    let perm64 a = Int64.of_int (perm (Int64.to_int a)) in
+    match V.get_var env.val_ad x with
+      Tp -> env
+    | Nt vm -> 
+      let v1,_ = ValMap.min_binding vm in
+      let val_ad1 = let nv1 = perm64 v1 in V.set_var env.val_ad x nv1 nv1 in 
+      {env with val_ad = 
+           ValMap.fold (fun c _ val_ad -> let nc = perm64 c in
+                        V.join val_ad (V.set_var val_ad x nc nc))
+                     (ValMap.remove v1 vm) val_ad1
+      }
   
   let print_delta env1 fmt env2 = V.print_delta env1.val_ad fmt env2.val_ad
   let print fmt env = V.print fmt env.val_ad

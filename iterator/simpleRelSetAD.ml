@@ -99,6 +99,11 @@ module SimpleRelSetAD : SIMPLE_REL_SET_DOMAIN  = struct
     (check_validity {rsAD with map = ls},check_validity {rsAD with map = gt})
 
   let comp_with_val rsAD v c = failwith "comp_with_val (needed for FIFO) not yet implemented in relational sets" (*TODO*)
+  let exact_val rsAD v c = failwith "exact_val (needed for PLRU) not yet implem
+ented in relational sets" (*TODO*)
+
+  let permute rsAD f v = failwith "permute (needed for PLRU) not yet implemente
+d in relational sets" (*TODO*)
 
 
 end
