@@ -29,6 +29,22 @@ module SimpleProfilingValAD(S:SIMPLE_VALUE_AD) : SIMPLE_VALUE_AD = struct
     stop "comp_with_val";
     r
 
+  let exact_val ad v c = 
+    start "exact_val";
+    let r = S.exact_val ad v c in
+    stop "exact_val";
+    r
+
+
+  let permute ad f v = 
+    start "permute";
+    let r = S.permute ad f v in
+    stop "permute";
+    r
+
+
+
+
   exception NotImplemented
   let is_var env a = raise NotImplemented
   

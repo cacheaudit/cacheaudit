@@ -3,6 +3,14 @@ open Signatures
 let verbose = ref false
 let precise_touch = ref true
 
+(* Permutation to apply when touching an element of age a in PLRU *)
+(* We assume an ordering correspond to the boolean encoding of the tree from leaf to root (0 is the most recent, corresponding to all 0 bits is the path *)
+
+let rec plru_permut a n = if a=0 then n else
+  if a land 1 = 1 then if n land 1 = 1 then 2*(plru_permut (a/2) (n/2))
+                       else n+1
+  else (* a even*) if n land 1 = 1 then n else 2*(plru_permut (a/2) (n/2))
+
 module CacheMap = Map.Make(struct type t = int let compare = compare end)
 module AddrSet = Set.Make(Int64)
 
@@ -191,7 +199,7 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d b
           Bot -> failwith "Unxepected bottom in touch when the strategy is FIFO"
         | Nb c -> c)
       | PLRU -> failwith "Pseudo LRU cache strategy not analyzed yet\n"
-    end else begin (* this works for FIFO and LRU. We will need something different for PLRU *)
+    end else begin (* this works for FIFO, PLRU and LRU *)
       let ages = SV.set_var cache.ages addr 0 in
       let h_addrs = AddrSet.add addr cache.handled_addrs in
       (* increment the ages of elements in cache set *)

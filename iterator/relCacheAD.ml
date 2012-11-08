@@ -240,17 +240,32 @@ Format.fprintf fmt ",that is %d bits.\n" (rel_log_cache_states cache)
     let set_addr = get_set_addr cache addr in
     let cset = CacheMap.find set_addr cache.cache_sets in
     if AddrSet.mem addr cache.handled_addrs then begin
-      let cache = if !precise_touch 
-      then precise_age_elements cache addr (AddrSet.elements cset)
-      else AddrSet.fold (fun addr_in curr_cache ->
-	    match age_one_element curr_cache addr addr_in with
-	      c, None -> c
-	    | c1, Some c2 -> (* in this case, only the ages differ *)
-		{c1 with ages = SV.join c1.ages c2.ages}
-	  ) cset cache
-      in 
-      {cache with ages = SV.set_var cache.ages addr 0}
-    end else begin
+      match cache.strategy with
+        LRU -> let cache = if !precise_touch
+          then precise_age_elements cache addr (AddrSet.elements cset)
+          else AddrSet.fold (fun addr_in curr_cache ->
+            match age_one_element curr_cache addr addr_in with
+              c, None -> c
+            | c1, Some c2 -> (* in this case, only the ages differ *)
+                {c1 with ages = SV.join c1.ages c2.ages}
+                          ) cset cache
+        in {cache with ages = SV.set_var cache.ages addr 0}
+      | FIFO -> (* We first split the cache ages in cases where addr is in the blocck and cases where it is not *)
+        let ages_in, ages_out =
+          SV.comp_with_val cache.ages addr cache.associativity in
+        let cache1 = match ages_in with Bot -> Bot
+          | Nb ages_in -> Nb {cache with ages=ages_in} (*nothing changes in that case *)
+        and cache2 = (*in this case we increment the age of all blocks in the set *)
+          match ages_out with Bot -> Bot
+          | Nb ages_out ->
+              let ages = AddrSet.fold (fun addr_in a -> SV.inc_var a addr_in)
+                                  cset ages_out
+              in Nb {cache with ages=SV.set_var ages addr 0}
+        in (match lift_combine join cache1 cache2 with
+          Bot -> failwith "Unxepected bottom in touch when the strategy is FIFO"
+        | Nb c -> c)
+      | PLRU -> failwith "Pseudo LRU cache strategy not analyzed yet\n"
+    end else begin (* this works for FIFO, PLRU and LRU *)
       let ages = SV.set_var cache.ages addr 0 in
       let h_addrs = AddrSet.add addr cache.handled_addrs in
       (* increment the ages of elements in cache set *)

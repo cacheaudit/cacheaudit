@@ -252,7 +252,11 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
     let oct_gt = Oct.add_bin_constraints octAD.oct constr_gt in
     oct_bot {octAD with oct =  oct_lt}, oct_bot {octAD with oct = oct_gt} 
 
-  let comp_with_val t v c = failwith "comp_with_val (needed for FIFO) not yet implemented in octagons" (*TODO*)
+  let comp_with_val octAD v c = failwith "comp_with_val (needed for FIFO) not yet implemented in octagons" (*TODO*)
+
+  let exact_val octAD v c = failwith "exact_val (needed for PLRU) not yet implemented in octagons" (*TODO*)
+
+  let permute octAD f v = failwith "permute (needed for PLRU) not yet implemented in octagons" (*TODO*)
 
   (* Computes the union of two octagons. *)
   let join (octAD1: t) (octAD2: t) : t = 
