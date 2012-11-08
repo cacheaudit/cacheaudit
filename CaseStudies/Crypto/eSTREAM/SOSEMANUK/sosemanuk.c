@@ -1056,11 +1056,20 @@ xorbuf(const unsigned char *in1, const unsigned char *in2,
 #if defined SOSEMANUK_ECRYPT
 
 /* see ecrypt-sync.h */
-void
-ECRYPT_process_bytes(int action, ECRYPT_ctx *ctx,
-	const u8 *input, u8 *output, u32 msglen)
+/*void
+%ECRYPT_process_bytes(int action, ECRYPT_ctx *ctx,
+const u8 *input, u8 *output, u32 msglen)*/
+
+
+int main()
 {
-	(void)action;
+  ECRYPT_ctx *ctx;
+  u8 *input; 
+  u8 *output; 
+  u32 msglen=512;
+    
+
+
 
 	while (msglen > 0) {
 		u32 ibuf[ECRYPT_BLOCKLENGTH / 4];
