@@ -54,9 +54,9 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
     set_solutions::sol) cache.cache_sets []
 
   (* Computes the number of possible cache states in a logarithmic scale *)
-  let log_cache_states (cache:t) : int = 
+  let log_cache_states (cache:t) : float = 
      let sum = List.fold_left (fun sol set_sol -> log10 (float_of_int set_sol) +. sol) 0.0 (cache_states_per_set cache) in
-     int_of_float (ceil(sum /. (log10 2.0)))
+     sum /. (log10 2.0)
 
   (* Computes the number of possible cache states in an absolute scale *)
   let absolute_cache_states (cache:t) : int64 = 
@@ -72,7 +72,7 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
         )
       ) cache.cache_sets;
      Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" SV.print cache.ages;
-Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d bits.\n" (absolute_cache_states cache) (log_cache_states cache)
+Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f bits.\n" (absolute_cache_states cache) (log_cache_states cache)
  
   let var_to_string x = Printf.sprintf "%Lx" x 
   

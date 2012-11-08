@@ -51,9 +51,9 @@ module RelCacheAD (SV: SIMPLE_REL_SET_DOMAIN) : CACHE_ABSTRACT_DOMAIN = struct
     set_solutions::sol) cache.cache_sets []
 
   (* Computes the number of possible cache states in a logarithmic scale *)
-  let log_cache_states (cache:t) : int = 
+  let log_cache_states (cache:t) : float = 
      let sum = List.fold_left (fun sol set_sol -> log10 (float_of_int set_sol) +. sol) 0.0 (cache_states_per_set cache) in
-     int_of_float (ceil(sum /. (log10 2.0)))
+     sum /. (log10 2.0)
 
   (* Computes the number of possible cache states in an absolute scale *)
   let absolute_cache_states (cache:t) : int64 = 
@@ -122,10 +122,10 @@ type af = (var*int) list
     (* Multiply numbers *)
     List.fold_left (fun sol set_sol -> Int64.mul sol (Int64.of_int set_sol)) Int64.one (cache_states_per_partition cache setnums)
 
-  let rel_log_cache_states (cache:t) : int = 
+  let rel_log_cache_states (cache:t) : float = 
      let setnums = comp_setnums cache in
      let sum = List.fold_left (fun sol set_sol -> log10 (float_of_int set_sol) +. sol) 0.0 (cache_states_per_partition cache setnums) in
-     int_of_float (ceil(sum /. (log10 2.0)))
+     sum /. (log10 2.0)
 
   let print fmt cache =
     Format.fprintf fmt "@[";
@@ -137,9 +137,9 @@ type af = (var*int) list
         )
       ) cache.cache_sets;
      Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" SV.print cache.ages;
-Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %d bits.\n" (absolute_cache_states cache) (log_cache_states cache);
+Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f bits.\n" (absolute_cache_states cache) (log_cache_states cache);
 Format.fprintf fmt "Valid cache configurations computed with relational Information : 0x%Lx" (rel_absolute_cache_states cache);
-Format.fprintf fmt ",that is %d bits.\n" (rel_log_cache_states cache) 
+Format.fprintf fmt ",that is %f bits.\n" (rel_log_cache_states cache) 
  
   let var_to_string x = Printf.sprintf "%Lx" x 
   
