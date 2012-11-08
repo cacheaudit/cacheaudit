@@ -52,7 +52,7 @@ static u32 RABBIT_g_func(u32 x)
 /* -------------------------------------------------------------------------- */
 
 /* Calculate the next internal state */
-static void RABBIT_next_state(RABBIT_ctx *p_instance)
+static inline void RABBIT_next_state(RABBIT_ctx *p_instance)
 {
    /* Temporary variables */
    u32 g[8], c_old[8], i;
@@ -186,12 +186,16 @@ void ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
 /* ------------------------------------------------------------------------- */
 
 /* Encrypt/decrypt a message of any size */
-void ECRYPT_process_bytes(int action, ECRYPT_ctx* ctx, const u8* input, 
-          u8* output, u32 msglen)
-{
-   /* Temporary variables */
-   u32 i;
-   u8 buffer[16];
+int main (){
+
+  ECRYPT_ctx* ctx;
+  u8* input; 
+  u8* output; 
+  u32 msglen=512;
+  
+  /* Temporary variables */
+  u32 i;
+  u8 buffer[16];
 
    /* Encrypt/decrypt all full blocks */
    while (msglen >= 16)
