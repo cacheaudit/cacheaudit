@@ -252,25 +252,25 @@ void ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
  *========================================================
  */
 
-int main(){
-
-  ECRYPT_ctx* ctx;
-  u8* input;
-  u8* output; 
-  u32 msglen=512;                /* Message length in bytes. */ 
-
+void ECRYPT_process_bytes(
+  int action,                 /* 0 = encrypt; 1 = decrypt; */
+  ECRYPT_ctx* ctx, 
+  const u8* input, 
+  u8* output, 
+  u32 msglen)                /* Message length in bytes. */ 
+{
   u32 i, keystream[16];
 
   for ( ; msglen >= 64; msglen -= 64, input += 64, output += 64)
-    {
-      generate_keystream(ctx, keystream);
+  {
+	  generate_keystream(ctx, keystream);
 
       /*for (i = 0; i < 16; ++i)
 	      ((u32*)output)[i] = ((u32*)input)[i] ^ U32TO32_LITTLE(keystream[i]); */
 
-      ((u32*)output)[0]  = ((u32*)input)[0]  ^ U32TO32_LITTLE(keystream[0]);
-      ((u32*)output)[1]  = ((u32*)input)[1]  ^ U32TO32_LITTLE(keystream[1]);
-      ((u32*)output)[2]  = ((u32*)input)[2]  ^ U32TO32_LITTLE(keystream[2]);
+	  ((u32*)output)[0]  = ((u32*)input)[0]  ^ U32TO32_LITTLE(keystream[0]);
+	  ((u32*)output)[1]  = ((u32*)input)[1]  ^ U32TO32_LITTLE(keystream[1]);
+	  ((u32*)output)[2]  = ((u32*)input)[2]  ^ U32TO32_LITTLE(keystream[2]);
 	  ((u32*)output)[3]  = ((u32*)input)[3]  ^ U32TO32_LITTLE(keystream[3]);
 	  ((u32*)output)[4]  = ((u32*)input)[4]  ^ U32TO32_LITTLE(keystream[4]);
 	  ((u32*)output)[5]  = ((u32*)input)[5]  ^ U32TO32_LITTLE(keystream[5]);
