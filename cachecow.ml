@@ -64,7 +64,8 @@ let speclist = [
     ("--oct", Arg.Unit (fun () -> oct := true), "use the octagon abstract domain for the cache.") ;
     ("--rset", Arg.Unit (fun () -> rset := true), "use the relational set abstract domain for the cache.") ;
     ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.");
-    ("--fifo", Arg.Unit (fun () -> cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.")
+    ("--fifo", Arg.Unit (fun () -> cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
+    ("--plru", Arg.Unit (fun () -> cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.")
   ] 
 
 let _ =

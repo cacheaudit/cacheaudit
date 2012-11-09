@@ -6,10 +6,11 @@ let precise_touch = ref true
 (* Permutation to apply when touching an element of age a in PLRU *)
 (* We assume an ordering correspond to the boolean encoding of the tree from leaf to root (0 is the most recent, corresponding to all 0 bits is the path *)
 
-let rec plru_permut a n = if a=0 then n else
-  if a land 1 = 1 then if n land 1 = 1 then 2*(plru_permut (a/2) (n/2))
-                       else n+1
-  else (* a even*) if n land 1 = 1 then n else 2*(plru_permut (a/2) (n/2))
+let plru_permut assoc a n = if n=assoc then n else
+  let rec f a n =  if a=0 then n 
+    else if a land 1 = 1 then if n land 1 = 1 then 2*(f (a/2) (n/2)) else n+1
+    else (* a even*) if n land 1 = 1 then n else 2*(f (a/2) (n/2))
+  in f a n
 
 module CacheMap = Map.Make(struct type t = int let compare = compare end)
 module AddrSet = Set.Make(Int64)
@@ -161,10 +162,18 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f b
        let c2 = precise_age_elements cache2 addr clist in
 (* TODO: see if it is too costly to remove some blocks here, as their could be some of them which need to be put back in the join *)
        join c1 c2)
-            
+(*Increments all ages in the set by one *)           
+  let incr_ages ages cset = match ages with Bot -> Bot
+    | Nb ages -> 
+            Nb(AddrSet.fold (fun addr_in a -> SV.inc_var a addr_in) cset ages)
 
-   
-  let get_ages cache addr = SV.get_values cache.ages (get_block_addr cache addr)
+(* The effect of one touch of addr, restricting to the case when addr is of age c *)
+  let one_plru_touch ages assoc cset addr c = 
+    let ages_at_c = SV.exact_val ages addr c in
+    if c=assoc then incr_ages ages_at_c cset
+    else match ages_at_c with Bot -> Bot
+    | Nb ag -> Nb(AddrSet.fold (fun addr_in a -> if addr_in=addr then a
+                  else SV.permute a (plru_permut assoc c) addr_in) cset ag )
     
   (* touch: read or write cache at address addr *)
   let touch cache orig_addr = 
@@ -190,15 +199,30 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f b
         let cache1 = match ages_in with Bot -> Bot
           | Nb ages_in -> Nb {cache with ages=ages_in} (*nothing changes in that case *)
         and cache2 = (*in this case we increment the age of all blocks in the set *)
-          match ages_out with Bot -> Bot
-          | Nb ages_out -> 
-              let ages = AddrSet.fold (fun addr_in a -> SV.inc_var a addr_in)
-                                  cset ages_out
-              in Nb {cache with ages=SV.set_var ages addr 0}
+          match incr_ages ages_out cset with Bot -> Bot
+          | Nb ages -> Nb {cache with ages=SV.set_var ages addr 0}
         in (match lift_combine join cache1 cache2 with 
           Bot -> failwith "Unxepected bottom in touch when the strategy is FIFO"
         | Nb c -> c)
-      | PLRU -> failwith "Pseudo LRU cache strategy not analyzed yet\n"
+      | PLRU -> (* for each possible age of the block, we apply a different permutation *)
+        let addr_ages = SV.get_values cache.ages addr in
+        let ages1,other_addr_ages = match addr_ages with 
+          [] -> failwith "Empty list of ages in an non-bottom cache"
+        | a1::l -> 
+          (match one_plru_touch cache.ages cache.associativity cset addr a1 with
+            Bot -> failwith "Empty environment for a cache age value that was supposed to be possible"
+          | Nb ag -> ag, l
+          ) 
+        in 
+        let ages = List.fold_left 
+          (fun ages addr_age -> 
+            lift_combine SV.join ages 
+              (one_plru_touch ages1 cache.associativity cset addr addr_age)
+          ) (Nb ages1) other_addr_ages in
+        (match ages with 
+          Bot -> failwith "Unxepected bottom in touch when the strategy is PLRU"
+        | Nb ages -> {cache with ages = SV.set_var ages addr 0}
+        )
     end else begin (* this works for FIFO, PLRU and LRU *)
       let ages = SV.set_var cache.ages addr 0 in
       let h_addrs = AddrSet.add addr cache.handled_addrs in
