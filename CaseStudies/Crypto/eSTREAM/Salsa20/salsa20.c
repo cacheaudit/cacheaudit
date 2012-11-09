@@ -14,10 +14,10 @@ Public domain.
 static inline void salsa20_wordtobyte(u8 output[64],const u32 input[16])
 {
   u32 x[16];
-  int i;
+  unsigned int i;
 
   for (i = 0;i < 16;++i) x[i] = input[i];
-  for (i = 20;i > 0;i -= 2) {
+  for (i = 0;i < 20;i += 2) {
     x[ 4] = XOR(x[ 4],ROTATE(PLUS(x[ 0],x[12]), 7));
     x[ 8] = XOR(x[ 8],ROTATE(PLUS(x[ 4],x[ 0]), 9));
     x[12] = XOR(x[12],ROTATE(PLUS(x[ 8],x[ 4]),13));
