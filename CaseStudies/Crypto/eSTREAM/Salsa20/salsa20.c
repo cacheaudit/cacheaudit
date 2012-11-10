@@ -60,13 +60,21 @@ static inline void salsa20_wordtobyte(u8 output[64],const u32 input[16])
 int main ()
 {
 
-  ECRYPT_ctx *x;
-  u8 *m;
-  u8 *c;
-  u32 bytes=512;
+  ECRYPT_ctx mycontext;
+  ECRYPT_ctx* x=&mycontext;
+  // Inlined deterministic parts of Key setup,
+  // namely the initialization of the counter
+  // (Salsa is a Hash Function in Counter Mode)
+  x->input[8]=0;
+  x->input[9]=0;
+  //
+  u8 m[128];
+  u8 c[128];
+  u32 bytes=128;
 
   u8 output[64];
-  int i;
+  unsigned int i;
+  unsigned int offset=0;
 
   if (!bytes) return;
   for (;;) {
@@ -80,9 +88,8 @@ int main ()
       for (i = 0;i < bytes;++i) c[i] = m[i] ^ output[i];
       return;
     }
-    for (i = 0;i < 64;++i) c[i] = m[i] ^ output[i];
+    for (i = 0;i < 64;++i) c[i] = m[i+offset] ^ output[i+offset];
     bytes -= 64;
-    c += 64;
-    m += 64;
+    offset += 64;
   }
 }
