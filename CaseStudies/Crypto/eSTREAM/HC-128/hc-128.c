@@ -254,9 +254,12 @@ void ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
 
 int main(){
 
-  ECRYPT_ctx* ctx;
-  u8* input;
-  u8* output; 
+  ECRYPT_ctx myctx;
+  ECRYPT_ctx* ctx=&myctx;
+  u8 in[512];
+  u8 out[512];
+  u8* input=in;
+  u8* output=out;
   u32 msglen=512;                /* Message length in bytes. */ 
 
   u32 i, keystream[16];
@@ -286,12 +289,6 @@ int main(){
 	  ((u32*)output)[15] = ((u32*)input)[15] ^ U32TO32_LITTLE(keystream[15]);
   }
 
-  if (msglen > 0)
-  {
-      generate_keystream(ctx, keystream);
-
-      for (i = 0; i < msglen; i ++)
-	      output[i] = input[i] ^ ((u8*)keystream)[i];
-  }
+ 
 
 }
