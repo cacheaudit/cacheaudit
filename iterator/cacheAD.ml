@@ -1,6 +1,6 @@
 open Signatures
 
-let verbose = ref false
+let verbose = ref true
 let precise_touch = ref true
 
 (* Permutation to apply when touching an element of age a in PLRU *)
@@ -37,8 +37,9 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
   (* Returns a list of all n-tuples that can be created from the adresses in a. *)
   let rec n_tuples (n: int) (a: AddrSet.t) : var list list = match n with
      0 -> [[]](*AddrSet.fold (fun _ vll -> []::vll ) a []*)
-   | n -> AddrSet.fold (fun addr vll -> let n_minus_one_tuples = n_tuples (n-1) (AddrSet.remove addr a) in
-           List.append vll (List.map (fun x -> addr::x) n_minus_one_tuples)) a []
+   | n -> AddrSet.fold (fun addr vll -> 
+            let n_minus_one_tuples = n_tuples (n-1) (AddrSet.remove addr a) in
+          List.append vll (List.map (fun x -> addr::x) n_minus_one_tuples)) a []
 
   (* Checks if the given cache state is valid with respect to the ages defined in cache.ages. *)
   let valid_cache_state (cache:t) (addr_set:AddrSet.t) (cache_state: var list) : bool = 
@@ -55,7 +56,9 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
     set_solutions::sol) cache.cache_sets []
 
   (* Computes the number of possible cache states in a logarithmic scale *)
-  let log_cache_states (cache:t) : float = 
+  let log_cache_states (cache:t) : float = (match cache.strategy with
+    PLRU -> Format.printf "Counting on PLRU is incorrect\n"
+  | _ -> ());
      let sum = List.fold_left (fun sol set_sol -> log10 (float_of_int set_sol) +. sol) 0.0 (cache_states_per_set cache) in
      sum /. (log10 2.0)
 
@@ -167,14 +170,31 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f b
     | Nb ages -> 
             Nb(AddrSet.fold (fun addr_in a -> SV.inc_var a addr_in) cset ages)
 
+(* returns teh set of ages for addr_in that are different from the ages of addr *)
+  let ages_different ages addr addr_in =
+      let young,nyoung = SV.comp ages addr_in addr in
+      lift_combine SV.join young nyoung
 (* The effect of one touch of addr, restricting to the case when addr is of age c *)
   let one_plru_touch ages assoc cset addr c = 
     let ages_at_c = SV.exact_val ages addr c in
     if c=assoc then incr_ages ages_at_c cset
     else match ages_at_c with Bot -> Bot
-    | Nb ag -> Nb(AddrSet.fold (fun addr_in a -> if addr_in=addr then a
-                  else SV.permute a (plru_permut assoc c) addr_in) cset ag )
-    
+    | Nb ag -> (try 
+        Nb(AddrSet.fold (fun addr_in a -> if addr_in=addr then a
+                else match ages_different a addr addr_in with
+                  Bot -> raise Bottom
+                | Nb a -> SV.permute a (plru_permut assoc c) addr_in) cset ag )
+      with Bottom -> Bot)
+
+(* finds an age for addr such that all other elements of cset can have a valid age and apply plru touch. returns the updated ages and the list of possible ages for addr left. *)
+  let find_one_valid_plru_touch ages assoc cset addr addr_ages =
+    let rec f = function 
+      [] -> failwith "Empty list of ages in an non-bottom cache"
+    | a1::l -> (match one_plru_touch ages assoc cset addr a1 with
+                 Bot -> f l
+               | Nb ag -> ag, l
+               ) in f addr_ages
+
   (* touch: read or write cache at address addr *)
   let touch cache orig_addr = 
     if !verbose then Printf.printf "\nWriting cache %Lx" orig_addr;
@@ -206,14 +226,7 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f b
         | Nb c -> c)
       | PLRU -> (* for each possible age of the block, we apply a different permutation *)
         let addr_ages = SV.get_values cache.ages addr in
-        let ages1,other_addr_ages = match addr_ages with 
-          [] -> failwith "Empty list of ages in an non-bottom cache"
-        | a1::l -> 
-          (match one_plru_touch cache.ages cache.associativity cset addr a1 with
-            Bot -> failwith "Empty environment for a cache age value that was supposed to be possible"
-          | Nb ag -> ag, l
-          ) 
-        in 
+        let ages1,other_addr_ages = find_one_valid_plru_touch cache.ages cache.associativity cset addr addr_ages in
         let ages = List.fold_left 
           (fun ages addr_age -> 
             lift_combine SV.join ages 

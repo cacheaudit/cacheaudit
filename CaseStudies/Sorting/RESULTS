@@ -17,6 +17,13 @@ Possible ages of blocks:
  V5ffff85 in {3 } V5ffff86 in {2 } V5ffff87 in {4 } V5ffff88 in {3 }
  V5ffff89 in {0 } 
 
+Resut with FIFO strategy:
+Final state (non-relational sets): 7.139551 bits leakage, analysis time 48s
+Possible ages of blocks:
+ V5ffff81 in {0 1 2 3 4 } V5ffff82 in {3 } V5ffff83 in {0 1 2 3 4 }
+ V5ffff84 in {2 } V5ffff85 in {0 1 2 3 4 } V5ffff86 in {1 }
+ V5ffff87 in {0 1 2 3 4 } V5ffff88 in {0 } V5ffff89 in {0 1 2 3 }
+
 
 Insertion Sort:
 ------------
