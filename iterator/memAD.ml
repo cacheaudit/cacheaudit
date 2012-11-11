@@ -116,7 +116,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
   (** @return the list of all possible combinations resulting from the
       environment given an address. *)
   let address_list env addr =
-    try (
+(*    try  *)
     let base = match addr.addrBase with
                  Some reg ->  unFinite (get_reg32 env reg)
                | None -> [(0L, env.vals)] in
@@ -130,7 +130,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     assert(index <> []);
     let comb = List.concat (List.map (fun (x,e) -> List.map (fun (y,e') -> (Int64.add x y, F.meet e e')) index) base) in
     List.map (fun (x, e) -> (Int64.add addr.addrDisp x, e)) comb
-    ) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
+(*    ) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue" *)
     
     
   (** Create an unitialized variable; assume it is not already created. *) 
@@ -144,21 +144,21 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     | Imm x -> [(Cons x, env)]
     | Reg r -> [(VarOp (reg_to_var r), env)]
     | Address addr -> 
-        let addrList = address_list env addr in
-        assert(addrList<>[]);
-        let read (n,e) = 
-          let new_cache = CA.touch env.cache n in (* touch the cache on read and on write *)
+      try(let addrList = address_list env addr in
+          assert(addrList<>[]);
+          let read (n,e) = 
+            let new_cache = CA.touch env.cache n in (* touch the cache on read and on write *)
           (*let new_cache = match rw with Read -> CA.touch env.cache n 
                                       | Write -> env.cache in*)
-          let (new_n,new_env) = match rw with
-          | Read -> 
-              let env = {env with vals =e} in
-              if not (MemSet.mem n env.memory) then 
-                match env.initial_values n with
-                  Some v -> Cons v, env
-                | None -> VarOp n, create_var env n 
-              else VarOp n, env
-          | Write -> 
+            let (new_n,new_env) = match rw with
+              | Read -> 
+		let env = {env with vals =e} in
+		if not (MemSet.mem n env.memory) then 
+                  match env.initial_values n with
+                      Some v -> Cons v, env
+                    | None -> VarOp n, create_var env n 
+		else VarOp n, env
+              | Write -> 
               if not (MemSet.mem n env.memory) then 
                 VarOp n,
                   let env = create_var env n in
@@ -166,13 +166,13 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
                   match  env.initial_values n with
                     Some value -> 
                       {env with vals = F.update_var env.vals n NoMask (Cons value) NoMask Move}
-                  | None ->  env
+                    | None ->  env
               else (VarOp n, env) in
           new_n, {new_env with cache = new_cache}
-        in
+          in
         (* Get list of possible addresses and return either a var if it existed in the MemSet
         * or a cons (with the value) otherwise *)
-        List.map read addrList
+          List.map read addrList) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
 
   (** @return the 32-bit register that contains the given 8-bit register *)
   let r8_to_r32 r = X86Util.int_to_reg32 ((X86Util.reg8_to_int r) mod 4)
@@ -184,7 +184,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     | Reg r -> 
         let address_mask = if X86Util.reg8_to_int r >= 4 then LH else LL in
         [VarOp (reg_to_var (r8_to_r32 r)), address_mask, env]
-    | Address addr -> 
+    | Address addr -> try(
         let addrList = address_list env addr in
         let read (un,e) =
           let new_cache = CA.touch env.cache un in
@@ -211,7 +211,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
               else (VarOp n, env) in
           new_n, address_mask, {new_env with cache = new_cache}
         in
-        List.map read addrList
+        List.map read addrList) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
 
   (** @return the enviroment that corresponds to a memory access *)
   let decide_env d s ed es = 
@@ -304,12 +304,14 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
   (** Performs the Load Effective Address instruction by loading each possible
     address in the variable correspoding to the register.
     @return an environment or raises Bottom *)
-  let load_address env reg addr = try (
+  let load_address env reg addr = try( try (
     let addrList = address_list env addr in
     let regVar = reg_to_var reg in
     let envList = List.map (fun (x,e) -> { env with vals = F.update_var e regVar NoMask (Cons x) NoMask Move }) addrList in
     list_join envList
   ) with Bottom -> failwith "MemAD.load_address: bottom after an operation on non bottom environment"
+  ) with Is_Top -> let regVar = reg_to_var reg in {env with vals = F.set_var env.vals regVar 0L 0xffffffffL} 
+
 
   (* shift : t -> X86Types.shift_op -> op32 -> op8 -> t *)
   (** Shifts a register or address by the amount given by the 8-bit offset. *)
