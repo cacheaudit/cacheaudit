@@ -254,7 +254,15 @@ void ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
 
 int main(){
 
+
+  // build context
+  u8 key [16];
+  u8 myiv[16];
   ECRYPT_ctx myctx;
+  ECRYPT_keysetup (&myctx, key,128,128); 
+  ECRYPT_ivsetup (&myctx, myiv);
+
+  // initialization
   ECRYPT_ctx* ctx=&myctx;
   u8 in[512];
   u8 out[512];
