@@ -60,6 +60,7 @@ let speclist = [
             if String.contains s 'c' then verbose_array.(4) <- true),
             "enable verbose output: i - print instructions; r - print registers; f - print flags; s - print stack accesses; c - print the cache");
     ("--analyze", Arg.Set analyze, "run analysis");
+    ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("-f", Arg.String anon_fun,                      "give the name of the binary file");
     ("--oct", Arg.Unit (fun () -> oct := true), "use the octagon abstract domain for the cache.") ;
     ("--rset", Arg.Unit (fun () -> rset := true), "use the relational set abstract domain for the cache.") ;
