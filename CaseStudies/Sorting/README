@@ -1,6 +1,8 @@
 All binaries produced on Linux for 32 bit architecture:
 gcc -m32 input.c -o output
 
+For a precise analysis, use --unroll 300
+
 NOTE:
 Things to do:
 1) Make number of unfoldings configurable.
