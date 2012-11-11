@@ -24,6 +24,10 @@ AES without key-schedule and with preloading
 Number of valid final cache configurations : 0x0(???), that is 175 bits. 
 Analysis took 470 seconds.
 
+* Cache: size 8192, lines 32b assoc 4.
+
+Number of valid cache configurations : 0x0(???), that is 80.509775 bits.
+Analysis took 128 seconds.
 
 * Cache: size 16384 bytes, lines 32b, assoc 4.
 
@@ -35,7 +39,12 @@ Analysis took 98 seconds.
 Number of valid cache configurations : 0x1, that is 0.000000 bits.
 Analysis took 38 seconds.
 
+* FIFO Cache: size 8192
+Number of valid cache configurations : 0x1, that is 0.000000 bits.
+Analysis took 37 seconds. bytes, lines 32b, assoc 4.
 
 * FIFO Cache: size 4096 bytes, lines 32b assoc 4.
 Number of valid cache configurations : 0x2f90127a27ac6000, that is 89.472253 bits.
 Analysis took 75 seconds.
+
+
