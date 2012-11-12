@@ -1,0 +1,8 @@
+Analysis of unknown2:
+*********************
+NOTE: Analysis requires to set 
+- number of loop unfoldings > 1024
+- max_get_var_size > 1024 (otherwise more than 1024 alternatives == TOP)
+
+Number of valid cache configurations : 0x0, that is 64.000000 bits.
+Analysis took 64 seconds.
