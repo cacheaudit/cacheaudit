@@ -2,9 +2,8 @@
 
 unsigned long volatile A[arrsize];
 unsigned long volatile B[arrsize];
-unsigned int secret;
 
-int main() {
+int main(unsigned int secret) {
         unsigned int temp;
 	unsigned int i;
 
