@@ -7,13 +7,31 @@ AES without key-schedule and without preloading
 ------------------------------------------
 * Cache: size 4096 bytes, lines 32b, assoc 4.
 
-Number of valid final cache configurations: 0x10256c839436f800, that is 204 bits.
-Analysis took 500 seconds.
+Number of valid final cache configurations: 0x10256c839436f800, that is 203.5 bits.
+Analysis took 365 seconds.
+With intervals, we have:
+Number of valid cache configurations : 0x3ae89e6b7a65c600, that is 207.8 bits.
+Analysis took 218 seconds.
+FIFO:
+Number of valid cache configurations : 0xaa4f4ef5ad393180, that is 215.0 bits.
+Analysis took 208 seconds.
+FIFO using intervals:
+Number of valid cache configurations : 0x5c2d4de7b72a80e0, that is 218.6 bits.
+Analysis took 94 seconds.
+
 
 * Cache: size 16384 bytes, lines 32b, assoc 4.
 
-Number of valid cache configurations : 0x0, that is 146 bits.
-Analysis took 132 seconds.
+Number of valid cache configurations : 0x0, that is 145.4 bits.
+Analysis took 97 seconds.
+Intervals: Number of valid cache configurations : 0x0, that is 147.8 bits.
+Analysis took 58 seconds.
+FIFO: Number of valid cache configurations : 0x0, that is 151.4 bits.
+Analysis took 123 seconds.
+FIFO+int: Number of valid cache configurations : 0x0, that is 153.5 bits.
+Analysis took 73 seconds.
+
+
 
 
 AES without key-schedule and with preloading
@@ -21,18 +39,30 @@ AES without key-schedule and with preloading
 
 * Cache: size 4096 bytes, lines 32b, assoc 4.
 
-Number of valid final cache configurations : 0x0(???), that is 175 bits. 
-Analysis took 470 seconds.
+Number of valid final cache configurations : 0x0(???), that is 174.2 bits. 
+Analysis took 348 seconds.
+Intervals: Number of valid cache configurations : 0x0, that is 181.5 bits.
+Analysis took 220 seconds.
+FIFO: Number of valid cache configurations : 0x2f90127a27ac6000, that is 89.5 bits.
+Analysis took 75 seconds.
+FIFO+int: Number of valid cache configurations : 0x204b89c3e112e8e0, that is 92.9 bits.
+Analysis took 56 seconds.
+
 
 * Cache: size 8192, lines 32b assoc 4.
 
 Number of valid cache configurations : 0x0(???), that is 80.509775 bits.
-Analysis took 128 seconds.
+Analysis took 122 seconds.
+Intervals: Number of valid cache configurations : 0x0, that is 84.6 bits.
+Analysis took 86 seconds.
+FIFO: No leakage (analysis took 39 seconds)
+Same result with intervals in 37 seconds
 
 * Cache: size 16384 bytes, lines 32b, assoc 4.
 
-Number of valid final cache configurations : 0x2000, that is 14 bits. 
-Analysis took 98 seconds.
+Number of valid final cache configurations : 0x2000, that is 13 bits. 
+Analysis took 71 seconds. 
+Same result with intervals in 61 seconds
 
 
 * FIFO Cache: size 16384 bytes, lines 32b, assoc 4.
