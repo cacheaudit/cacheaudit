@@ -1,11 +1,12 @@
 #define	arrsize 64
 
+unsigned long volatile A[arrsize];
+unsigned long volatile B[arrsize];
+unsigned int secret;
+
 int main() {
-        unsigned long A[arrsize];
-	unsigned long B[arrsize];
-	unsigned int secret;
-        register unsigned int temp asm("ecx");
-	register unsigned int i asm("edx");
+        unsigned int temp;
+	unsigned int i;
 
         for (i = 0; i < arrsize; i++)
         	temp = A[i];
