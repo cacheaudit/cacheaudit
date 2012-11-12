@@ -118,3 +118,5 @@ possible, so it approximates Bottom *)
 end
 
 module SimpleValAD = SimpleVAD (ValAD.ValAD)
+module SimpleIntervalAD = SimpleVAD(ValAD.ValADFunctor(
+    struct let max_get_var_size = 256 let max_set_size = 0 end))
