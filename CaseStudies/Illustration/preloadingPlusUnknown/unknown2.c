@@ -1,8 +1,7 @@
-#define mincachesize 4096
-#define	arrsize mincachesize/4
+#define	arrsize 64
 
 int main() {
-        unsigned int A[arrsize];
+        unsigned long A[arrsize];
         unsigned int secret;
         unsigned int temp;
 	unsigned int i;
