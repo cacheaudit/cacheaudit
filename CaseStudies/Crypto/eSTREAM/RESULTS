@@ -9,10 +9,11 @@ Salsa20:
 Results:
 ********
 Number of valid cache configurations : 0x1, that is 0.000000 bits.
-Analysis took 17 seconds.
+Analysis took 11 seconds.
 
 This (partially) confirms a claim by Bernstein about non-timing leakage of Salsa20.
 
+Confirmed with small caches (256b) and FIFO and PLRU strategies
 
 Remarks: 
 ******** 
