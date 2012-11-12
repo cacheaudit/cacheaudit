@@ -186,15 +186,6 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f b
                 | Nb a -> SV.permute a (plru_permut assoc c) addr_in) cset ag )
       with Bottom -> Bot)
 
-(* finds an age for addr such that all other elements of cset can have a valid age and apply plru touch. returns the updated ages and the list of possible ages for addr left. *)
-  let find_one_valid_plru_touch ages assoc cset addr addr_ages =
-    let rec f = function 
-      [] -> failwith "Empty list of ages in an non-bottom cache"
-    | a1::l -> (match one_plru_touch ages assoc cset addr a1 with
-                 Bot -> f l
-               | Nb ag -> ag, l
-               ) in f addr_ages
-
   (* touch: read or write cache at address addr *)
   let touch cache orig_addr = 
     if !verbose then Printf.printf "\nWriting cache %Lx" orig_addr;
@@ -226,12 +217,11 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f b
         | Nb c -> c)
       | PLRU -> (* for each possible age of the block, we apply a different permutation *)
         let addr_ages = SV.get_values cache.ages addr in
-        let ages1,other_addr_ages = find_one_valid_plru_touch cache.ages cache.associativity cset addr addr_ages in
         let ages = List.fold_left 
           (fun ages addr_age -> 
             lift_combine SV.join ages 
-              (one_plru_touch ages1 cache.associativity cset addr addr_age)
-          ) (Nb ages1) other_addr_ages in
+              (one_plru_touch cache.ages cache.associativity cset addr addr_age)
+          ) Bot addr_ages in
         (match ages with 
           Bot -> failwith "Unxepected bottom in touch when the strategy is PLRU"
         | Nb ages -> {cache with ages = SV.set_var ages addr 0}
