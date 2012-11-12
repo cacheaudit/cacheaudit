@@ -2,6 +2,7 @@
 
 int main() {
         unsigned long A[arrsize];
+	unsigned long B[arrsize];
 	register unsigned int secret asm ("ebx");
         register unsigned int temp asm("ecx");
 	register unsigned int i asm("edx");
@@ -10,5 +11,5 @@ int main() {
                 temp = A[i];
 
         if (secret < arrsize)
-	  temp = A[secret];
+	  temp = B[secret];
 }
