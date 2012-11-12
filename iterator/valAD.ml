@@ -1,7 +1,15 @@
 open Signatures
 
-let max_get_var_size = ref 256
-let max_set_size = ref 32
+(* We use a module for the options so that we can have different instances in the same analysis *)
+module type VALADOPT = sig
+  val max_get_var_size:int
+  val max_set_size:int
+end
+
+module ValADOptForMemory = struct
+  let max_get_var_size = 256
+  let max_set_size = 32
+end
 
 module OrdVar = struct
   type t = var
@@ -12,7 +20,7 @@ module VarMap = Map.Make(OrdVar)
 
 module ValSet = Set.Make(Int64)
 
-module ValAD : VALUE_ABSTRACT_DOMAIN = struct
+module ValADFunctor(O:VALADOPT) : VALUE_ABSTRACT_DOMAIN = struct
 (* A basic variable contains a 32 bits unsigned integer. *)
   open X86Types
 
@@ -122,7 +130,7 @@ module ValAD : VALUE_ABSTRACT_DOMAIN = struct
 
   let get_var m v = try (match VarMap.find v m with
     | FSet l -> Nt (ValSet.fold (fun vl env -> ValMap.add vl (VarMap.add v (FSet (ValSet.singleton vl)) m) env) l ValMap.empty)
-    | Interval(l,h) -> if range_over (l,h) !max_get_var_size then Tp
+    | Interval(l,h) -> if range_over (l,h) O.max_get_var_size then Tp
         else
           let rec f l h = if l>h then ValMap.empty
             else ValMap.add l (VarMap.add v (FSet (ValSet.singleton l)) m) 
@@ -130,8 +138,8 @@ module ValAD : VALUE_ABSTRACT_DOMAIN = struct
           Nt(f l h)
   ) with Not_found -> failwith  (Printf.sprintf "valAD.get_var: non-existent variable %Lx\n" v)
 
-  (* set_or_interval given two bounds either returns an interval or a set if its size is less than max_set_size *)
-  let set_or_interval l h = if range_over (l,h) !max_set_size then Interval(l,h) else FSet (interval_to_set l h)
+  (* set_or_interval given two bounds either returns an interval or a set if its size is less than O.max_set_size *)
+  let set_or_interval l h = if range_over (l,h) O.max_set_size then Interval(l,h) else FSet (interval_to_set l h)
 
   let set_var m v l h = VarMap.add v (set_or_interval l h) m
 
@@ -144,7 +152,7 @@ module ValAD : VALUE_ABSTRACT_DOMAIN = struct
 
   let var_join x y = match x,y with
   | FSet s1, FSet s2 -> let s = ValSet.union s1 s2 in
-      if ValSet.cardinal s > !max_set_size then set_to_interval s else FSet s
+      if ValSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
   | Interval(l,h), FSet s | FSet s, Interval(l,h) -> 
       Interval(min l (ValSet.min_elt s), max h (ValSet.max_elt s))
   | Interval(l1,h1), Interval(l2,h2) -> Interval(min l1 l2, max h1 h2)
@@ -167,7 +175,7 @@ module ValAD : VALUE_ABSTRACT_DOMAIN = struct
       let l = max l1 l2 in
       let h = min h1 h2 in
       if l > h then raise Bottom 
-      else if range_over (l,h) !max_set_size then Interval(l,h)
+      else if range_over (l,h) O.max_set_size then Interval(l,h)
       else FSet(interval_to_set l h)
 
   let meet x y =
@@ -181,7 +189,7 @@ module ValAD : VALUE_ABSTRACT_DOMAIN = struct
 
   let var_widen x y = match x, y with
   | FSet s1, FSet s2 -> let s = ValSet.union s1 s2 in
-      if ValSet.cardinal s > !max_set_size then set_to_interval s else FSet s
+      if ValSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
   | Interval(l,h), FSet s | FSet s, Interval(l,h) ->
       Interval(min l (ValSet.min_elt s), max h (ValSet.max_elt s))
   | Interval(l1,h1), Interval(l2,h2) -> 
@@ -238,7 +246,7 @@ module ValAD : VALUE_ABSTRACT_DOMAIN = struct
 
   let make_set_from_list = List.fold_left (fun s x -> ValSet.add x s) ValSet.empty
 
-  let go_to_interval s = if ValSet.cardinal s > !max_set_size then set_to_interval s else FSet s
+  let go_to_interval s = if ValSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
 
   type position = TT | TF | FT | FF
 
@@ -505,9 +513,9 @@ module ValAD : VALUE_ABSTRACT_DOMAIN = struct
         begin
           match pos with
           | TT -> raise Bottom
-          | TF -> (* We should have [dl, min(dh,sh)] and [max(dl,sl), sh] *)
-              let ndh = min dh sh in
-              let nsl = max dl sl in
+          | TF -> (* We should have [dl, min(dh,sh-1)] and [max(dl+1,sl), sh] *)
+              let ndh = min dh (Int64.pred sh) in
+              let nsl = max (Int64.succ dl) sl in
               if ndh < dl || nsl > sh then raise Bottom
               else (set_or_interval dl ndh),(set_or_interval nsl sh)
           | FT -> (* meet <> empty then ZF can be set *)
@@ -517,8 +525,8 @@ module ValAD : VALUE_ABSTRACT_DOMAIN = struct
                 | Nb z -> z,z
               end
           | FF -> 
-              let nsh = min dh sh in
-              let ndl = max dl sl in
+              let nsh = min (Int64.pred dh) sh in
+              let ndl = max dl (Int64.succ sl) in
               if ndl > dh || nsh < sl then raise Bottom
               else (set_or_interval ndl dh),(set_or_interval sl nsh)
         end
@@ -653,3 +661,5 @@ module ValAD : VALUE_ABSTRACT_DOMAIN = struct
     )
 
 end
+
+module ValAD = ValADFunctor(ValADOptForMemory)

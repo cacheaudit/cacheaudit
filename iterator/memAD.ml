@@ -367,6 +367,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
 end 
 
 module SimpleMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.SimpleCacheAD)
+module IntCacheMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.IntervalCacheAD)
 module OctMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.OctCacheAD)
 module RelSetMemAD = MemAD(FlagAD.FlagsAD)(RelCacheAD.RelSetCacheAD)
 module ProfSimpleMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.ProfSimpleCacheAD)

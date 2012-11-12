@@ -14,9 +14,12 @@ let build_cfg = ref false
 let do_inter = ref false
 let print_ass = ref false
 let analyze = ref false
-let oct = ref false
-let rset = ref false
 let prof = ref false
+let interval_cache = ref false
+
+type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
+
+let cache_analysis = ref SetAges
 
 let verbose_array = Array.init 5 (fun _ -> false)
 
@@ -62,8 +65,9 @@ let speclist = [
     ("--analyze", Arg.Set analyze, "run analysis");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("-f", Arg.String anon_fun,                      "give the name of the binary file");
-    ("--oct", Arg.Unit (fun () -> oct := true), "use the octagon abstract domain for the cache.") ;
-    ("--rset", Arg.Unit (fun () -> rset := true), "use the relational set abstract domain for the cache.") ;
+    ("--oct", Arg.Unit (fun () -> cache_analysis := OctAges), "use the octagon abstract domain for the cache.") ;
+    ("--interval-cache", Arg.Unit (fun () -> cache_analysis := IntAges), "use the interval abstract domain for the cache.") ;
+    ("--rset", Arg.Unit (fun () -> cache_analysis := RelAges), "use the relational set abstract domain for the cache.") ;
     ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.");
     ("--fifo", Arg.Unit (fun () -> cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
     ("--plru", Arg.Unit (fun () -> cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.")
@@ -116,25 +120,21 @@ let _ =
       if !do_inter then Interpreter.interpret !bin_name sections !start_addr (List.map (fun (a,b,c) -> (a,b)) start_values) verbose_array;
       if !analyze then (
         SimpleOctAD.OctAD.set_bin_name !bin_name;
-        let start = Sys.time () in
-        if !prof then
-          if !oct then (
-            Iterator.ProfOctIterate.iterate sections start_values (Cfg.makecfg !start_addr sections) cache_params
-            )
-          else if !rset then (
-             Iterator.ProfRelSetIterate.iterate sections start_values (Cfg.makecfg !start_addr sections) cache_params
-          )
-          else
-            Iterator.ProfSimpleIterate.iterate sections start_values (Cfg.makecfg !start_addr sections) cache_params
-        else
-          if !oct then (
-            Iterator.OctIterate.iterate sections start_values (Cfg.makecfg !start_addr sections) cache_params
-            )
-          else if !rset then (
-             Iterator.RelSetIterate.iterate sections start_values (Cfg.makecfg !start_addr sections) cache_params
-          )
-          else
-            Iterator.SimpleIterate.iterate sections start_values (Cfg.makecfg !start_addr sections) cache_params
-        ;Printf.printf "Analysis took %d seconds.\n" (int_of_float (Sys.time () -. start))
+(* TODO: rationalize that using module construction based on the parameters. We don't need to build them all! *)
+        let iterate = 
+          if !prof then match !cache_analysis with
+            OctAges -> Iterator.ProfOctIterate.iterate
+          | RelAges ->  Iterator.ProfRelSetIterate.iterate 
+          | SetAges -> Iterator.ProfSimpleIterate.iterate
+          | IntAges -> failwith "Profiling for interval-based cache analysis not implemented\n"
+        else match !cache_analysis with
+            OctAges -> Iterator.OctIterate.iterate 
+          | RelAges -> Iterator.RelSetIterate.iterate 
+          | SetAges ->  Iterator.SimpleIterate.iterate
+          | IntAges -> Iterator.IntCacheIterate.iterate
+        in 
+        let start = Sys.time () in 
+        iterate sections start_values (Cfg.makecfg !start_addr sections) cache_params;
+        Printf.printf "Analysis took %d seconds.\n" (int_of_float (Sys.time () -. start))
         )
   | None -> ()

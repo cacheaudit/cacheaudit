@@ -269,6 +269,7 @@ Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f b
 end 
 
 module SimpleCacheAD = CacheAD (SimpleValAD.SimpleValAD)
+module IntervalCacheAD = CacheAD (SimpleValAD.SimpleIntervalAD)
 module RelSetCacheAD = CacheAD (SimpleRelSetAD.SimpleRelSetAD)
 module OctCacheAD = CacheAD (SimpleOctAD.OctAD)
 module ProfSimpleCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleValAD.SimpleValAD))

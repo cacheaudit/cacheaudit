@@ -8,7 +8,7 @@ Bubblesort:
 Final state (non-relational sets): 0 bit leakage, analysis time 78s
 
 * As above, but w/ only 256b size, i.e. 2 sets.
-Final state (non-relational sets): 0 bit leakage, analysis time 87s
+Final state (non-relational sets): 0 bit leakage, analysis time 45s
 
 Set    0: 5ffff82 5ffff84 5ffff86 5ffff88  
 Set    1: 5ffff81 5ffff83 5ffff85 5ffff87 5ffff89 
@@ -16,6 +16,7 @@ Possible ages of blocks:
  V5ffff81 in {1 } V5ffff82 in {0 } V5ffff83 in {2 } V5ffff84 in {1 }
  V5ffff85 in {3 } V5ffff86 in {2 } V5ffff87 in {4 } V5ffff88 in {3 }
  V5ffff89 in {0 } 
+(Same result with intervals)
 
 Resut with FIFO strategy:
 Final state (non-relational sets): 7.139551 bits leakage, analysis time 48s

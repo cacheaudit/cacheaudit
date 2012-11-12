@@ -339,6 +339,7 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
 end
 
 module SimpleIterate = Build(StackAD.StackAD(MemAD.SimpleMemAD))
+module IntCacheIterate = Build(StackAD.StackAD(MemAD.IntCacheMemAD))
 module OctIterate = Build(StackAD.StackAD(MemAD.OctMemAD))
 module RelSetIterate = Build(StackAD.StackAD(MemAD.RelSetMemAD)) 
 module ProfSimpleIterate = Build(StackAD.StackAD(MemAD.ProfSimpleMemAD))
