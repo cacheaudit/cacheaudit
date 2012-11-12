@@ -1,4 +1,4 @@
-(* Builds controle flow graph *)
+(** Builds the control-flow graph *)
 
 type basicblock =
     {
@@ -11,7 +11,6 @@ type basicblock =
       mutable in_edges: basicblock list
     }
 
-
 val pp_block_addr : Format.formatter -> int -> unit
 val pp_block_header : Format.formatter -> basicblock -> unit
 val pp_block : Format.formatter -> basicblock -> unit
@@ -20,7 +19,7 @@ val addr_ending_block : int
 val addr_starting_block : int
 val addr_error_block : int
 
-(* The first element of the output cfg is the starting block *)
+(** The first element of the output cfg is the starting block *)
 val makecfg : int -> X86Headers.t -> basicblock list
 
 val printcfg : basicblock list -> unit
