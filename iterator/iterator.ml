@@ -3,7 +3,7 @@
 let verbose = ref false
 let trace = ref true
 (*number of times loops are unrolled before fp computation begins *)
-let unroll_count = ref 25
+let unroll_count = ref 300
 
 open Cfg
 open Signatures
