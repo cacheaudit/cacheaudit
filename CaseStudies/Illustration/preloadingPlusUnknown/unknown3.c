@@ -1,4 +1,4 @@
-#define	arrsize 128
+#define	arrsize 8
 
 unsigned long volatile A[arrsize];
 unsigned long volatile B[arrsize];
