@@ -50,14 +50,25 @@ module RelCacheAD (SV: SIMPLE_REL_SET_DOMAIN) : CACHE_ABSTRACT_DOMAIN = struct
       let set_solutions = List.length (List.filter (fun (cache_state: var list) -> valid_cache_state cache addr_set cache_state) tuples) in 
     set_solutions::sol) cache.cache_sets []
 
+  (* Same as cache_states_per_set, but the adversary can only see the number of blocks *)
+  let blurred_cache_states_per_set (cache:t) : int list = 
+    CacheMap.fold (fun (set_number:int) (addr_set:AddrSet.t) (sol:int list) -> 
+      let tuples = List.fold_left (fun l i -> List.append l (n_tuples i addr_set)) [] [0;1;2;3;4] in 
+      let tmp_solutions = List.filter (fun (cache_state: var list) -> valid_cache_state cache addr_set cache_state) tuples in 
+      let blurred_solutions = List.fold_left (fun (res:IntSet.t) (state:var list) -> IntSet.add (List.length state) res) IntSet.empty tmp_solutions in
+      let set_solutions = IntSet.cardinal blurred_solutions in
+    set_solutions::sol) cache.cache_sets []
+
   (* Computes the number of possible cache states in a logarithmic scale *)
-  let log_cache_states (cache:t) : float = 
-     let sum = List.fold_left (fun sol set_sol -> log10 (float_of_int set_sol) +. sol) 0.0 (cache_states_per_set cache) in
+  let log_cache_states (cache:t) (counting_fun:t->int list): float = (match cache.strategy with
+    PLRU -> Format.printf "Counting on PLRU is incorrect\n"
+  | _ -> ());
+     let sum = List.fold_left (fun sol set_sol -> log10 (float_of_int set_sol) +. sol) 0.0 (counting_fun cache) in
      sum /. (log10 2.0)
 
   (* Computes the number of possible cache states in an absolute scale *)
-  let absolute_cache_states (cache:t) : int64 = 
-     List.fold_left (fun sol set_sol -> Int64.mul sol (Int64.of_int set_sol)) Int64.one (cache_states_per_set cache)
+  let absolute_cache_states (cache:t) (counting_fun:t->int list): int64 = 
+     List.fold_left (fun sol set_sol -> Int64.mul sol (Int64.of_int set_sol)) Int64.one (counting_fun cache)
 
   (*partition helper *)
   let rec add_to_setlist setlist set  =     match setlist with 
@@ -137,7 +148,8 @@ type af = (var*int) list
         )
       ) cache.cache_sets;
      Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" SV.print cache.ages;
-Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f bits.\n" (absolute_cache_states cache) (log_cache_states cache);
+Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f bits.\n" (absolute_cache_states cache cache_states_per_set) (log_cache_states cache cache_states_per_set);
+Format.fprintf fmt "\nNumber of valid cache configurations (blurred): 0x%Lx, that is %f bits.\n" (absolute_cache_states cache blurred_cache_states_per_set) (log_cache_states cache blurred_cache_states_per_set);
 Format.fprintf fmt "Valid cache configurations computed with relational Information : 0x%Lx" (rel_absolute_cache_states cache);
 Format.fprintf fmt ",that is %f bits.\n" (rel_log_cache_states cache) 
  
