@@ -1,7 +1,7 @@
 // BubbleSort
 //# include <stdio.h>
 
-#define array_size 11
+#define array_size 20
 
 int main(){
 
@@ -17,8 +17,6 @@ int main(){
       }
     }
   }
-
-
   //  for (i =0;i<array_size;i++)
   // printf ("%d\n", a[i]);
 
