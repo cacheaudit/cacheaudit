@@ -14,6 +14,7 @@ module type AGE_FUNCTION_SET = sig
   val inc_var : t -> var -> int -> t
   val is_empty : t -> bool
   val join : t -> t -> t   (* Joins two AgeFunctionSets with the same variables *)
+  val project : t -> var list -> t
   val singleton : var -> int -> t
   val subseteq : t -> t -> bool
   val toString : t -> string

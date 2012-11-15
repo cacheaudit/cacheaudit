@@ -87,11 +87,35 @@ module SimpleRelSetAD : SIMPLE_REL_SET_DOMAIN  = struct
     let sm_v2 = List.hd (List.sort Pervasives.compare v2_vals) in
     let gt_v2 = List.hd (List.sort (fun x y -> Pervasives.compare y x) v2_vals) in
 
+    let subrelations (name:VarSet.t) : VarSet.t list = VarSet.fold (fun v l -> VarSet.remove v name::l) name [] in
+
+    let remove_ages_violating_subrelation (name_sub:VarSet.t)(ages_sub:AFS.t)(ages_rel:AFS.t) = 
+       AFS.filter (fun af -> let af = AF.project af (VarSet.elements name_sub) in 
+         not (AFS.is_empty (
+          AFS.filter (fun af' -> (AF.compare af af') = 0) ages_sub
+          ))) ages_rel in
+
+    (* Extends the relation by variable v and insures that all subrelations are fulfilled. *)
+    let extend_relation (name:VarSet.t) (v:var) (map:M.t) : AFS.t = 
+       let old_set = M.find name map in 
+       let v_set = M.find (VarSet.add v VarSet.empty) map in 
+       let new_set = AFS.combine old_set v_set in
+       (* Filter out ages violating subrelations *)
+       let new_set = List.fold_left (fun age_set name_sub -> remove_ages_violating_subrelation name_sub (M.find name_sub map) age_set) new_set (subrelations (VarSet.add v name)) in 
+      new_set in
+
+    (* Removes v from the relation. *)
+    let shrink_relation (v:var) (ages:AFS.t) : AFS.t = 
+      let vars = VarSet.remove v (AFS.vset ages) in
+      AFS.project ages (VarSet.elements vars) in
+
     let update_ages (vset:VarSet.t) map (compare:int->int->int) (limit:int): AFS.t  = 
       let old_ages = M.find vset map in 
       match VarSet.mem v1 vset, VarSet.mem v2 vset with  
           true , true  -> AFS.filter (fun af -> compare (AF.get v1 af) (AF.get v2 af) = -1) old_ages (* compare v1 v2 = -1*)
-        | true , false -> AFS.filter (fun af -> compare (AF.get v1 af) limit = -1) old_ages
+        | true , false -> let ext_ages = extend_relation vset v2 rsAD.map in
+              let ext_ages = AFS.filter (fun af -> compare (AF.get v1 af)(AF.get v2 af) = -1) ext_ages in
+              shrink_relation v2 ext_ages
         | false, true  -> old_ages
         | false, false -> old_ages in 
     let ls  = M.mapi (fun vset afs -> update_ages vset rsAD.map Pervasives.compare gt_v2) rsAD.map in
