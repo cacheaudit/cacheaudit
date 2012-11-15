@@ -60,9 +60,9 @@ Same result with intervals in 37 seconds
 
 * Cache: size 16384 bytes, lines 32b, assoc 4.
 
-Number of valid final cache configurations : 0x2000, that is 13 bits. 
-Analysis took 71 seconds. 
-Same result with intervals in 61 seconds
+Number of valid final cache configurations : 0x4000, that is 14 bits. 
+Analysis took 70 seconds. 
+Same result with intervals in 59 seconds
 
 
 * FIFO Cache: size 16384 bytes, lines 32b, assoc 4.
