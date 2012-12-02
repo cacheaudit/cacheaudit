@@ -29,8 +29,7 @@ module SimpleRelSetAD : SIMPLE_REL_SET_DOMAIN  = struct
     AFS.values (M.find vset rsAD.map) v
 
   let mem (rsAD:t) (part_state:(var * int) list) : bool = 
-    let af = List.fold_left (fun af' (v,i) -> AF.add v i af') AF.empty part_state in
-    M.for_all (fun vset afs -> not (AFS.contradicts afs af)) rsAD.map
+    M.for_all (fun vset afs -> not (AFS.contradicts afs part_state)) rsAD.map
     
   let forget_rel_info map (v:var) = 
     M.filter (fun vset _ -> not (VarSet.mem v vset)) map
@@ -89,11 +88,11 @@ module SimpleRelSetAD : SIMPLE_REL_SET_DOMAIN  = struct
 
     let subrelations (name:VarSet.t) : VarSet.t list = VarSet.fold (fun v l -> VarSet.remove v name::l) name [] in
 
-    let remove_ages_violating_subrelation (name_sub:VarSet.t)(ages_sub:AFS.t)(ages_rel:AFS.t) = 
+    (*let remove_ages_violating_subrelation (name_sub:VarSet.t)(ages_sub:AFS.t)(ages_rel:AFS.t) = 
        AFS.filter (fun af -> let af = AF.project af (VarSet.elements name_sub) in 
          not (AFS.is_empty (
           AFS.filter (fun af' -> (AF.compare af af') = 0) ages_sub
-          ))) ages_rel in
+          ))) ages_rel in*)
 
     (* Extends the relation by variable v and insures that all subrelations are fulfilled. *)
     let extend_relation (name:VarSet.t) (v:var) (map:M.t) : AFS.t = 
@@ -101,7 +100,7 @@ module SimpleRelSetAD : SIMPLE_REL_SET_DOMAIN  = struct
        let v_set = M.find (VarSet.add v VarSet.empty) map in 
        let new_set = AFS.combine old_set v_set in
        (* Filter out ages violating subrelations *)
-       let new_set = List.fold_left (fun age_set name_sub -> remove_ages_violating_subrelation name_sub (M.find name_sub map) age_set) new_set (subrelations (VarSet.add v name)) in 
+       let new_set = List.fold_left (fun age_set name_sub -> AFS.filter age_set (M.find name_sub map)) new_set (subrelations (VarSet.add v name)) in 
       new_set in
 
     (* Removes v from the relation. *)
@@ -112,9 +111,9 @@ module SimpleRelSetAD : SIMPLE_REL_SET_DOMAIN  = struct
     let update_ages (vset:VarSet.t) map (compare:int->int->int) (limit:int): AFS.t  = 
       let old_ages = M.find vset map in 
       match VarSet.mem v1 vset, VarSet.mem v2 vset with  
-          true , true  -> AFS.filter (fun af -> compare (AF.get v1 af) (AF.get v2 af) = -1) old_ages (* compare v1 v2 = -1*)
+          true , true  -> AFS.filter_comp old_ages v1 v2 compare (* compare v1 v2 = -1*)
         | true , false -> let ext_ages = extend_relation vset v2 rsAD.map in
-              let ext_ages = AFS.filter (fun af -> compare (AF.get v1 af)(AF.get v2 af) = -1) ext_ages in
+              let ext_ages = AFS.filter_comp ext_ages v1 v2 compare in
               shrink_relation v2 ext_ages
         | false, true  -> old_ages
         | false, false -> old_ages in 
