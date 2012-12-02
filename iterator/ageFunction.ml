@@ -117,14 +117,31 @@ module PairListAgeFunction : AGE_FUNCTION = struct
                   |   0 -> (v,i)::tl
                   |   1 -> (v',i')::add v i tl
 
-  let join af1 af2 = 
+  let rec join af1 af2 = 
+    match af1,af2 with
+  | [],l | l,[] -> l
+  | (v1,i1)::t1,(v2,i2)::t2 -> let cmp = Pervasives.compare v1 v2 in
+    if  cmp < 0 then (v1,i1)::(join t1 af2)
+    else if cmp > 0 then (v2,i2)::(join af1 t2)
+    else failwith "bla"
+
+(*let join af1 af2 = if i1 = i2 then (v1,i1)::(join t1 af2)
     List.fold_left (fun l (v,i) -> add v i l) af1 af2
-     
-  let project af l = List.fold_left (fun af' v -> add v (get v af) af') empty l
+
+List.fold_left (fun af' v -> add v (get v af) af') empty l*)
 
   let toString af = 
     let s = List.fold_left (fun s (_,e) -> s ^ (string_of_int e) ^ ",") "" af in
     "(" ^ (String.sub s 0 (String.length s -1)) ^ ")" 
+     
+  let rec project af l = 
+    match af,l with 
+    |  (v1,i)::tl1,v2::tl2 -> let cmp = Pervasives.compare v1 v2 in
+       if cmp = 0 then (v1,i)::project tl1 tl2
+       else if cmp < 0 then project tl1 l
+       else failwith "unsafe project1"
+    |    _, [] -> []
+    |    _,_ -> failwith "unsafe project2"
 
   let rec vars af = match af with
      [] -> VarSet.empty

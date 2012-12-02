@@ -7,10 +7,11 @@ module type AGE_FUNCTION_SET = sig
   type t 
   val combine : t -> t -> t (* Combines two AgeFunctionSets with distinct variables *)
   (* True if there is a common variable v , s.t. there is no AF' in AFS with AF(v)=AF'(v) *)  
-  val contradicts: t -> AF.t -> bool 
+  val contradicts: t -> (var * int) list -> bool 
   val empty : t
   val equal : t -> t -> bool
-  val filter : (AF.t -> bool) -> t -> t
+  val filter_comp : t -> var -> var -> (int -> int -> int) -> t
+  val filter : t -> t -> t
   val inc_var : t -> var -> int -> t
   val is_empty : t -> bool
   val join : t -> t -> t   (* Joins two AgeFunctionSets with the same variables *)
@@ -29,17 +30,30 @@ module AgeFunctionSet : AGE_FUNCTION_SET = struct
 
   let is_empty afs : bool = S.is_empty afs.set
 
-  let combine afs1 afs2 = 
-    if is_empty afs1 then afs2 else
-    if is_empty afs2 then afs1 else
-    let cross_join set1 set2 = S.fold (fun af1 set -> S.fold (fun af2 set' -> S.add (AF.join af1 af2) set') set2 set) set1 S.empty in
-    {set = cross_join afs1.set afs2.set; vars = VarSet.union afs1.vars afs2.vars}
-
-  let project afs vlist = 
+   let project afs vlist = 
     {set = S.fold (fun e set'-> S.add (AF.project e vlist) set') afs.set S.empty; 
      vars = VarSet.filter (fun v -> List.mem v vlist) afs.vars}
 
-  let contradicts (afs:t) (af:AF.t) = 
+  let join afs1 afs2 = {afs1 with set = S.union afs1.set afs2.set}
+
+   let combine afs1 afs2 = 
+    if is_empty afs1 then afs2 else
+    if is_empty afs2 then afs1 else
+    let cross_join set1 set2 = S.fold (fun af1 set -> S.fold (fun af2 set' -> S.add (AF.join af1 af2) set') set2 set) set1 S.empty in
+    let common_vars = VarSet.inter afs1.vars afs2.vars in
+    if VarSet.is_empty common_vars then
+      {set = cross_join afs1.set afs2.set; vars = VarSet.union afs1.vars afs2.vars}
+    else
+      let afs1_c = project afs1 (VarSet.elements common_vars) in
+      let afs2_c = project afs2 (VarSet.elements common_vars) in
+      let afs_c = {set = S.inter afs1_c.set afs2_c.set; vars = common_vars} in
+      let afs1_d = project afs1 (VarSet.elements (VarSet.diff afs1.vars common_vars)) in
+      let afs2_d = project afs2 (VarSet.elements (VarSet.diff afs2.vars common_vars)) in
+      let afs_d = {set = cross_join afs1_d.set afs2_d.set; vars = VarSet.union afs1_d.vars afs2_d.vars} in
+      {set = cross_join afs_c.set afs_d.set; vars = VarSet.union afs_c.vars afs_d.vars}
+
+  let contradicts (afs:t) (part_state:(var * int) list) = 
+    let af : AF.t = List.fold_left (fun af' (v,i) -> AF.add v i af') AF.empty part_state in
     let common_vars : VarSet.t = VarSet.inter afs.vars (AF.vars af) in
     not (S.exists (fun (af':AF.t) -> VarSet.for_all (fun (v:var) -> (AF.get v af) = (AF.get v af')) common_vars) afs.set)
     
@@ -51,12 +65,20 @@ module AgeFunctionSet : AGE_FUNCTION_SET = struct
       S.equal afs1.set afs2.set
     else false
 
-  let filter f afs : t = {afs with set = S.filter f afs.set}
+  (* Filter age functions from afs1 that violate afs2.*)
+  let filter afs1 afs2 : t = 
+    let common_vars = VarSet.inter afs1.vars afs2.vars in
+    let afs2_c = project afs2 (VarSet.elements common_vars) in
+    {afs1 with set = S.filter (fun af -> let af = AF.project af (VarSet.elements common_vars) in
+                                         S.exists (fun af' -> AF.compare af af' = 0) afs2_c.set) afs1.set}
+
+  let filter_comp afs v1 v2 compare = 
+    {afs with set = S.filter (fun af -> compare (AF.get v1 af) (AF.get v2 af) = -1) afs.set}
+
+(*let filter f afs : t = {afs with set = S.filter f afs.set}*)
 
   let inc_var afs v max = 
     {afs with set = S.fold (fun af set -> S.add (AF.add v (Pervasives.min (AF.get v af + 1) max) af) set) afs.set S.empty}
-
-  let join afs1 afs2 = {afs1 with set = S.union afs1.set afs2.set}
 
   let singleton v i = {set = S.add (AF.add v i AF.empty) S.empty; vars = VarSet.add v VarSet.empty}
 
