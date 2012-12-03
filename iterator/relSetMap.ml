@@ -2,8 +2,6 @@ open Signatures
 open AgeFunction
 open AgeFunctionSet
 
-module KeySet = Set.Make(VarSet)
-
 module AFS = AgeFunctionSet
 
 module VarSetMap = Map.Make(struct type t = VarSet.t let compare x y = let c = Pervasives.compare (VarSet.cardinal x) (VarSet.cardinal y) in if c = 0 then VarSet.compare x y else c end)
@@ -12,7 +10,7 @@ module type REL_SET_MAP = sig
   type t
 
   val init_with_max : (var -> string) -> int -> t
-  val keys : t -> KeySet.t
+  val keys : t -> VarSet.t list
   val find : VarSet.t -> t -> AFS.t
   val add: VarSet.t -> AFS.t -> t -> t
   val filter : (VarSet.t -> AFS.t -> bool) -> t -> t
@@ -36,8 +34,8 @@ module RelSetMap : REL_SET_MAP = struct
      "(" ^ (String.sub s 0 (String.length s -1)) ^ ")" 
 
   (* Returns the set of keys that are in the map. *)
-  let keys rsMap : KeySet.t = 
-    M.fold (fun vset _ set -> KeySet.add vset set) rsMap.map KeySet.empty
+  let keys rsMap : VarSet.t list = 
+    M.fold (fun vset _ l -> vset::l) rsMap.map []
 
   let outside (v: var) (max:int) : AFS.t = AFS.singleton v max
 
@@ -101,13 +99,19 @@ module RelSetMap : REL_SET_MAP = struct
      join_keysets should be called before.
   *)
   let differences rsMap1 rsMap2 : (VarSet.t * AFS.t * AFS.t) list = 
-    let keys = KeySet.union (keys rsMap1) (keys rsMap2) in
-    KeySet.fold 
-      (fun vset l -> 
-        let afs1 = find vset rsMap1 in
-        let afs2 = find vset rsMap2 in
-        if AFS.equal afs1 afs2 then l else (vset,afs1,afs2)::l
-      ) keys []
+    let compare x y = let c = Pervasives.compare (VarSet.cardinal x) (VarSet.cardinal y) in if c = 0 then VarSet.compare x y else c in
+    let rec diffs bds1 bds2 = 
+      match bds1,bds2 with
+      | (vset1,afs1)::tl1,(vset2,afs2)::tl2 -> (match compare vset1 vset2 with
+                                              | -1 -> (vset1,afs1,find vset1 rsMap2)::diffs tl1 bds2
+                                              |  0 -> if AFS.equal afs1 afs2 then diffs tl1 tl2 else (vset1,afs1,afs2)::diffs tl1 tl2
+                                              |  1 -> (vset2,find vset2 rsMap1,afs2)::diffs bds1 tl2
+                                              |  _ -> failwith "Unexpected case")
+      | (vset1,afs1)::tl1,[]                -> (vset1,afs1,find vset1 rsMap2)::diffs tl1 bds2
+      |                [],(vset2,afs2)::tl2 -> (vset2,find vset2 rsMap1,afs2)::diffs bds1 tl2
+      |                [],[]                -> [] in
+
+    diffs (M.bindings rsMap1.map) (M.bindings rsMap2.map)
 
   let print (fmt:Format.formatter) (rsMap:t) = 
      let b = Buffer.create (16) in 

@@ -19,7 +19,7 @@ module SimpleRelSetAD : SIMPLE_REL_SET_DOMAIN  = struct
     | []     -> [vset]
 
   let partition rsAD = 
-    let tmp = KeySet.fold (fun vset setlist -> add_to_setlist setlist vset) (M.keys rsAD.map) [] in
+    let tmp = List.fold_left (fun setlist vset -> add_to_setlist setlist vset) [] (M.keys rsAD.map)  in
     List.fold_left (fun result vset -> VarSet.elements vset::result) [] tmp
 
   let init_with_max v2s max = {map = M.init_with_max v2s max; arity = 2; max = max}
