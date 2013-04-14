@@ -28,13 +28,18 @@ module RelCacheAD (SV: SIMPLE_REL_SET_DOMAIN) : CACHE_ABSTRACT_DOMAIN = struct
     strategy : cache_strategy;
   }
 
+  (* Determine the set in which an address is cached *)
+  (* calculated addr mod num_sets *)
+  (* wouldn't work correctly on negative addresses (remainder used and not modulo) *)
+  let get_set_addr cache addr =  Int64.to_int (Int64.rem addr (Int64.of_int cache.num_sets))
+
   let print_addr_set fmt = AddrSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
  
   (* Returns a list of all n-tuples that can be created from the adresses in a. *)
-  let rec n_tuples (n: int) (a: AddrSet.t) : var list list = match n with
+  let rec n_tuples (valid:var list -> bool)(n: int) (a: AddrSet.t) : var list list = match n with
      0 -> [[]](*AddrSet.fold (fun _ vll -> []::vll ) a []*)
-   | n -> AddrSet.fold (fun addr vll -> let n_minus_one_tuples = n_tuples (n-1) (AddrSet.remove addr a) in
-           List.append vll (List.map (fun x -> addr::x) n_minus_one_tuples)) a []
+   | n -> AddrSet.fold (fun addr vll -> let n_minus_one_tuples = n_tuples (fun _ -> true) (n-1) (AddrSet.remove addr a) in
+  List.fold_left (fun vll' x -> let l = addr::x in if valid l then l::vll' else vll') vll n_minus_one_tuples) a []
 
   (* Checks if the given cache state is valid with respect to the ages defined in cache.ages. *)
   let valid_cache_state (cache:t) (addr_set:AddrSet.t) (cache_state: var list) : bool = 
@@ -46,14 +51,14 @@ module RelCacheAD (SV: SIMPLE_REL_SET_DOMAIN) : CACHE_ABSTRACT_DOMAIN = struct
   (* Computes a list where each item i is the number of possible cache states of cache set i. *)
   let cache_states_per_set (cache:t) : int list = 
     CacheMap.fold (fun (set_number:int) (addr_set:AddrSet.t) (sol:int list) -> 
-      let tuples = List.fold_left (fun l i -> List.append l (n_tuples i addr_set)) [] [0;1;2;3;4] in 
+      let tuples = List.fold_left (fun l i -> List.append l (n_tuples (valid_cache_state cache addr_set) i addr_set)) [] [0;1;2;3;4] in 
       let set_solutions = List.length (List.filter (fun (cache_state: var list) -> valid_cache_state cache addr_set cache_state) tuples) in 
     set_solutions::sol) cache.cache_sets []
 
   (* Same as cache_states_per_set, but the adversary can only see the number of blocks *)
   let blurred_cache_states_per_set (cache:t) : int list = 
     CacheMap.fold (fun (set_number:int) (addr_set:AddrSet.t) (sol:int list) -> 
-      let tuples = List.fold_left (fun l i -> List.append l (n_tuples i addr_set)) [] [0;1;2;3;4] in 
+      let tuples = List.fold_left (fun l i -> List.append l (n_tuples (valid_cache_state cache addr_set) i addr_set)) [] [0;1;2;3;4] in 
       let tmp_solutions = List.filter (fun (cache_state: var list) -> valid_cache_state cache addr_set cache_state) tuples in 
       let blurred_solutions = List.fold_left (fun (res:IntSet.t) (state:var list) -> IntSet.add (List.length state) res) IntSet.empty tmp_solutions in
       let set_solutions = IntSet.cardinal blurred_solutions in
@@ -134,10 +139,8 @@ type af = (var*int) list
   let comp_setnums (cache:t) : IntSet.t list = let fmt = Format.std_formatter in
     (* Compute partitions induced by constraints *)
     let partitions = List.map (fun vlist -> List.fold_left (fun result elem -> AddrSet.add elem result) AddrSet.empty vlist) (SV.partition cache.ages) in
-    (* invert cache map *)
-    let inv_cachemap = CacheMap.fold (fun setnum addrset map -> AddrSet.fold (fun addr map'-> AddrMap.add addr setnum map')addrset map) cache.cache_sets AddrMap.empty in
     (* convert variables to their respective set number *)
-    let setnums = List.fold_left (fun newlist set -> (AddrSet.fold (fun addr intset -> IntSet.add (AddrMap.find addr inv_cachemap) intset) set IntSet.empty)::newlist) [] partitions in
+    let setnums = List.fold_left (fun newlist set -> (AddrSet.fold (fun addr intset -> IntSet.add (get_set_addr cache addr) intset) set IntSet.empty)::newlist) [] partitions in
     (* merge sets containing the same set numbers *)
     let result = merge_sets setnums in
     Format.fprintf fmt "Partitioning leads to parts of size: (";List.iter (fun set -> Format.fprintf fmt " %d, " (IntSet.cardinal set)) result; Format.fprintf fmt ") cache sets\n";Format.print_flush ();
@@ -187,11 +190,7 @@ let (rel_abs,rel_log) = rel_cache_states cache in Format.fprintf fmt "Valid cach
       strategy = strategy;
     }
 
-  (* Determine the set in which an address is cached *)
-  (* calculated addr mod num_sets *)
-  (* wouldn't work correctly on negative addresses (remainder used and not modulo) *)
-  let get_set_addr cache addr =  Int64.to_int (Int64.rem addr (Int64.of_int cache.num_sets))
-  
+    
 	(* Gives the block address *)
   let get_block_addr cache addr = Int64.div addr (Int64.of_int cache.line_size)
   
