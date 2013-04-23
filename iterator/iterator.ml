@@ -230,16 +230,16 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
           out_invs b.out_edges (C.get_offset last_inv addr)
       | Some(Jcc((truth,cond),ad)) -> ( try 
           let inv_true, inv_false = C.test last_inv cond in
-          let next_b () = find_out_edge b.out_edges b.next_block_addr
-          and jump_b () = find_out_edge b.out_edges (Int64.to_int ad) in
+          let next_b = find_out_edge b.out_edges b.next_block_addr
+          and jump_b = find_out_edge b.out_edges (Int64.to_int ad) in
           let case_false = match inv_false with
             Bot -> []
           | Nb inv_false -> 
-              [(if truth then next_b else jump_b)(), inv_false] in
+              [(if truth then next_b else jump_b), inv_false] in
           ( match inv_true with 
             Bot -> case_false
           | Nb inv_true ->  
-              ((if truth then jump_b else next_b)(), inv_true)::case_false
+              ((if truth then jump_b else next_b), inv_true)::case_false
           )
           with Not_found -> failwith "Out edges don't match conditional jump\n"
           | e -> Format.printf "@[Error while processing %a %a @, in environment %a@]@." pp_block_addr b.end_addr X86Print.pp_instr (Jcc((truth,cond),ad)) C.print last_inv;
