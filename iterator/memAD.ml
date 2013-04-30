@@ -1,3 +1,7 @@
+let time_instr = 1 (* number of cycles of one instriction, to which we add the time for memory accesses *)
+let time_test = 1 (* number of cycles for a test *)
+let time_effective_load = 0; 
+
 open Signatures
 
 module MemSet = Set.Make(Int64)
@@ -97,7 +101,9 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     else F.subseteq x.vals y.vals && MemSet.subset x.memory y.memory
 
   let test env cond =
-    let lift = function Bot -> Bot | Nb v -> Nb {env with vals = v} in
+    let lift = function Bot -> Bot 
+    | Nb v -> Nb {env with vals = v; cache = CA.elapse env.cache time_test} 
+    in
     let (t,f) = F.test env.vals cond in
     lift t, lift f
 
@@ -223,6 +229,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
   (* memop : t -> memop -> op32 -> op32 -> t *)
     (** Does the memory operation given by [Signatures.memop] on the enviroment.
      This operation can be a move, an arithmetic operation or an exchange.
+     Transmits the fact that time passes to the cache domain
      @return a new enviroment or raises a Bottom
      exception if the resulting environment is bottom. *)
   let memop m mop dst src = try (
@@ -253,7 +260,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
         let s_to_d_vals = list_join (List.concat (List.map doOpD slist)) in
         let d_to_s_vals = list_join (List.concat (List.map doOpS dlist)) in
         join s_to_d_vals d_to_s_vals
-    in res
+    in {res with cache = CA.elapse res.cache time_instr}
   ) with Bottom -> failwith "MemAD.memop: Bottom in memAD after an operation on non bottom env"
 
   (** Same as [memop] except that we deal with 8-bit instructions *)
@@ -262,6 +269,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     assert(slist <> []);
     let dlist = var_of_op8 m dst Write in
     assert(dlist <> []);
+    let res =
     match mop with
     | ADarith o -> let op = Op o in
     (* For every possible value of src and dst, we do dst = dst op src using the value AD function update_var.
@@ -273,6 +281,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
         let doOp (s,mks,es) = List.map (fun (d,mkd,ed) -> let joinds = decide_env dst src ed es in { joinds with vals = F.update_var joinds.vals (consvar_to_var d) (Mask mkd) s (Mask mks) Move }) dlist in
         list_join (List.concat (List.map doOp slist)) 
     | ADexchg -> failwith "MemAD.memopb: XCGHB not implemented"
+    in {res with cache = CA.elapse res.cache time_instr}
   ) with Bottom -> failwith "MemAD.memopb: Bottom in memAD after an operation on non bottom env"
 
   (** Performs the move with zero extend operation. @return a new environment or
@@ -281,12 +290,13 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     let slist = var_of_op8 m src8 Read in
     let dlist = var_of_op m dst32 Write in
     let doOp (s, msk, es) = List.map (fun (d,ed) -> let joinds = decide_env dst32 src8 ed es in { joinds with vals = F.update_var joinds.vals (consvar_to_var d) NoMask s (Mask msk) Move }) dlist in
-    list_join (List.concat (List.map doOp slist))
+    let res = list_join (List.concat (List.map doOp slist))
+    in {res with cache = CA.elapse res.cache time_instr}
   ) with Bottom -> failwith "MemAD.movzx: bottom after an operation on non bottom environment"
 
   (* flagop: missing ADfset in FlagAD *)
   (** Passes down the flag operations to the Flag AD. @returns a new environment *)
-  let flagop env fop = try (
+  let flagop env fop = let res = try (
     match fop with
     | ADcmp (dst, src) ->
         let slist = var_of_op env src Read in
@@ -300,32 +310,36 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
         list_join (List.concat (List.map doOp slist))
     | ADfset (flg, truth) -> failwith "MemAD.flagop: ADfset not implemented"
   ) with Bottom -> failwith "MemAD.flagop: bottom after an operation on non bottom environment"
+    in {res with cache = CA.elapse res.cache time_instr}
   
   (** Performs the Load Effective Address instruction by loading each possible
     address in the variable correspoding to the register.
     @return an environment or raises Bottom *)
-  let load_address env reg addr = try( try (
+  let load_address env reg addr = let res = try( try (
     let addrList = address_list env addr in
     let regVar = reg_to_var reg in
     let envList = List.map (fun (x,e) -> { env with vals = F.update_var e regVar NoMask (Cons x) NoMask Move }) addrList in
     list_join envList
   ) with Bottom -> failwith "MemAD.load_address: bottom after an operation on non bottom environment"
   ) with Is_Top -> let regVar = reg_to_var reg in {env with vals = F.set_var env.vals regVar 0L 0xffffffffL} 
+  in {res with cache = CA.elapse res.cache time_effective_load}
 
 
   (* shift : t -> X86Types.shift_op -> op32 -> op8 -> t *)
   (** Shifts a register or address by the amount given by the 8-bit offset. *)
-  let shift m sop dst offset = try (
+  let shift m sop dst offset = let res = try (
     let offlist = var_of_op8 m offset Read in
     let dlist = var_of_op m dst Write in
     let doOp (o, mk, eo) = List.map (fun (d,ed) -> let joinds = decide_env dst offset ed eo in { joinds with vals = (F.shift joinds.vals sop (consvar_to_var d) o (Mask mk))}) dlist in
     list_join (List.concat (List.map doOp offlist))
   ) with Bottom -> failwith "MemAD.shift: bottom after an operation on non bottom environment"
+    in {res with cache = CA.elapse res.cache time_instr}
 
   (* get_offset: t -> op32 -> (int,t) finite_set *)
   (** Determines a finite list of possible values given a [genop32] with each
     value associated with the environment that led to it.
     @return the list mentioned above or Top if there is no finite list. *)
+  (* in the resulting environments, time will have passed by an amount depending on the memory accesses *)
   let get_offset env gop = match gop with
     | Imm x -> Finite [(Int64.to_int x, env)]
     | Reg r -> 
@@ -363,6 +377,9 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
           let fsList = List.map read addrList in
           Finite (List.fold_left appendLists [] fsList)
         ) with Is_Top -> Top env)
+  
+  (* we pass teh elapsed time to the cache domain, the only one keeping track of it so far *)
+  let elapse env d = {env with cache = CA.elapse env.cache d}
         
 end 
 
@@ -374,4 +391,4 @@ module ProfSimpleMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.ProfSimpleCacheAD)
 module ProfOctMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.ProfOctCacheAD)
 module ProfRelSetMemAD = MemAD(FlagAD.FlagsAD)(CacheAD.ProfRelSetCacheAD)
 
-
+module AsynchronuousAttackerMemAD = MemAD(FlagAD.FlagsAD)(AsynchronousAttacker.InstructionBasedAttacker(CacheAD.SimpleCacheAD))
