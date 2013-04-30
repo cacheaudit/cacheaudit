@@ -5,6 +5,12 @@ let trace = ref true
 (*number of times loops are unrolled before fp computation begins *)
 let unroll_count = ref 300
 
+(* Constants used for timing related analyses.
+   Counted in number of cycles *)
+let time_skip = 1 (* time taken by a skip *)
+let time_jmp = 1  (* time taken by a JMP instruction, in addition to the time taken to read the address. *)
+(* time for a JCC is time_jmp + time for the test *)
+
 open Cfg
 open Signatures
 
@@ -187,7 +193,7 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
     | Halt -> if !trace then 
             Format.printf "Just before Halt, we have %a\n" C.print inv;
             raise Bottom
-    | Skip -> ftrace inv
+    | Skip -> ftrace (C.elapse inv time_skip)
     | FlagSet(f,b) -> ftrace (C.flagop inv (ADfset(f,b)))
     | Call _ | Jcc _ | Jmp _ | _ -> failwith "Jump instruction in interpret_instruction\n"
     ) with e -> (Format.fprintf Format.err_formatter "@[<v 2>Error while processing %a %a @, in environment %a@]@."
@@ -216,7 +222,8 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
     match b.out_edges with
       [] -> assert(b.content = []);[] (*we only have error and final blocks that don't have out edges. TODO: treat the Halt instruction... *)
     | [oe] -> (match b.jump_command with
-        None | Some(Jmp _) -> [oe,last_inv]
+        None -> [oe,last_inv]
+      | Some(Jmp _) -> [oe,C.elapse last_inv time_jmp]
       | Some(Call addr) ->
           out_invs b.out_edges (C.call last_inv addr b.next_block_addr)
       | Some Ret -> out_invs b.out_edges (C.return last_inv)
@@ -227,7 +234,7 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
       | Some(Call addr) ->
           out_invs b.out_edges (C.call last_inv addr b.next_block_addr)
       | Some(Jmp addr) -> 
-          out_invs b.out_edges (C.get_offset last_inv addr)
+          out_invs b.out_edges (C.get_offset (C.elapse last_inv time_jmp) addr)
       | Some(Jcc((truth,cond),ad)) -> ( try 
           let inv_true, inv_false = C.test last_inv cond in
           let next_b = find_out_edge b.out_edges b.next_block_addr
@@ -235,11 +242,13 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
           let case_false = match inv_false with
             Bot -> []
           | Nb inv_false -> 
-              [(if truth then next_b else jump_b), inv_false] in
+              [(if truth then next_b else jump_b), 
+               (C.elapse inv_false time_jmp)] in
           ( match inv_true with 
             Bot -> case_false
           | Nb inv_true ->  
-              ((if truth then jump_b else next_b), inv_true)::case_false
+              ((if truth then jump_b else next_b), C.elapse inv_true time_jmp)
+                ::case_false
           )
           with Not_found -> failwith "Out edges don't match conditional jump\n"
           | e -> Format.printf "@[Error while processing %a %a @, in environment %a@]@." pp_block_addr b.end_addr X86Print.pp_instr (Jcc((truth,cond),ad)) C.print last_inv;

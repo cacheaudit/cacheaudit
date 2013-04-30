@@ -3,6 +3,10 @@ open Signatures
 let verbose = ref true
 let precise_touch = ref true
 
+type adversay = Blurred | SharedSpace
+
+let adversary = ref Blurred
+
 (* Permutation to apply when touching an element of age a in PLRU *)
 (* We assume an ordering correspond to the boolean encoding of the tree from leaf to root (0 is the most recent, corresponding to all 0 bits is the path *)
 
@@ -75,6 +79,15 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
   (* Computes the number of possible cache states in an absolute scale *)
   let absolute_cache_states (cache:t) (counting_fun:t->int list): int64 = 
      List.fold_left (fun sol set_sol -> Int64.mul sol (Int64.of_int set_sol)) Int64.one (counting_fun cache)
+
+open Big_int 
+
+  let count_cache_states cache = 
+    let set_counts = match !adversary with
+       Blurred -> blurred_cache_states_per_set cache
+    | SharedSpace -> cache_states_per_set cache
+    in
+    List.fold_left (fun sol set_sol -> mult_big_int sol (big_int_of_int set_sol)) unit_big_int set_counts
 
   let print fmt cache =
     Format.fprintf fmt "@[";
@@ -197,6 +210,18 @@ Format.fprintf fmt "\nNumber of valid cache configurations (blurred): 0x%Lx, tha
                 | Nb a -> SV.permute a (plru_permut assoc c) addr_in) cset ag )
       with Bottom -> Bot)
 
+   (* adds a new address handled by the cache if it's not already handled *)
+   (* We increment the age of all other adresses in the same set *)
+   (* That works for LRU, FIFO and PLRU *)
+   let add_new_address cache addr set_addr cset =
+      let ages = SV.set_var cache.ages addr 0 in
+      let h_addrs = AddrSet.add addr cache.handled_addrs in
+      (* increment the ages of elements in cache set *)
+      (* also ages >= associativity are incremented; we may not want this *)
+      let ages = AddrSet.fold (fun addr oages -> SV.inc_var oages addr) cset ages in
+      let cache_sets = CacheMap.add set_addr (AddrSet.add addr cset) cache.cache_sets in
+      {cache with ages = ages; handled_addrs = h_addrs; cache_sets = cache_sets;}
+
   (* touch: read or write cache at address addr *)
   let touch cache orig_addr = 
     if !verbose then Printf.printf "\nWriting cache %Lx" orig_addr;
@@ -237,15 +262,23 @@ Format.fprintf fmt "\nNumber of valid cache configurations (blurred): 0x%Lx, tha
           Bot -> failwith "Unxepected bottom in touch when the strategy is PLRU"
         | Nb ages -> {cache with ages = SV.set_var ages addr 0}
         )
-    end else begin (* this works for FIFO, PLRU and LRU *)
-      let ages = SV.set_var cache.ages addr 0 in
-      let h_addrs = AddrSet.add addr cache.handled_addrs in
-      (* increment the ages of elements in cache set *)
-      (* also ages >= associativity are incremented; we may not want this *)
-      let ages = AddrSet.fold (fun addr oages -> SV.inc_var oages addr) cset ages in
-      let cache_sets = CacheMap.add set_addr (AddrSet.add addr cset) cache.cache_sets in
-      {cache with ages = ages; handled_addrs = h_addrs; cache_sets = cache_sets;}
-    end
+    end else add_new_address cache addr set_addr cset
+
+  (* Same as touch, but returns two possible configurations, one for the hit and the second for the misses *)
+  (* TODO: we could be more efficient here, by not calling touch, but modifying touch instead *)
+  let touch_hm cache orig_addr = 
+    let addr = get_block_addr cache orig_addr in 
+    let set_addr = get_set_addr cache addr in
+    let cset = CacheMap.find set_addr cache.cache_sets in
+    if AddrSet.mem addr cache.handled_addrs then begin
+      (* ages_in is the set of ages for which there is a hit *)
+      let ages_in, ages_out = 
+          SV.comp_with_val cache.ages addr cache.associativity in
+      let t a = match a with Bot -> Bot 
+                | Nb a -> Nb(touch {cache with ages=a} orig_addr)
+      in
+      (t ages_in, t ages_out)
+    end else (Bot, Nb(add_new_address cache addr set_addr cset))
 
   let widen c1 c2 = 
     join c1 c2
@@ -276,12 +309,15 @@ Format.fprintf fmt "\nNumber of valid cache configurations (blurred): 0x%Lx, tha
     
  
   let is_var cache addr = SV.is_var cache.ages (get_block_addr cache addr)
+
+  (* For this domain, we don't care about time *)
+  let elapse env d = env
   
 end 
 
 module SimpleCacheAD = CacheAD (SimpleValAD.SimpleValAD)
 module IntervalCacheAD = CacheAD (SimpleValAD.SimpleIntervalAD)
-module RelSetCacheAD = CacheAD (SimpleRelSetAD.SimpleRelSetAD)
+(*module RelSetCacheAD = CacheAD (SimpleRelSetAD.SimpleRelSetAD)*)
 module OctCacheAD = CacheAD (SimpleOctAD.OctAD)
 module ProfSimpleCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleValAD.SimpleValAD))
 module ProfRelSetCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleRelSetAD.SimpleRelSetAD))

@@ -5,6 +5,10 @@ open Signatures
 let verbose = ref false
 let precise_touch = ref true
 
+type adversay = Blurred | SharedSpace
+
+let adversary = ref Blurred
+
 module CacheMap = Map.Make(struct type t = int let compare = compare end)
 module AddrSet = Set.Make(Int64)
 module AddrMap = Map.Make(Int64)
@@ -92,7 +96,7 @@ type af = (var*int) list
   let rec list_replace (n:int) (l: 'a list) (e: 'a) : 'a list = 
     match n with 0 -> e :: (List.tl l) | m -> List.hd l :: list_replace (n-1) (List.tl l) e
 
-  let satisfies_cache_constraints (cache:t) (state:af) (inv_cachemap) : bool = let fmt = Format.std_formatter in
+  let satisfies_cache_constraints (cache:t) (state:af) (inv_cachemap) : bool = 
     (* Split list s.t. we get 1 list per cache set*)
     let split_state : (int * af) list = 
        let rec insert ((v,i):var * int) (l:(int * af) list) = 
@@ -119,7 +123,7 @@ type af = (var*int) list
   let valid_state (cache:t) (state:(var * int) list): bool = 
     SV.mem cache.ages state
 
-  let cache_states_of_partition (cache:t) (setnums:IntSet.t) : int = let fmt = Format.std_formatter in
+  let cache_states_of_partition (cache:t) (setnums:IntSet.t) : int = 
     (* invert cache map *)
     let inv_cachemap = CacheMap.fold (fun setnum addrset map -> AddrSet.fold (fun addr map'-> AddrMap.add addr setnum map')addrset map) cache.cache_sets AddrMap.empty in
    (* function to compute the solutions of this partition *)
@@ -158,6 +162,17 @@ type af = (var*int) list
     let setnums = comp_setnums cache in
     let states_per_part = cache_states_per_partition cache setnums in
     (rel_absolute_cache_states cache states_per_part, rel_log_cache_states cache states_per_part)
+
+open Big_int
+
+  let count_cache_states cache =
+    match !adversary with
+(* TODO: compute a better bound when we have a bulrred adversary *)
+       Blurred -> List.fold_left (fun sol set_sol -> mult_big_int sol (big_int_of_int set_sol)) unit_big_int (blurred_cache_states_per_set cache)
+    | SharedSpace -> 
+        let setnums = comp_setnums cache in
+        let states_per_part = cache_states_per_partition cache setnums in
+        List.fold_left (fun sol set_sol -> mult_big_int sol (big_int_of_int set_sol)) unit_big_int states_per_part
 
   let print fmt cache =
     Format.fprintf fmt "@[";
@@ -259,7 +274,20 @@ let (rel_abs,rel_log) = rel_cache_states cache in Format.fprintf fmt "Valid cach
 
    
   let get_ages cache addr = SV.get_values cache.ages (get_block_addr cache addr)
-    
+  
+  (* adds a new address handled by the cache if it's not already handled *)
+   (* We increment the age of all other adresses in the same set *)
+   (* That works for LRU, FIFO and PLRU *)
+   let add_new_address cache addr set_addr cset =
+      let ages = SV.set_var cache.ages addr 0 in
+      let h_addrs = AddrSet.add addr cache.handled_addrs in
+      (* increment the ages of elements in cache set *)
+      (* also ages >= associativity are incremented; we may not want this *)
+      let ages = AddrSet.fold (fun addr oages -> SV.inc_var oages addr) cset ages in
+      let cache_sets = CacheMap.add set_addr (AddrSet.add addr cset) cache.cache_sets in
+      {cache with ages = ages; handled_addrs = h_addrs; cache_sets = cache_sets;}
+
+  
   (* touch: read or write cache at address addr *)
   let touch cache orig_addr = 
     if !verbose then Printf.printf "\nWriting cache %Lx" orig_addr;
@@ -303,6 +331,23 @@ let (rel_abs,rel_log) = rel_cache_states cache in Format.fprintf fmt "Valid cach
       {cache with ages = ages; handled_addrs = h_addrs; cache_sets = cache_sets;}
     end
 
+  (* Same as touch, but returns two possible configurations, one for the hit and the second for the misses *)
+  (* TODO: we could be more efficient here, by not calling touch, but modifying touch instead *)
+  let touch_hm cache orig_addr =
+    let addr = get_block_addr cache orig_addr in
+    let set_addr = get_set_addr cache addr in
+    let cset = CacheMap.find set_addr cache.cache_sets in
+    if AddrSet.mem addr cache.handled_addrs then begin
+      (* ages_in is the set of ages for which there is a hit *)
+      let ages_in, ages_out =
+          SV.comp_with_val cache.ages addr cache.associativity in
+      let t a = match a with Bot -> Bot
+                | Nb a -> Nb(touch {cache with ages=a} orig_addr)
+      in
+      (t ages_in, t ages_out)
+    end else (Bot, Nb(add_new_address cache addr set_addr cset))
+
+
   let widen c1 c2 = 
     join c1 c2
 
@@ -332,6 +377,9 @@ let (rel_abs,rel_log) = rel_cache_states cache in Format.fprintf fmt "Valid cach
     
  
   let is_var cache addr = SV.is_var cache.ages (get_block_addr cache addr)
+
+  (* For this domain, we don't care about time *)
+  let elapse env d = env
   
 end 
 

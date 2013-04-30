@@ -98,6 +98,8 @@ module type CALL_ABSTRACT_DOMAIN = sig
   val flagop : t -> op32 flagop -> t
   val stackop : t -> stackop -> op32 -> t
   val shift : t -> X86Types.shift_op -> op32 -> op8 -> t
+  (* Used by trace recording abstract domains. elapse env d signals that time should be increased by d *)
+  val elapse : t -> int -> t
 end
 
 
@@ -121,6 +123,8 @@ module type MEMORY_ABSTRACT_DOMAIN = sig
   val movzx : t -> op32 -> op8 -> t
   val flagop : t -> op32 flagop -> t
   val shift : t -> X86Types.shift_op -> op32 -> op8 -> t
+  (* Used by trace recording abstract domains. elapse env d signals that time should be increased by d *)
+  val elapse : t -> int -> t
 end
 
 
@@ -198,19 +202,13 @@ module type CACHE_ABSTRACT_DOMAIN = sig
   val init : cache_param -> t
   (* reads or writes an address into cache *)
   val touch : t -> int64 -> t
-end
+  (* Same as touch, but returns more precise informations about hit and misses *)
+  (* @return, the first set overapproximates hit cases, the second one misses *)
+  val touch_hm : t -> int64 -> (t add_bottom*t add_bottom)
+  (* Used to keep track of time, if neccessary *)
+  val elapse : t -> int -> t
 
-
-
-module DummyCache = struct
-  type t = unit
-  let init _ _ _ _ = ()
-  let join () () = ()
-  let widen () () = ()
-  let subseteq () () = true
-  let write () i = ()
-  let print fmt () = ()
-  let print_delta () fmt () = ()
+  val count_cache_states : t -> Big_int.big_int
 end
 
 

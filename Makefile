@@ -1,8 +1,10 @@
-OCAMLC= ocamlc.opt -g
+OCAMLC= ocamlc.opt -g 
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
 
 OCAMLINCLUDE:= -I x86_frontend -I concrete_interpreter -I iterator
+
+OCAMLLIB= nums.cma
 
 #OCT_INCLUDE= $(shell oct-config --mlflags | sed 's/_iag//')
 OCT_INCLUDE= $(shell oct-config --mlflags)
@@ -33,6 +35,7 @@ ML_FILES := \
 	iterator/simpleProfilingValAD.ml\
 	iterator/cacheAD.ml\
 	iterator/relCacheAD.ml\
+  iterator/asynchronousAttacker.ml\
 	iterator/memAD.ml\
 	iterator/iterator.ml\
 	concrete_interpreter/registers.ml \
@@ -65,7 +68,7 @@ all: cachecow
 CMO_FILES= $(ML_FILES:%.ml=%.cmo)
 
 cachecow: $(CMO_FILES) cachecow.ml
-	$(OCAMLC) $(OCAMLINCLUDE) str.cma $(OCT_INCLUDE) -o $@ $+
+	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) str.cma $(OCT_INCLUDE) -o $@ $+
 
 clean:
 	rm -f depend cachecow */*.cmo */*.cmi */*~ *.cmo *.cmi *~

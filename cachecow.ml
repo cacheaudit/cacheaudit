@@ -1,6 +1,7 @@
 open AsmUtil
 open X86Headers
 open Config
+open Signatures
 
 let bin_name = ref ""
 let start_addr = ref(-1 )
@@ -20,6 +21,10 @@ let interval_cache = ref false
 type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
 
 let cache_analysis = ref SetAges
+
+type attacker_model = Final | Instructions of int (* may interrupt each x instruction *)
+
+let attacker = ref Final
 
 let verbose_array = Array.init 5 (fun _ -> false)
 
@@ -70,7 +75,8 @@ let speclist = [
     ("--rset", Arg.Unit (fun () -> cache_analysis := RelAges), "use the relational set abstract domain for the cache.") ;
     ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.");
     ("--fifo", Arg.Unit (fun () -> cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
-    ("--plru", Arg.Unit (fun () -> cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.")
+    ("--plru", Arg.Unit (fun () -> cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
+    ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).")
   ] 
 
 let _ =
@@ -119,20 +125,30 @@ let _ =
       if !build_cfg then Cfg.printcfg (Cfg.makecfg !start_addr sections);
       if !do_inter then Interpreter.interpret !bin_name sections !start_addr (List.map (fun (a,b,c) -> (a,b)) start_values) verbose_array;
       if !analyze then (
-        SimpleOctAD.OctAD.set_bin_name !bin_name;
+(* LM: that seems wrong to me. Does it mean we write in the executable? 
+        SimpleOctAD.OctAD.set_bin_name !bin_name; *)
 (* TODO: rationalize that using module construction based on the parameters. We don't need to build them all! *)
-        let iterate = 
+        let m = 
           if !prof then match !cache_analysis with
-            OctAges -> Iterator.ProfOctIterate.iterate
-          | RelAges ->  Iterator.ProfRelSetIterate.iterate 
-          | SetAges -> Iterator.ProfSimpleIterate.iterate
+            OctAges -> (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN)
+          | RelAges ->  (module CacheAD.ProfRelSetCacheAD  : CACHE_ABSTRACT_DOMAIN)
+          | SetAges -> (module CacheAD.ProfSimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
           | IntAges -> failwith "Profiling for interval-based cache analysis not implemented\n"
         else match !cache_analysis with
-            OctAges -> Iterator.OctIterate.iterate 
-          | RelAges -> Iterator.RelSetIterate.iterate 
-          | SetAges ->  Iterator.SimpleIterate.iterate
-          | IntAges -> Iterator.IntCacheIterate.iterate
-        in 
+            OctAges -> (module CacheAD.OctCacheAD : CACHE_ABSTRACT_DOMAIN)
+          | RelAges -> (module RelCacheAD.RelSetCacheAD : CACHE_ABSTRACT_DOMAIN)
+          | SetAges -> (module CacheAD.SimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
+          | IntAges -> (module CacheAD.IntervalCacheAD : CACHE_ABSTRACT_DOMAIN)
+        in let module BaseCache = (val m: CACHE_ABSTRACT_DOMAIN) in
+        let m = match !attacker with
+          Final -> m
+        | Instructions d -> AsynchronousAttacker.min_frequency := d;
+            (module AsynchronousAttacker.InstructionBasedAttacker(BaseCache) :CACHE_ABSTRACT_DOMAIN)
+        in let module Cache = (val m: CACHE_ABSTRACT_DOMAIN) in
+        let module Mem = MemAD.MemAD(FlagAD.FlagsAD)(Cache) in
+        let module Stack = StackAD.StackAD(Mem) in
+        let module Iter = Iterator.Build(Stack) in
+        let iterate = Iter.iterate in
         let start = Sys.time () in 
         iterate sections start_values (Cfg.makecfg !start_addr sections) cache_params;
         Printf.printf "Analysis took %d seconds.\n" (int_of_float (Sys.time () -. start))

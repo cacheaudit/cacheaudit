@@ -66,6 +66,9 @@ module StackAD (M: MEMORY_ABSTRACT_DOMAIN) : CALL_ABSTRACT_DOMAIN = struct
      
   let print = M.print
   let print_delta = M.print_delta
+
+  (* keep track of time *)
+  let elapse = M.elapse
 end 
 
 
