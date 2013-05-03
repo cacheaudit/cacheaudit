@@ -22,7 +22,9 @@ type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
 
 let cache_analysis = ref SetAges
 
-type attacker_model = Final | Instructions of int (* may interrupt each x instruction *)
+type attacker_model = Final 
+  | Instructions of int (* may interrupt each x instruction *)
+  | OneInstrInterrupt
 
 let attacker = ref Final
 
@@ -76,7 +78,8 @@ let speclist = [
     ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.");
     ("--fifo", Arg.Unit (fun () -> cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
     ("--plru", Arg.Unit (fun () -> cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
-    ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).")
+    ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).");
+   ("--oneInstrInterrupt", Arg.Unit (fun () -> attacker:=OneInstrInterrupt),"attacker that can interrupt only once per round, based on the number of instructions")
   ] 
 
 let _ =
@@ -144,6 +147,7 @@ let _ =
           Final -> m
         | Instructions d -> AsynchronousAttacker.min_frequency := d;
             (module AsynchronousAttacker.InstructionBasedAttacker(BaseCache) :CACHE_ABSTRACT_DOMAIN)
+        | OneInstrInterrupt -> (module AsynchronousAttacker.OneInstructionInterrupt(BaseCache) : CACHE_ABSTRACT_DOMAIN)
         in let module Cache = (val m: CACHE_ABSTRACT_DOMAIN) in
         let module Mem = MemAD.MemAD(FlagAD.FlagsAD)(Cache) in
         let module Stack = StackAD.StackAD(Mem) in
