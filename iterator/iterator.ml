@@ -346,12 +346,3 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
     let final_env = next_i final_blocks init_env wto in
     print Format.std_formatter final_env
 end
-
-module SimpleIterate = Build(StackAD.StackAD(MemAD.SimpleMemAD))
-module IntCacheIterate = Build(StackAD.StackAD(MemAD.IntCacheMemAD))
-module OctIterate = Build(StackAD.StackAD(MemAD.OctMemAD))
-module RelSetIterate = Build(StackAD.StackAD(MemAD.RelSetMemAD)) 
-module ProfSimpleIterate = Build(StackAD.StackAD(MemAD.ProfSimpleMemAD))
-module ProfOctIterate = Build(StackAD.StackAD(MemAD.ProfOctMemAD))
-module ProfRelSetIterate = Build(StackAD.StackAD(MemAD.ProfRelSetMemAD)) 
-
