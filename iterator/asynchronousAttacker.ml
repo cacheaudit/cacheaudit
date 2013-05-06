@@ -112,31 +112,44 @@ let print_delta env1 fmt env2 = () (*print fmt env2 (*TODO*) *)
 
 end 
 
-module type PRE_CACHE_ABSTRACT_DOMAIN = sig
-  type cache
-  val ctouch: cache -> int64 -> cache
-  val ctouch_hm: cache -> int64 -> (cache add_bottom * cache add_bottom)
-  val cjoin: cache -> cache -> cache
-  type d = { observables : cache IntMap.t;
-             in_progress : cache IntMap.t;
-           }
-  include ABSTRACT_DOMAIN with type t=d
-  val init : cache_param -> t
-  val count_cache_states : t -> Big_int.big_int
-  val age_and_observe : t -> int -> t
-  (* falta solo touch y elapse *)
-end
+module OneInstructionInterrupt(C:CACHE_ABSTRACT_DOMAIN):CACHE_ABSTRACT_DOMAIN =
+struct
+  (*Simple implementation where we assume that there is no branching, so that we don't need to store cache states at each position in time *)
 
-module OneInterrupt(C:CACHE_ABSTRACT_DOMAIN):PRE_CACHE_ABSTRACT_DOMAIN = struct
-  type cache = C.t
-  let ctouch = C.touch
-  let ctouch_hm = C.touch_hm
-  let cjoin = C.join
+  type t = { cache : C.t;
+             leakage : big_int; (* maximun of the size of previous caches states *)
+           }
+
+  let init cp = { cache = C.init cp; leakage = unit_big_int }
+
+  let touch x addr = { x with cache = C.touch x.cache addr }
+
+  let touch_hm x addr = failwith "touch_hm not implemented in OneInstructionInterrupt"
+
+  let elapse x _ = {x with leakage = max_big_int x.leakage (C.count_cache_states x.cache)}
+
+  let count_cache_states x = failwith "count_cache_states not implemented in OneInstructionInterrupt"
+
+  let join x1 x2 = assert(x1.leakage == x2.leakage);
+   { x1 with cache = C.join x1.cache x2.cache}
+                    
+  let widen x1 x2 = failwith "widen not implemented in OneInstructionInterrupt"
+  let subseteq x1 x2 = failwith "subseteq not implemented in OneInstructionInterrupt"
+
+  let print_leakage fmt x = Format.fprintf fmt "@[Maximal leakage is %s (that is %f bits)@]" (string_of_big_int x.leakage) (bits_big_int x.leakage)
+
+  let print fmt x = Format.fprintf fmt "@[%a@.%a@]" C.print x.cache print_leakage x
+
+  let print_delta x1 fmt x2 = Format.fprintf fmt "@[%a@,%a@]" (C.print_delta x1.cache) x2.cache print_leakage x2
+
+end
+    
+module OneTimeInterrupt(C:CACHE_ABSTRACT_DOMAIN):CACHE_ABSTRACT_DOMAIN =
+struct
   
-  type d = { observables : C.t IntMap.t; (* will contain observables at each time step *)
+  type t = { observables : C.t IntMap.t; (* will contain observables at each time step *)
              in_progress : C.t IntMap.t; (* partial traces to be completed *)
            }
-  type t = d
   let map_join m1 m2 = IntMap.fold (fun k c1 res -> 
        let nc = try let c2 = IntMap.find k m2 in C.join c1 c2
                  with Not_found -> c1 
@@ -182,34 +195,18 @@ module OneInterrupt(C:CACHE_ABSTRACT_DOMAIN):PRE_CACHE_ABSTRACT_DOMAIN = struct
 
   let print_delta env1 fmt env2 = IntMap.iter (fun t c -> Format.fprintf fmt "@[ At time %d, cache is currently %a@]" t C.print c) env1.in_progress
 
-end
-
-module OneInstructionInterrupt(C:CACHE_ABSTRACT_DOMAIN):CACHE_ABSTRACT_DOMAIN =
-struct
-  include OneInterrupt(C) 
-  
-  let touch env addr = {env with in_progress = IntMap.fold (fun t c res -> IntMap.add t (ctouch c addr) res) env.in_progress IntMap.empty}
-
-  let touch_hm env addr = let t = touch env addr in Nb t, Nb t
-
-  let elapse env d = age_and_observe env 1
-end
-    
-module OneTimeInterrupt(C:CACHE_ABSTRACT_DOMAIN):CACHE_ABSTRACT_DOMAIN =
-struct
-  include OneInterrupt(C)
 
   let add_at c t acc = match c with
     Bot -> acc
   | Nb cache -> 
-      let nc = try cjoin cache (IntMap.find t acc)
+      let nc = try C.join cache (IntMap.find t acc)
                with Not_found -> cache
       in
       IntMap.add t nc acc
 
   let touch env addr = { env with in_progress =
     IntMap.fold (fun t c res ->
-          let c_hit,c_miss = ctouch_hm c addr in
+          let c_hit,c_miss = C.touch_hm c addr in
           add_at c_hit (t+time_hit) (add_at c_miss (t+time_miss) res)
                 ) env.in_progress IntMap.empty
                        }

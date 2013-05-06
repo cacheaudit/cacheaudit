@@ -80,7 +80,7 @@ let speclist = [
     ("--fifo", Arg.Unit (fun () -> cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
     ("--plru", Arg.Unit (fun () -> cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
     ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).");
-   ("--oneInstrInterrupt", Arg.Unit (fun () -> attacker:=OneInstrInterrupt),"attacker that can interrupt only once per round, based on the number of instructions");
+   ("--oneInstrInterrupt", Arg.Unit (fun () -> analyze := true; attacker:=OneInstrInterrupt),"attacker that can interrupt only once per round, based on the number of instructions");
    ("--oneTimedInterrupt", Arg.Unit (fun () -> attacker:=OneTimedInterrupt),"attacker that can interrupt only once per round, based on time")
   ] 
 
