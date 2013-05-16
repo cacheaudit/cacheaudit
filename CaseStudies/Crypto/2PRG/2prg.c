@@ -584,12 +584,13 @@ int main (){
  
   //  for (i=0; i<numrounds){
       // key schedule
+  while (1){
   aes_setkey_enc(&mycontext, ki, 256);
     // xi
   aes_crypt_ecb(&mycontext, AES_ENCRYPT, inp0, xi);
     // ki
    aes_crypt_ecb2(&mycontext, AES_ENCRYPT, inp1, ki);    
-    //  } 
+  }
 
   return 0;
 }
