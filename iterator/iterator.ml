@@ -4,6 +4,8 @@ let verbose = ref false
 let trace = ref true
 (*number of times loops are unrolled before fp computation begins *)
 let unroll_count = ref 300
+(* if set to false, then we don't unroll the outer loops *)
+let unroll_outer_loop = ref true
 
 (* Constants used for timing related analyses.
    Counted in number of cycles *)
@@ -129,6 +131,13 @@ let tarjan cfg =
   let tags = List.fold_left (fun n b -> BlockMap.add b NotSeen n) 
       BlockMap.empty cfg in
   (visit 0 tags [] (List.hd cfg) EmptyWto).wto
+
+(* Changes the unroll values so that the outer loops are not unrolled *)
+let rec dont_unroll_outer = function
+  Linear(b,w2) -> Linear(b,dont_unroll_outer w2)
+| SubWto i -> SubWto{i with unroll_count = 0;
+                            next_wto = dont_unroll_outer i.next_wto}
+| EmptyWto -> EmptyWto
 
 module Build(C:CALL_ABSTRACT_DOMAIN) = struct
   
@@ -288,6 +297,7 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
     let init_env = BlockMap.singleton start_block (C.init concr_mem start_values cache_params) in
     if !trace then Format.printf "@[Initially, %a@]@." print init_env;
     let wto = tarjan cfg in
+    let wto = if !unroll_outer_loop then wto else dont_unroll_outer wto in
     if !verbose then Format.printf "Order of iteration computed \n";
     (* TODO: Explain the role of pb *)
     let rec next_i pb env = function 

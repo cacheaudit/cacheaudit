@@ -132,9 +132,12 @@ struct
 
   let join x1 x2 = assert(x1.leakage == x2.leakage);
    { x1 with cache = C.join x1.cache x2.cache}
-                    
-  let widen x1 x2 = failwith "widen not implemented in OneInstructionInterrupt"
-  let subseteq x1 x2 = failwith "subseteq not implemented in OneInstructionInterrupt"
+                   
+  (* for the widening, we just widen the caches and take the max of leakages, which must be the second argument *)
+  (* This terminates because there is a bound on the number of cache states, but we could use thresholds... *) 
+  let widen x1 x2 = { x2 with cache = C.widen x1.cache x2.cache }
+
+  let subseteq x1 x2 = le_big_int x1.leakage x2.leakage && (C.subseteq x1.cache x2.cache)
 
   let print_leakage fmt x = Format.fprintf fmt "@[Maximal leakage is %s (that is %f bits)@]" (string_of_big_int x.leakage) (bits_big_int x.leakage)
 
@@ -143,7 +146,8 @@ struct
   let print_delta x1 fmt x2 = Format.fprintf fmt "@[%a@,%a@]" (C.print_delta x1.cache) x2.cache print_leakage x2
 
 end
-    
+
+(* This is not correct, as it does not take into account meddling of the attacker in the cache hits and misses *)    
 module OneTimeInterrupt(C:CACHE_ABSTRACT_DOMAIN):CACHE_ABSTRACT_DOMAIN =
 struct
   
