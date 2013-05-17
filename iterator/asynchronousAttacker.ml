@@ -130,8 +130,8 @@ struct
 
   let count_cache_states x = failwith "count_cache_states not implemented in OneInstructionInterrupt"
 
-  let join x1 x2 = assert(x1.leakage == x2.leakage);
-   { x1 with cache = C.join x1.cache x2.cache}
+  let join x1 x2 = {cache = C.join x1.cache x2.cache;
+                    leakage = max_big_int x1.leakage x2.leakage }
                    
   (* for the widening, we just widen the caches and take the max of leakages, which must be the second argument *)
   (* This terminates because there is a bound on the number of cache states, but we could use thresholds... *) 
