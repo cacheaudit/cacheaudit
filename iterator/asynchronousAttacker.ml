@@ -151,7 +151,7 @@ struct
 
   let subseteq x1 x2 = le_big_int x1.leakage x2.leakage && (C.subseteq x1.cache x2.cache)
 
-  let print_leakage fmt x = Format.fprintf fmt "@[Maximal leakage is %s (that is %f bits)@]" (string_of_big_int x.leakage) (bits_big_int x.leakage)
+  let print_leakage fmt x = Format.fprintf fmt "@[Maximal leakage is %s (that is %f bits)@.@]" (string_of_big_int x.leakage) (bits_big_int x.leakage)
 
   let print fmt x = Format.fprintf fmt "@[%a@.%a@]" C.print x.cache print_leakage x
 
