@@ -95,7 +95,14 @@ module InstructionBasedAttacker (C: CACHE_ABSTRACT_DOMAIN) : CACHE_ABSTRACT_DOMA
                   env1.history env2.history
     }
 
-  let widen env1 env2 = failwith "Widening not implemented\n"
+(* The effect of this widen is ti fold state son number of instructions modulo size of the loop *)
+  let widen env1 env2 = 
+    { env1 with history = map_join (fun cs1 cs2 -> 
+                  { caches = C.widen cs1.caches cs2.caches;
+                    leakage = max_big_int cs1.leakage cs2.leakage;
+                  }               )
+                  env1.history env2.history
+    }
   
   let subseteq env1 env2 = try 
     IntMap.for_all (fun k cs1 ->
