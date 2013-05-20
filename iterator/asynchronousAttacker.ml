@@ -11,6 +11,14 @@ let min_frequency = ref 1 (* the minimum number of cycles between two peeks of t
 
 module IntMap = Map.Make(struct type t = int let compare = compare end)
 
+(* map_join f m1 m2 joins the maps of m1 and m2 applying f to the result. *)
+(* if one argument is there and not the other, we keep the one which is there *)
+(*We would need something more efficient here!! TODO *)
+let map_join f m1 m2 = IntMap.fold (fun k c1 res -> 
+       let nc = try let c2 = IntMap.find k m2 in f c1 c2
+                 with Not_found -> c1 
+       in IntMap.add k nc res) m1 m2
+
 (* we suppose an attecker that can choose the number of instructions elpased *)
 (* This is only correct on programs without branching !!! ********************)
 module InstructionBasedAttacker (C: CACHE_ABSTRACT_DOMAIN) : CACHE_ABSTRACT_DOMAIN = struct
@@ -78,17 +86,14 @@ module InstructionBasedAttacker (C: CACHE_ABSTRACT_DOMAIN) : CACHE_ABSTRACT_DOMA
   let count_cache_states env = 
     IntMap.fold (fun _ cs sol -> add_big_int sol (C.count_cache_states cs.caches)) env.history zero_big_int
   
-(* beware not to use this join on controlflow joins !!!*) 
+(* beware not to use this join on locations with correspoding number of instructions *)
   let join env1 env2 = (* Here we need a Map2...*)
-    {env1 with history = IntMap.fold (fun k cs1 res -> 
-                  let ncs = try 
-                  let cs2 = IntMap.find k env2.history in
+    { env1 with history = map_join (fun cs1 cs2 -> 
                   { caches = C.join cs1.caches cs2.caches;
                     leakage = max_big_int cs1.leakage cs2.leakage;
-                  } 
-                  with Not_found -> cs1 in
-                  IntMap.add k ncs res) 
-       env1.history env2.history }
+                  }               )
+                  env1.history env2.history
+    }
 
   let widen env1 env2 = failwith "Widening not implemented\n"
   
@@ -154,10 +159,6 @@ struct
   type t = { observables : C.t IntMap.t; (* will contain observables at each time step *)
              in_progress : C.t IntMap.t; (* partial traces to be completed *)
            }
-  let map_join m1 m2 = IntMap.fold (fun k c1 res -> 
-       let nc = try let c2 = IntMap.find k m2 in C.join c1 c2
-                 with Not_found -> c1 
-       in IntMap.add k nc res) m1 m2
 
   let init cp =
     let init_cache = C.init cp in
@@ -171,15 +172,15 @@ struct
                          env.in_progress IntMap.empty
     in
     (* then we add new observables *)
-    let no = map_join np env.observables
+    let no = map_join C.join np env.observables
     in {observables = no; in_progress = np} (* what about what we can observe during the duration of a command ? TODO *)
 
   let count_cache_states env = 
     IntMap.fold (fun _ cs sol -> add_big_int sol (C.count_cache_states cs)) env.in_progress zero_big_int
  
   let join env1 env2 =  
-    { observables = map_join env1.observables env2.observables;
-      in_progress = map_join env1.in_progress env2.in_progress;
+    { observables = map_join C.join env1.observables env2.observables;
+      in_progress = map_join C.join env1.in_progress env2.in_progress;
     }
 
   let widen env1 env2 = failwith "Widening not implemented\n"

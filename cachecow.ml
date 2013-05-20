@@ -72,7 +72,7 @@ let speclist = [
             "enable verbose output: i - print instructions; r - print registers; f - print flags; s - print stack accesses; c - print the cache");
     ("--analyze", Arg.Set analyze, "run analysis");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
-    ("--no-outer-unroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), "overwrites the --unroll option, so that outer loops are not unrolled");
+    ("--noOuterUnroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), "overwrites the --unroll option, so that outer loops are not unrolled");
     ("-f", Arg.String anon_fun,                      "give the name of the binary file");
     ("--oct", Arg.Unit (fun () -> cache_analysis := OctAges), "use the octagon abstract domain for the cache.") ;
     ("--interval-cache", Arg.Unit (fun () -> cache_analysis := IntAges), "use the interval abstract domain for the cache.") ;
@@ -80,9 +80,9 @@ let speclist = [
     ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.");
     ("--fifo", Arg.Unit (fun () -> cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
     ("--plru", Arg.Unit (fun () -> cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
-    ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).");
+    ("--instrAttacker", Arg.Int (fun d -> analyze:=true; attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).");
    ("--oneInstrInterrupt", Arg.Unit (fun () -> analyze := true; attacker:=OneInstrInterrupt),"attacker that can interrupt only once per round, based on the number of instructions");
-   ("--oneTimedInterrupt", Arg.Unit (fun () -> attacker:=OneTimedInterrupt),"attacker that can interrupt only once per round, based on time")
+   ("--oneTimedInterrupt", Arg.Unit (fun () -> analyze:=true; attacker:=OneTimedInterrupt),"attacker that can interrupt only once per round, based on time")
   ] 
 
 let _ =
@@ -133,7 +133,6 @@ let _ =
       if !analyze then (
 (* LM: that seems wrong to me. Does it mean we write in the executable? 
         SimpleOctAD.OctAD.set_bin_name !bin_name; *)
-(* TODO: rationalize that using module construction based on the parameters. We don't need to build them all! *)
         let m = 
           if !prof then match !cache_analysis with
             OctAges -> (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN)
