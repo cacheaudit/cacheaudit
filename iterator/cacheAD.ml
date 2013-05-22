@@ -1,6 +1,6 @@
 open Signatures
 
-let verbose = ref true
+let verbose = ref false
 let precise_touch = ref true
 
 type adversay = Blurred | SharedSpace
@@ -53,17 +53,20 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
     | hd::tl -> if hd = addr then i else pos addr tl (i+1) in
    AddrSet.for_all (fun (addr:var) -> List.mem (pos addr cache_state 0) (SV.get_values cache.ages addr) ) addr_set 
 
+  (* Helper for cache_states_per_set and blurred_cache_states_per_set *)
+  let rec num_blocks n = match n with 0 -> [0] | m -> m::num_blocks (m-1)
+
   (* Computes a list where each item i is the number of possible cache states of cache set i. *)
   let cache_states_per_set (cache:t) : int list = 
     CacheMap.fold (fun (set_number:int) (addr_set:AddrSet.t) (sol:int list) -> 
-      let tuples = List.fold_left (fun l i -> List.append l (n_tuples (valid_cache_state cache addr_set) i addr_set)) [] [0;1;2;3;4] in 
+      let tuples = List.fold_left (fun l i -> List.append l (n_tuples (valid_cache_state cache addr_set) i addr_set)) [] (num_blocks cache.associativity) in 
       let set_solutions = List.length (List.filter (fun (cache_state: var list) -> valid_cache_state cache addr_set cache_state) tuples) in 
     set_solutions::sol) cache.cache_sets []
 
   (* Same as cache_states_per_set, but the adversary can only see the number of blocks *)
   let blurred_cache_states_per_set (cache:t) : int list = 
     CacheMap.fold (fun (set_number:int) (addr_set:AddrSet.t) (sol:int list) -> 
-      let tuples = List.fold_left (fun l i -> List.append l (n_tuples (valid_cache_state cache addr_set) i addr_set)) [] [0;1;2;3;4] in 
+      let tuples = List.fold_left (fun l i -> List.append l (n_tuples (valid_cache_state cache addr_set) i addr_set)) [] (num_blocks cache.associativity) in 
       let tmp_solutions = List.filter (fun (cache_state: var list) -> valid_cache_state cache addr_set cache_state) tuples in 
       let blurred_solutions = List.fold_left (fun (res:IntSet.t) (state:var list) -> IntSet.add (List.length state) res) IntSet.empty tmp_solutions in
       let set_solutions = IntSet.cardinal blurred_solutions in
