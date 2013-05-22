@@ -22,6 +22,10 @@ type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
 
 let cache_analysis = ref SetAges
 
+let cache_size = ref 0
+let line_size = ref 0
+let associativity = ref 0
+
 type attacker_model = Final 
   | Instructions of int (* may interrupt each x instruction *)
   | OneInstrInterrupt
@@ -80,6 +84,12 @@ let speclist = [
     ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.");
     ("--fifo", Arg.Unit (fun () -> cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
     ("--plru", Arg.Unit (fun () -> cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
+     ("--cache-size", (Arg.Int (fun n -> cache_size := n)),
+     "override the size of the cache (in bytes) from the configuration file");
+    ("--line-size", (Arg.Int (fun n -> line_size := n)),
+     "override the size of the cache lines (in bytes) from the configuration file");
+    ("--assoc", (Arg.Int (fun n -> associativity := n)),
+     "override the associativity (in bytes) from the configuration file");
     ("--instrAttacker", Arg.Int (fun d -> analyze:=true; attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).");
    ("--oneInstrInterrupt", Arg.Unit (fun () -> analyze := true; attacker:=OneInstrInterrupt),"attacker that can interrupt only once per round, based on the number of instructions");
    ("--oneTimedInterrupt", Arg.Unit (fun () -> analyze:=true; attacker:=OneTimedInterrupt),"attacker that can interrupt only once per round, based on time")
@@ -98,9 +108,9 @@ let _ =
           (match sa with
             None -> Printf.printf "Start address not specified\n"
           | Some x -> Printf.printf "Start address is 0x%x\n" x; start_addr := x);
-          cache_s := cp.cache_s;
-          line_s := cp.line_s;
-          assoc := cp.assoc;
+          cache_s := if !cache_size <= 0 then cp.cache_s else !cache_size;
+          line_s := if !line_size <= 0 then cp.line_s else !line_size;
+          assoc := if !associativity <= 0 then cp.assoc else !associativity;
           sv
       with Sys_error _ ->
         Printf.printf "Configuration file %s.conf not found\nUsing default values\n" !bin_name;
