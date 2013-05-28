@@ -114,12 +114,12 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
     if AddrSet.cardinal addr_set >= n then begin
       let rec loop n elements tuple s = 
         if n = 0 then begin
-          if valid tuple then s+1 else s
+          if is_valid tuple then s+1 else s
         end else
           AddrSet.fold (fun addr s -> 
             loop (n-1) (AddrSet.remove addr elements) (addr::tuple) s) 
             elements s in 
-        inner n addr_set [] 0
+        loop n addr_set [] 0
     end else 0
 
   (* Checks if the given cache state is valid *)
@@ -141,7 +141,7 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
           if i > cache.associativity then (num,num_blurred)
           else
             let this_num = 
-              num_tuples (valid_cache_state cache addr_set) i addr_set in
+              num_tuples (is_valid_cstate cache addr_set) i addr_set in
             let this_bl = if this_num > 0 then 1 else 0 in
             loop (i+1) ((num + this_num),num_blurred + this_bl)
          in loop 0 (0,0) in
