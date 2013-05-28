@@ -1,4 +1,4 @@
-OCAMLC= ocamlc.opt -g 
+OCAMLC= ocamlc.opt -g -dtypes
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
 
@@ -71,7 +71,7 @@ cachecow: $(CMO_FILES) cachecow.ml
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) str.cma $(OCT_INCLUDE) -o $@ $+
 
 clean:
-	rm -f depend cachecow */*.cmo */*.cmi */*~ *.cmo *.cmi *~
+	rm -f depend cachecow */*.cmo */*.cmi */*~ *.cmo *.cmi *~ *.annot */*.annot
 
 depend: $(AUTOGEN)
 	ocamldep $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli concrete_interpreter/*.ml concrete_interpreter/*.mli parser-lexer/*.ml parser-lexer/*.mli *.ml *.mli > depend
