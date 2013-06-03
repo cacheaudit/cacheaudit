@@ -2,7 +2,7 @@ OCAMLC= ocamlc.opt -g -dtypes
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
 
-OCAMLINCLUDE:= -I x86_frontend -I concrete_interpreter -I iterator
+OCAMLINCLUDE:= -I x86_frontend -I iterator
 
 OCAMLLIB= nums.cma
 
@@ -19,7 +19,6 @@ ML_FILES := \
 	x86_frontend/elf.ml \
 	x86_frontend/macho.ml \
 	x86_frontend/x86Headers.ml \
-	concrete_interpreter/option.ml \
 	iterator/cfg.ml\
 	iterator/signatures.ml\
 	iterator/stackAD.ml\
@@ -35,18 +34,11 @@ ML_FILES := \
 	iterator/simpleProfilingValAD.ml\
 	iterator/cacheAD.ml\
 	iterator/relCacheAD.ml\
-  iterator/asynchronousAttacker.ml\
+        iterator/asynchronousAttacker.ml\
 	iterator/memAD.ml\
 	iterator/iterator.ml\
-	concrete_interpreter/registers.ml \
-	concrete_interpreter/flags.ml \
-	concrete_interpreter/vecStack.ml \
-	concrete_interpreter/cache.ml\
-	concrete_interpreter/interpreter.ml\
 	config.ml
 
-
-AUTOGEN = parser-lexer/lex.ml parser-lexer/parser.ml
 
 all: cachecow
 
@@ -73,8 +65,8 @@ cachecow: $(CMO_FILES) cachecow.ml
 clean:
 	rm -f depend cachecow */*.cmo */*.cmi */*~ *.cmo *.cmi *~ *.annot */*.annot
 
-depend: $(AUTOGEN)
-	ocamldep $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli concrete_interpreter/*.ml concrete_interpreter/*.mli parser-lexer/*.ml parser-lexer/*.mli *.ml *.mli > depend
+depend: 
+	ocamldep $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli > depend
 
 dep:
 	rm -f depend
