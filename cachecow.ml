@@ -12,7 +12,6 @@ let assoc = ref 0
 let cache_strategy = ref Signatures.LRU
 
 let build_cfg = ref false
-let do_inter = ref false
 let print_ass = ref false
 let analyze = ref false
 let prof = ref false
@@ -33,7 +32,6 @@ type attacker_model = Final
 
 let attacker = ref Final
 
-let verbose_array = Array.init 5 (fun _ -> false)
 
 let more_to_parse b = more b && (!end_addr=0 || get_byte b <= !end_addr)
 
@@ -66,14 +64,6 @@ let speclist = [
     ("--end", Arg.String (fun s -> end_addr := int_of_string s), "set the oddress (in bytes) where we stop parsing");
     ("--cfg", Arg.Unit (fun () -> build_cfg := true; print_ass := false), "build a control flow graph before printing");
     ("--silent", Arg.Unit (fun () -> print_ass := false),            "do not print the assembly code");
-    ("--inter", Arg.Unit (fun () -> do_inter := true; print_ass := false),               "run the interpreter");
-    ("--interverb", Arg.String (fun s -> 
-            if String.contains s 'i' then verbose_array.(0) <- true;
-            if String.contains s 'r' then verbose_array.(1) <- true;
-            if String.contains s 'f' then verbose_array.(2) <- true;
-            if String.contains s 's' then verbose_array.(3) <- true;
-            if String.contains s 'c' then verbose_array.(4) <- true),
-            "enable verbose output: i - print instructions; r - print registers; f - print flags; s - print stack accesses; c - print the cache");
     ("--analyze", Arg.Set analyze, "run analysis");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--noOuterUnroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), "overwrites the --unroll option, so that outer loops are not unrolled");
@@ -139,7 +129,6 @@ let _ =
   match mem with
     Some sections ->
       if !build_cfg then Cfg.printcfg (Cfg.makecfg !start_addr sections);
-      if !do_inter then Interpreter.interpret !bin_name sections !start_addr (List.map (fun (a,b,c) -> (a,b)) start_values) verbose_array;
       if !analyze then (
 (* LM: that seems wrong to me. Does it mean we write in the executable? 
         SimpleOctAD.OctAD.set_bin_name !bin_name; *)
