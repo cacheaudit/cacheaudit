@@ -3,7 +3,7 @@ open X86Types
 
 (* Simple stack abstract domain. Translates pushs and pops to register operations, but does not yet support function calls *)
 
-module StackAD (M: MEMORY_ABSTRACT_DOMAIN) : CALL_ABSTRACT_DOMAIN = struct
+module StackAD (M: MEMORY_ABSTRACT_DOMAIN) : STACK_ABSTRACT_DOMAIN = struct
     (* Stack.top and Memory abstract domain *)
   type t = M.t
 

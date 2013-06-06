@@ -60,19 +60,19 @@ type cache_param = int * int * int * cache_strategy (* total size, line size, as
 module ValMap = Map.Make(Int64)
 
 (** The common type of all abstract domains *)
-module type ABSTRACT_DOMAIN = sig
+module type ABSTRACT_DOMAIN = sig 
   type t
   val join: t -> t -> t
   val widen: t -> t -> t
-  (* subseteq x y means gamma(x) in gamma(y) but false just means that we couldn't prove it *)
+  (* subseteq x y means gamma(x) in gamma(y) *)
+  (* but false just means that we couldn't prove it *)
   val subseteq: t -> t -> bool
   val print : Format.formatter -> t -> unit
   (* To print traces *)
   val print_delta : t -> Format.formatter -> t -> unit
 end
 
-
-module type CALL_ABSTRACT_DOMAIN = sig
+module type STACK_ABSTRACT_DOMAIN = sig
   include ABSTRACT_DOMAIN
 
   val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> cache_param -> t
@@ -97,6 +97,7 @@ module type CALL_ABSTRACT_DOMAIN = sig
   val flagop : t -> op32 flagop -> t
   val stackop : t -> stackop -> op32 -> t
   val shift : t -> X86Types.shift_op -> op32 -> op8 -> t
+
   (* Used by trace recording abstract domains. elapse env d signals that time should be increased by d *)
   val elapse : t -> int -> t
   val access_readonly : t -> int64 -> t
@@ -105,8 +106,7 @@ end
 module type ARCHITECTURE_ABSTRACT_DOMAIN = sig
   include ABSTRACT_DOMAIN
 
-  val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> cache_param -> cache_param option -> int64 -> t
-
+val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> cache_param -> cache_param option -> int64 -> t
   (* from a genop32 expression, returns a finite list of possible values,
      each value associated with an approximation of the corresponding memory 
      states leading to that particular value. In case no finite list can be
@@ -129,18 +129,17 @@ module type ARCHITECTURE_ABSTRACT_DOMAIN = sig
   val shift : t -> X86Types.shift_op -> op32 -> op8 -> t
   (* Used by trace recording abstract domains. elapse env d signals that time should be increased by d *)
   val elapse : t -> int -> t
-
-
   val read_instruction: t -> int -> t
 end
-
 
 module type MEMORY_ABSTRACT_DOMAIN = sig
   include ABSTRACT_DOMAIN
   
   (* init is used to return an initial abstract state *)
-  (* the first arguments returns the initial value at a given address if it is defined, None otherwize (meaning it's random *)
-  val init: (int64 -> int64 option) -> (X86Types.reg32 * int64 * int64) list -> cache_param -> t
+  (* the first arguments returns the initial value at a given address if it *)
+  (* is defined, None otherwize (meaning it's random *)
+  val init: (int64 -> int64 option) -> (X86Types.reg32 * int64 * int64) list -> 
+    cache_param -> t
 
   (* from a genop32 expression, returns a finite list of possible values,
      each value associated with an approximation of the corresponding memory 
@@ -189,11 +188,14 @@ module type VALUE_ABSTRACT_DOMAIN = sig
   val get_var : t -> var -> (t ValMap.t) add_top
  (* set_var env x l h sets the value of x to be in the interval [l,h] *)
   val set_var : t -> var -> int64 -> int64 -> t
-  val update_var : t -> var -> mask -> cons_var -> mask -> varop -> (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
+  val update_var : t -> var -> mask -> cons_var -> mask -> varop -> 
+    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
   val is_var : t -> var -> bool
   val meet : t -> t -> t add_bottom (*TODO: should be add_bottom *)
-  val flagop : t -> X86Types.arith_op -> cons_var -> cons_var -> (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
-  val shift : t -> X86Types.shift_op -> var -> cons_var -> mask -> (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
+  val flagop : t -> X86Types.arith_op -> cons_var -> cons_var -> 
+    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
+  val shift : t -> X86Types.shift_op -> var -> cons_var -> mask -> 
+    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
 end
 
 module type SIMPLE_VALUE_AD = sig
@@ -222,24 +224,32 @@ end
 
 module type SIMPLE_REL_SET_DOMAIN = sig
   include SIMPLE_VALUE_AD
-
   val mem : t -> (var * int) list -> bool 
   val partition: t -> var list list
 end
 
-
 module type CACHE_ABSTRACT_DOMAIN = sig
   include ABSTRACT_DOMAIN
-  (* initialize an empty cache
-   takes arguments cache_size (in bytes), line_size (in bytes) and associativity *)
   val init : cache_param -> t
-  (* reads or writes an address into cache *)
+  (** initialize an empty cache
+   takes arguments cache_size (in bytes), 
+  line_size (in bytes) and associativity *)
   val touch : t -> int64 -> t
+  (** reads or writes an address into cache *)
+
   (* Same as touch, but returns more precise informations about hit and misses *)
   (* @return, the first set overapproximates hit cases, the second one misses *)
   val touch_hm : t -> int64 -> (t add_bottom*t add_bottom)
   (* Used to keep track of time, if neccessary *)
   val elapse : t -> int -> t
-
   val count_cache_states : t -> Big_int.big_int
+end
+
+module type TRACE_ABSTRACT_DOMAIN = sig
+  include ABSTRACT_DOMAIN
+  val init: cache_param -> t 
+  
+  val touch : t -> int64 -> t
+  (* Used to keep track of time, if neccessary *)
+  val elapse : t -> int -> t
 end

@@ -237,8 +237,8 @@ module ValADFunctor(O:VALADOPT) : VALUE_ABSTRACT_DOMAIN = struct
     | Sub -> Int64.sub
     | Subb -> Int64.sub
     | Xor -> Int64.logxor
-    | ADiv -> Int64.div
-    | ARem -> Int64.rem
+    (* | ADiv -> Int64.div *)
+    (* | ARem -> Int64.rem *)
 
   let add_CF y cf = function
     | Addc | Subb -> Int64.add y cf

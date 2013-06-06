@@ -155,7 +155,7 @@ let pp_instr fmt = function
   | Dec gop -> fprintf fmt "@[@ DEC@ %a@]" pp_genop32 gop
   | Jcc (cc, imm) -> fprintf fmt "@[@ J%a@ %a@]" pp_cc cc pp_addr imm
   | Jmp dst -> fprintf fmt "@[@ JMP@ %a@]" pp_genop_addr32 dst
-  | Div src -> fprintf fmt "@[@ DIV@ %a@]" pp_genop_addr32 src
+  (* | Div src -> fprintf fmt "@[@ DIV@ %a@]" pp_genop_addr32 src *)
   | Lea (dst, src) -> fprintf fmt "@[@ LEA@ %a,@ %a@]" pp_reg32 dst pp_address src
   | Leave -> fprintf fmt "@[ LEAVE@]"
   | Mov (dst, src) -> fprintf fmt "@[@ MOV@ %a,@ %a@]" pp_genop32 dst pp_genop32 src
@@ -170,5 +170,5 @@ let pp_instr fmt = function
   | Skip -> fprintf fmt "@[ SKIP @]"
   | FlagSet (f, v) -> if v then fprintf fmt "@[@ Set %a@]" pp_flag f
                            else fprintf fmt "@[@ Clear %a@]" pp_flag f
-  | _ -> raise (PrintExn "x86Print: Unsupported instruction")
+  (* | _ -> raise (PrintExn "x86Print: Unsupported instruction") *)
 

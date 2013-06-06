@@ -7,7 +7,8 @@ open Signatures
 module MemSet = Set.Make(Int64)
 
 (* *)
-module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_ABSTRACT_DOMAIN = struct
+module MemAD (F : FLAG_ABSTRACT_DOMAIN) (T:TRACE_ABSTRACT_DOMAIN) : 
+  MEMORY_ABSTRACT_DOMAIN = struct
   open X86Types
 
   type t = {
@@ -15,7 +16,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
           memory : MemSet.t; (** Set that contains the memory addresses used *)
           initial_values : int64 -> (int64 option); (** Function to determine
           the initial value of an address *)
-          cache : CA.t; (** Cache *)
+          traces : T.t;
   }
   (** Main type for this module. *)
 
@@ -23,10 +24,10 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
 
   let print fmt mem = 
     if MemSet.is_empty mem.memory then Format.fprintf fmt "%a %a"
-        F.print mem.vals CA.print mem.cache
+        F.print mem.vals T.print mem.traces
     else 
       Format.fprintf fmt "List of variable memory locations: @[%a@\n%a@, %a@]"
-      pp_vars mem.memory F.print mem.vals CA.print mem.cache
+      pp_vars mem.memory F.print mem.vals T.print mem.traces
 
   let print_delta mem1 fmt mem2 = 
     Format.fprintf fmt "@[";
@@ -38,7 +39,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
       Format.fprintf fmt "Removed variables %a@," pp_vars removed_vars;
     Format.fprintf fmt "%a @; %a@]"
       (F.print_delta mem1.vals) mem2.vals
-      (CA.print_delta mem1.cache) mem2.cache
+      (T.print_delta mem1.traces) mem2.traces
       
   
       
@@ -63,13 +64,14 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     let varsadded = List.fold_left (fun vt x -> let r,_,_ = x in F.new_var vt (reg_to_var r)) v regList in
     List.fold_left (fun vt x -> let r,l,h = x in F.set_var vt (reg_to_var r) l h) varsadded regList
 
-   (** Return an element of type t with initialized registers *)
+ (** Return an element of type t with initialized registers *)
   let init iv regList cache_params = {
     vals = initRegs (F.init var_to_string) regList;
-    memory = MemSet.empty; 
-    initial_values = iv; 
-    cache = CA.init cache_params
+    memory = MemSet.empty;
+    initial_values = iv;
+    traces = T.init cache_params
   }
+
 
   (* merge_with : (F.t -> F.t -> F.t) -> t -> t -> t *)
   (** We create variables only present in one [t] and add them to the other [t]
@@ -82,14 +84,14 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     { x with vals = f (create_vars y_minus_x x.vals) 
                       (create_vars x_minus_y y.vals);
              memory = MemSet.union x.memory y.memory;
-             cache = g x.cache y.cache
+             traces = g x.traces y.traces
     }
 
   (** Join using the joins of the Flag and Cache abstract domains *)
-  let join = merge_with F.join CA.join
+  let join = merge_with F.join T.join
   
   (** Same as join *)
-  let widen = merge_with F.widen CA.widen
+  let widen = merge_with F.widen T.widen
 
  (** Union of a sequence of abstract elements *)
  (* May raise Bottom *)
@@ -102,7 +104,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
 
   let test env cond =
     let lift = function Bot -> Bot 
-    | Nb v -> Nb {env with vals = v; cache = CA.elapse env.cache time_test} 
+    | Nb v -> Nb {env with vals = v; traces = T.elapse env.traces time_test} 
     in
     let (t,f) = F.test env.vals cond in
     lift t, lift f
@@ -150,11 +152,13 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     | Imm x -> [(Cons x, env)]
     | Reg r -> [(VarOp (reg_to_var r), env)]
     | Address addr -> 
-      try(let addrList = address_list env addr in
-          assert(addrList<>[]);
-          let read (n,e) = 
-            let new_cache = CA.touch env.cache n in (* touch the cache on read and on write *)
-          (*let new_cache = match rw with Read -> CA.touch env.cache n 
+      try(
+        let addrList = address_list env addr in
+        assert(addrList<>[]);
+        let read (n,e) = 
+          let new_traces = 
+            T.touch env.traces n in (* touch the cache on read and on write *)
+          (*let new_cache = match rw with Read -> T.touch env.cache n 
                                       | Write -> env.cache in*)
             let (new_n,new_env) = match rw with
               | Read -> 
@@ -174,8 +178,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
                       {env with vals = F.update_var env.vals n NoMask (Cons value) NoMask Move}
                     | None ->  env
               else (VarOp n, env) in
-          new_n, {new_env with cache = new_cache}
-          in
+          new_n, {new_env with traces = new_traces} in
         (* Get list of possible addresses and return either a var if it existed in the MemSet
         * or a cons (with the value) otherwise *)
           List.map read addrList) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
@@ -193,8 +196,8 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     | Address addr -> try(
         let addrList = address_list env addr in
         let read (un,e) =
-          let new_cache = CA.touch env.cache un in
-          (*let new_cache = match rw with Read -> CA.touch env.cache un 
+          let new_traces = T.touch env.traces un in
+          (*let new_cache = match rw with Read -> T.touch env.cache un 
                                       | Write -> env.cache in*)
           let n = Int64.logand un (Int64.lognot 3L) in
           let address_mask = rem_to_mask (Int64.logand un 3L) in
@@ -215,7 +218,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
                     Some value -> {env with vals = F.update_var env.vals n NoMask (Cons value) NoMask Move}
                   | None -> env
               else (VarOp n, env) in
-          new_n, address_mask, {new_env with cache = new_cache}
+          new_n, address_mask, {new_env with traces = new_traces}
         in
         List.map read addrList) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
 
@@ -260,7 +263,8 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
         let s_to_d_vals = list_join (List.concat (List.map doOpD slist)) in
         let d_to_s_vals = list_join (List.concat (List.map doOpS dlist)) in
         join s_to_d_vals d_to_s_vals
-    in {res with cache = CA.elapse res.cache time_instr}
+
+    in {res with traces = T.elapse res.traces time_instr}
   ) with Bottom -> failwith "MemAD.memop: Bottom in memAD after an operation on non bottom env"
 
   (** Same as [memop] except that we deal with 8-bit instructions *)
@@ -281,7 +285,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
         let doOp (s,mks,es) = List.map (fun (d,mkd,ed) -> let joinds = decide_env dst src ed es in { joinds with vals = F.update_var joinds.vals (consvar_to_var d) (Mask mkd) s (Mask mks) Move }) dlist in
         list_join (List.concat (List.map doOp slist)) 
     | ADexchg -> failwith "MemAD.memopb: XCGHB not implemented"
-    in {res with cache = CA.elapse res.cache time_instr}
+    in {res with traces = T.elapse res.traces time_instr}
   ) with Bottom -> failwith "MemAD.memopb: Bottom in memAD after an operation on non bottom env"
 
   (** Performs the move with zero extend operation. @return a new environment or
@@ -291,7 +295,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     let dlist = var_of_op m dst32 Write in
     let doOp (s, msk, es) = List.map (fun (d,ed) -> let joinds = decide_env dst32 src8 ed es in { joinds with vals = F.update_var joinds.vals (consvar_to_var d) NoMask s (Mask msk) Move }) dlist in
     let res = list_join (List.concat (List.map doOp slist))
-    in {res with cache = CA.elapse res.cache time_instr}
+    in {res with traces = T.elapse res.traces time_instr}
   ) with Bottom -> failwith "MemAD.movzx: bottom after an operation on non bottom environment"
 
   (* flagop: missing ADfset in FlagAD *)
@@ -310,7 +314,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
         list_join (List.concat (List.map doOp slist))
     | ADfset (flg, truth) -> failwith "MemAD.flagop: ADfset not implemented"
   ) with Bottom -> failwith "MemAD.flagop: bottom after an operation on non bottom environment"
-    in {res with cache = CA.elapse res.cache time_instr}
+    in {res with traces = T.elapse res.traces time_instr}
   
   (** Performs the Load Effective Address instruction by loading each possible
     address in the variable correspoding to the register.
@@ -322,7 +326,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     list_join envList
   ) with Bottom -> failwith "MemAD.load_address: bottom after an operation on non bottom environment"
   ) with Is_Top -> let regVar = reg_to_var reg in {env with vals = F.set_var env.vals regVar 0L 0xffffffffL} 
-  in {res with cache = CA.elapse res.cache time_effective_load}
+  in {res with traces = T.elapse res.traces time_effective_load}
 
 
   (* shift : t -> X86Types.shift_op -> op32 -> op8 -> t *)
@@ -333,7 +337,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
     let doOp (o, mk, eo) = List.map (fun (d,ed) -> let joinds = decide_env dst offset ed eo in { joinds with vals = (F.shift joinds.vals sop (consvar_to_var d) o (Mask mk))}) dlist in
     list_join (List.concat (List.map doOp offlist))
   ) with Bottom -> failwith "MemAD.shift: bottom after an operation on non bottom environment"
-    in {res with cache = CA.elapse res.cache time_instr}
+    in {res with traces = T.elapse res.traces time_instr}
 
   (* get_offset: t -> op32 -> (int,t) finite_set *)
   (** Determines a finite list of possible values given a [genop32] with each
@@ -377,11 +381,11 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
           let fsList = List.map read addrList in
           Finite (List.fold_left appendLists [] fsList)
         ) with Is_Top -> Top env)
-  
-  (* we pass teh elapsed time to the cache domain, the only one keeping track of it so far *)
-  let elapse env d = {env with cache = CA.elapse env.cache d}
 
-  let access_readonly env addr = {env with cache = CA.touch env.cache addr}
+  (* we pass teh elapsed time to the traces domain, the only one keeping track of it so far *)
+  let elapse env d = {env with traces = T.elapse env.traces d}
+
+  let access_readonly env addr = {env with traces = T.touch env.traces addr}
         
 end 
 

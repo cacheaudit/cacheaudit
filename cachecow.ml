@@ -22,6 +22,7 @@ let print_ass = ref false
 let analyze = ref false
 let prof = ref false
 let interval_cache = ref false
+let do_traces = ref true
 
 type cache_age_analysis = IntAges | SetAges |
 #ifdef INCLUDE_OCT
@@ -122,6 +123,7 @@ let speclist = [
     ("--oneTimedInterrupt", Arg.Unit (fun () -> analyze:=true; attacker:=OneTimedInterrupt),"attacker that can interrupt only once per round, based on time");
     ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), "Use the same cache for instructios and data.");
     ("--noInstructionCache", Arg.Unit (fun () -> architecture := NoInstructionCache),"Don't take into account the instruction cache");
+    ("--noTraces", Arg.Unit (fun () -> do_traces := false),"Disable tracking of traces (and time)");
   ] 
 
 let _ =
@@ -156,13 +158,14 @@ let _ =
       let mem = read_exec !bin_name in
       (* Setting default values *)
       if !start_addr =(-1) then start_addr:=starting_offset mem;
-      if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := (Int64.of_int 139844135157760);
+      if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := 139844135157760L;
       if !data_cache_s = 0 then data_cache_s := 16384;
       if !data_line_s = 0 then data_line_s := 32;
       if !data_assoc = 0 then data_assoc := 4;
       if !inst_cache_s = 0 then inst_cache_s := !data_cache_s;
       if !inst_line_s = 0 then inst_line_s := !data_line_s;
       if !inst_assoc = 0 then inst_assoc := !data_assoc;
+	  Printf.printf "Cache size %d, line size %d, associativity %d\n" !data_cache_s !data_line_s !data_assoc;
       Printf.printf "Offset of first instruction is 0x%x (%d bytes in the file)\n" 
                 !start_addr !start_addr;
       (get_bits mem), Some mem
@@ -213,7 +216,11 @@ let _ =
 
         in let m = generate_cache prof data_cache_analysis attacker
         in let module Cache = (val m: CACHE_ABSTRACT_DOMAIN) in
-        let module Mem = MemAD.MemAD(FlagAD.FlagsAD)(Cache) in
+        let trcs = if !do_traces then 
+          (module TraceAD.TraceAD(Cache): TRACE_ABSTRACT_DOMAIN)
+        else (module TraceAD.NoTraceAD(Cache)) in
+        let module Traces = (val trcs) in
+        let module Mem = MemAD.MemAD(FlagAD.FlagsAD)(Traces) in
         let module Stack = StackAD.StackAD(Mem) in
         let arch = match !architecture with
             Split -> let m = generate_cache prof inst_cache_analysis attacker in

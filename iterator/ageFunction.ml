@@ -116,6 +116,7 @@ module PairListAgeFunction : AGE_FUNCTION = struct
                      -1 -> (v,i)::af
                   |   0 -> (v,i)::tl
                   |   1 -> (v',i')::add v i tl
+                  |   _ -> failwith "ageFunction: Unimplemented case"
 
   let rec join af1 af2 = 
     match af1,af2 with

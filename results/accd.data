@@ -1,0 +1,33 @@
+	4KB	8KB	16KB	32KB	64KB	128KB	256KB	3072KB
+aes_nosched
+LRU
+Set	35.863	53.209	67.510	69.170	68.000	68.000	68.000	68.000	
+execution time (sec)	458
+IV	35.863	53.209	67.510	69.170	68.000	68.000	68.000	68.000	
+execution time (sec)	425
+FIFO
+Set	35.863	53.209	67.510	69.170	68.000	68.000	68.000	68.000	
+execution time (sec)	929
+IV	35.863	53.209	67.510	69.170	68.000	68.000	68.000	68.000	
+execution time (sec)	945
+PLRU
+Set	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	
+execution time (sec)	503
+IV	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	
+execution time (sec)	486
+aes_nosched_preloading
+LRU
+Set	24.253	0.000	0.000	0.000	0.000	0.000	0.000	0.000	
+execution time (sec)	442
+IV	24.253	0.000	0.000	0.000	0.000	0.000	0.000	0.000	
+execution time (sec)	433
+FIFO
+Set	22.253	0.000	0.000	0.000	0.000	0.000	0.000	0.000	
+execution time (sec)	454
+IV	22.253	0.000	0.000	0.000	0.000	0.000	0.000	0.000	
+execution time (sec)	460
+PLRU
+Set	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	
+execution time (sec)	491
+IV	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	-1.000	
+execution time (sec)	474
