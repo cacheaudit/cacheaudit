@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<link rel="Start" href="index.html">
+<link rel="next" href="ArchitectureAD.JointCacheArchitectureAD.html">
+<link rel="Up" href="ArchitectureAD.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of exceptions" rel=Appendix href="index_exceptions.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Index of module types" rel=Appendix href="index_module_types.html">
+<link title="AsmUtil" rel="Chapter" href="AsmUtil.html">
+<link title="X86Util" rel="Chapter" href="X86Util.html">
+<link title="X86Types" rel="Chapter" href="X86Types.html">
+<link title="X86Print" rel="Chapter" href="X86Print.html">
+<link title="X86Parse" rel="Chapter" href="X86Parse.html">
+<link title="ExecInterfaces" rel="Chapter" href="ExecInterfaces.html">
+<link title="Elf" rel="Chapter" href="Elf.html">
+<link title="Macho" rel="Chapter" href="Macho.html">
+<link title="X86Headers" rel="Chapter" href="X86Headers.html">
+<link title="Cfg" rel="Chapter" href="Cfg.html">
+<link title="Signatures" rel="Chapter" href="Signatures.html">
+<link title="StackAD" rel="Chapter" href="StackAD.html">
+<link title="ValAD" rel="Chapter" href="ValAD.html">
+<link title="SimpleValAD" rel="Chapter" href="SimpleValAD.html">
+<link title="FlagAD" rel="Chapter" href="FlagAD.html">
+<link title="AgeFunction" rel="Chapter" href="AgeFunction.html">
+<link title="AgeFunctionSet" rel="Chapter" href="AgeFunctionSet.html">
+<link title="RelSetMap" rel="Chapter" href="RelSetMap.html">
+<link title="SimpleRelSetAD" rel="Chapter" href="SimpleRelSetAD.html">
+<link title="SimpleProfilingValAD" rel="Chapter" href="SimpleProfilingValAD.html">
+<link title="RelCacheAD" rel="Chapter" href="RelCacheAD.html">
+<link title="AsynchronousAttacker" rel="Chapter" href="AsynchronousAttacker.html">
+<link title="MemAD" rel="Chapter" href="MemAD.html">
+<link title="Iterator" rel="Chapter" href="Iterator.html">
+<link title="ArchitectureAD" rel="Chapter" href="ArchitectureAD.html">
+<link title="Config" rel="Chapter" href="Config.html"><title>ArchitectureAD.SplitCacheArchitectureAD</title>
+</head>
+<body>
+<div class="navbar">&nbsp;<a class="up" href="ArchitectureAD.html" title="ArchitectureAD">Up</a>
+&nbsp;<a class="post" href="ArchitectureAD.JointCacheArchitectureAD.html" title="ArchitectureAD.JointCacheArchitectureAD">Next</a>
+</div>
+<h1>Functor <a href="type_ArchitectureAD.SplitCacheArchitectureAD.html">ArchitectureAD.SplitCacheArchitectureAD</a></h1>
+<pre><span class="keyword">module</span> SplitCacheArchitectureAD: <div class="sig_block"><code class="code">functor (</code><code class="code">C</code><code class="code"> : </code><code class="type"><a href="Signatures.CALL_ABSTRACT_DOMAIN.html">Signatures.CALL_ABSTRACT_DOMAIN</a></code><code class="code">) -&gt; </code><div class="sig_block"><code class="code">functor (</code><code class="code">IC</code><code class="code"> : </code><code class="type"><a href="Signatures.CACHE_ABSTRACT_DOMAIN.html">Signatures.CACHE_ABSTRACT_DOMAIN</a></code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="ArchitectureAD.SplitCacheArchitectureAD.html">..</a> <code class="code">end</code></div></div></pre><table border="0" cellpadding="3" width="100%">
+<tr>
+<td align="left" valign="top" width="1%%"><b>Parameters: </b></td>
+<td>
+<table class="paramstable">
+<tr>
+<td align="center" valign="top" width="15%">
+<code>C</code></td>
+<td align="center" valign="top">:</td>
+<td><code class="type"><a href="Signatures.CALL_ABSTRACT_DOMAIN.html">Signatures.CALL_ABSTRACT_DOMAIN</a></code>
+<tr>
+<td align="center" valign="top" width="15%">
+<code>IC</code></td>
+<td align="center" valign="top">:</td>
+<td><code class="type"><a href="Signatures.CACHE_ABSTRACT_DOMAIN.html">Signatures.CACHE_ABSTRACT_DOMAIN</a></code>
+</table>
+</td>
+</tr>
+</table>
+<hr width="100%">
+<pre><code><span id="TYPEt"><span class="keyword">type</span> <code class="type"></code>t</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTt.call_ad">call_ad</span>&nbsp;:<code class="type">C.t</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTt.inst_ad">inst_ad</span>&nbsp;:<code class="type">IC.t</code>;</code></td>
+
+</tr></table>
+}
+
+
+<pre><span id="VALinit"><span class="keyword">val</span> init</span> : <code class="type"><a href="X86Headers.html#TYPEt">X86Headers.t</a> -><br>       (<a href="X86Types.html#TYPEreg32">X86Types.reg32</a> * int64 * int64) list -><br>       <a href="Signatures.html#TYPEcache_param">Signatures.cache_param</a> -><br>       <a href="Signatures.html#TYPEcache_param">Signatures.cache_param</a> option -><br>       int64 -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALsubs_e"><span class="keyword">val</span> subs_e</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       C.t -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALsubs_finite_set"><span class="keyword">val</span> subs_finite_set</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       ('a, C.t) <a href="Signatures.html#TYPEfinite_set">Signatures.finite_set</a> -><br>       ('a, <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a>) <a href="Signatures.html#TYPEfinite_set">Signatures.finite_set</a></code></pre><pre><span id="VALjoin"><span class="keyword">val</span> join</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALwiden"><span class="keyword">val</span> widen</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALsubseteq"><span class="keyword">val</span> subseteq</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -> bool</code></pre><pre><span id="VALtest"><span class="keyword">val</span> test</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="X86Types.html#TYPEcondition">X86Types.condition</a> -><br>       <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> *<br>       <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a></code></pre><pre><span id="VALget_offset"><span class="keyword">val</span> get_offset</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEop32">Signatures.op32</a> -><br>       (int, <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a>) <a href="Signatures.html#TYPEfinite_set">Signatures.finite_set</a></code></pre><pre><span id="VALmemop"><span class="keyword">val</span> memop</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEmemop">Signatures.memop</a> -><br>       <a href="Signatures.html#TYPEop32">Signatures.op32</a> -><br>       <a href="Signatures.html#TYPEop32">Signatures.op32</a> -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALmemopb"><span class="keyword">val</span> memopb</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEmemop">Signatures.memop</a> -><br>       <a href="Signatures.html#TYPEop8">Signatures.op8</a> -> <a href="Signatures.html#TYPEop8">Signatures.op8</a> -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALmovzx"><span class="keyword">val</span> movzx</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEop32">Signatures.op32</a> -><br>       <a href="Signatures.html#TYPEop8">Signatures.op8</a> -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALflagop"><span class="keyword">val</span> flagop</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEop32">Signatures.op32</a> <a href="Signatures.html#TYPEflagop">Signatures.flagop</a> -><br>       <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALload_address"><span class="keyword">val</span> load_address</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="X86Types.html#TYPEreg32">X86Types.reg32</a> -><br>       <a href="X86Types.html#TYPEaddress">X86Types.address</a> -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALshift"><span class="keyword">val</span> shift</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="X86Types.html#TYPEshift_op">X86Types.shift_op</a> -><br>       <a href="Signatures.html#TYPEop32">Signatures.op32</a> -><br>       <a href="Signatures.html#TYPEop8">Signatures.op8</a> -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALstackop"><span class="keyword">val</span> stackop</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEstackop">Signatures.stackop</a> -><br>       <a href="Signatures.html#TYPEop32">Signatures.op32</a> -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALcall"><span class="keyword">val</span> call</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEop32">Signatures.op32</a> -><br>       int -> (int, <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a>) <a href="Signatures.html#TYPEfinite_set">Signatures.finite_set</a></code></pre><pre><span id="VALreturn"><span class="keyword">val</span> return</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       (int, <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a>) <a href="Signatures.html#TYPEfinite_set">Signatures.finite_set</a></code></pre><pre><span id="VALprint"><span class="keyword">val</span> print</span> : <code class="type">Format.formatter -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -> unit</code></pre><pre><span id="VALprint_delta"><span class="keyword">val</span> print_delta</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       Format.formatter -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -> unit</code></pre><pre><span id="VALelapse"><span class="keyword">val</span> elapse</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       int -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre><pre><span id="VALread_instruction"><span class="keyword">val</span> read_instruction</span> : <code class="type"><a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a> -><br>       int -> <a href="ArchitectureAD.SplitCacheArchitectureAD.html#TYPEt">t</a></code></pre></body></html>

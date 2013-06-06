@@ -1,0 +1,177 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<link rel="Start" href="index.html">
+<link rel="previous" href="MemAD.html">
+<link rel="next" href="ArchitectureAD.html">
+<link rel="Up" href="index.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of exceptions" rel=Appendix href="index_exceptions.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Index of module types" rel=Appendix href="index_module_types.html">
+<link title="AsmUtil" rel="Chapter" href="AsmUtil.html">
+<link title="X86Util" rel="Chapter" href="X86Util.html">
+<link title="X86Types" rel="Chapter" href="X86Types.html">
+<link title="X86Print" rel="Chapter" href="X86Print.html">
+<link title="X86Parse" rel="Chapter" href="X86Parse.html">
+<link title="ExecInterfaces" rel="Chapter" href="ExecInterfaces.html">
+<link title="Elf" rel="Chapter" href="Elf.html">
+<link title="Macho" rel="Chapter" href="Macho.html">
+<link title="X86Headers" rel="Chapter" href="X86Headers.html">
+<link title="Cfg" rel="Chapter" href="Cfg.html">
+<link title="Signatures" rel="Chapter" href="Signatures.html">
+<link title="StackAD" rel="Chapter" href="StackAD.html">
+<link title="ValAD" rel="Chapter" href="ValAD.html">
+<link title="SimpleValAD" rel="Chapter" href="SimpleValAD.html">
+<link title="FlagAD" rel="Chapter" href="FlagAD.html">
+<link title="AgeFunction" rel="Chapter" href="AgeFunction.html">
+<link title="AgeFunctionSet" rel="Chapter" href="AgeFunctionSet.html">
+<link title="RelSetMap" rel="Chapter" href="RelSetMap.html">
+<link title="SimpleRelSetAD" rel="Chapter" href="SimpleRelSetAD.html">
+<link title="SimpleProfilingValAD" rel="Chapter" href="SimpleProfilingValAD.html">
+<link title="RelCacheAD" rel="Chapter" href="RelCacheAD.html">
+<link title="AsynchronousAttacker" rel="Chapter" href="AsynchronousAttacker.html">
+<link title="MemAD" rel="Chapter" href="MemAD.html">
+<link title="Iterator" rel="Chapter" href="Iterator.html">
+<link title="ArchitectureAD" rel="Chapter" href="ArchitectureAD.html">
+<link title="Config" rel="Chapter" href="Config.html"><title>Iterator</title>
+</head>
+<body>
+<div class="navbar"><a class="pre" href="MemAD.html" title="MemAD">Previous</a>
+&nbsp;<a class="up" href="index.html" title="Index">Up</a>
+&nbsp;<a class="post" href="ArchitectureAD.html" title="ArchitectureAD">Next</a>
+</div>
+<h1>Module <a href="type_Iterator.html">Iterator</a></h1>
+<pre><span class="keyword">module</span> Iterator: <code class="code">sig</code> <a href="Iterator.html">..</a> <code class="code">end</code></pre><hr width="100%">
+<pre><span id="VALverbose"><span class="keyword">val</span> verbose</span> : <code class="type">bool Pervasives.ref</code></pre><pre><span id="VALtrace"><span class="keyword">val</span> trace</span> : <code class="type">bool Pervasives.ref</code></pre><pre><span id="VALunroll_count"><span class="keyword">val</span> unroll_count</span> : <code class="type">int Pervasives.ref</code></pre><pre><span id="VALunroll_outer_loop"><span class="keyword">val</span> unroll_outer_loop</span> : <code class="type">bool Pervasives.ref</code></pre><pre><span id="VALtime_skip"><span class="keyword">val</span> time_skip</span> : <code class="type">int</code></pre><pre><span id="VALtime_jmp"><span class="keyword">val</span> time_jmp</span> : <code class="type">int</code></pre><pre><code><span id="TYPEwto"><span class="keyword">type</span> <code class="type">'a</code> wto</span> = </code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTwto.Linear"><span class="constructor">Linear</span></span> <span class="keyword">of</span> <code class="type"><a href="Cfg.html#TYPEbasicblock">Cfg.basicblock</a> * 'a <a href="Iterator.html#TYPEwto">wto</a></code></code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTwto.SubWto"><span class="constructor">SubWto</span></span> <span class="keyword">of</span> <code class="type">'a <a href="Iterator.html#TYPEiteration">iteration</a></code></code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTwto.EmptyWto"><span class="constructor">EmptyWto</span></span></code></td>
+
+</tr></table>
+
+
+<pre><code><span id="TYPEiteration"><span class="keyword">type</span> <code class="type">'a</code> iteration</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTiteration.head_invariant">head_invariant</span>&nbsp;:<code class="type">'a <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a></code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTiteration.head_block">head_block</span>&nbsp;:<code class="type"><a href="Cfg.html#TYPEbasicblock">Cfg.basicblock</a></code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTiteration.inner_wto">inner_wto</span>&nbsp;:<code class="type">'a <a href="Iterator.html#TYPEwto">wto</a></code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTiteration.next_wto">next_wto</span>&nbsp;:<code class="type">'a <a href="Iterator.html#TYPEwto">wto</a></code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTiteration.unroll_count">unroll_count</span>&nbsp;:<code class="type">int</code>;</code></td>
+
+</tr></table>
+}
+
+
+<pre><span class="keyword">module</span> <a href="Iterator.BlockMap.html">BlockMap</a>: <code class="type">Map.Make</code><code class="code">(</code><code class="code">sig</code><div class="sig_block"><pre><span id="TYPEt"><span class="keyword">type</span> <code class="type"></code>t</span> = <code class="type"><a href="Cfg.html#TYPEbasicblock">Cfg.basicblock</a></code> </pre>
+
+<pre><span id="VALcompare"><span class="keyword">val</span> compare</span> : <code class="type"><a href="Cfg.html#TYPEbasicblock">Cfg.basicblock</a> -> <a href="Cfg.html#TYPEbasicblock">Cfg.basicblock</a> -> int</code></pre></div><code class="code">end</code><code class="code">)</code></pre><pre><span id="VALhead_until"><span class="keyword">val</span> head_until</span> : <code class="type">'a -> 'a list -> 'a list</code></pre><pre><code><span id="TYPEgraph_visit_tag"><span class="keyword">type</span> <code class="type"></code>graph_visit_tag</span> = </code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTgraph_visit_tag.NotSeen"><span class="constructor">NotSeen</span></span></code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTgraph_visit_tag.Visit"><span class="constructor">Visit</span></span> <span class="keyword">of</span> <code class="type">int</code></code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTgraph_visit_tag.Visited"><span class="constructor">Visited</span></span></code></td>
+
+</tr></table>
+
+
+<pre><code><span id="TYPEtarjan"><span class="keyword">type</span> <code class="type">'a</code> tarjan</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTtarjan.head">head</span>&nbsp;:<code class="type">int</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTtarjan.tags">tags</span>&nbsp;:<code class="type"><a href="Iterator.html#TYPEgraph_visit_tag">graph_visit_tag</a> BlockMap.t</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTtarjan.counter">counter</span>&nbsp;:<code class="type">int</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTtarjan.seen">seen</span>&nbsp;:<code class="type"><a href="Cfg.html#TYPEbasicblock">Cfg.basicblock</a> list</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTtarjan.wto">wto</span>&nbsp;:<code class="type">'a <a href="Iterator.html#TYPEwto">wto</a></code>;</code></td>
+
+</tr></table>
+}
+
+
+<pre><span id="VALvisit"><span class="keyword">val</span> visit</span> : <code class="type">int -><br>       <a href="Iterator.html#TYPEgraph_visit_tag">graph_visit_tag</a> BlockMap.t -><br>       BlockMap.key list -><br>       BlockMap.key -> 'a <a href="Iterator.html#TYPEwto">wto</a> -> 'a <a href="Iterator.html#TYPEtarjan">tarjan</a></code></pre><pre><span id="VALcomponent"><span class="keyword">val</span> component</span> : <code class="type">int -><br>       <a href="Iterator.html#TYPEgraph_visit_tag">graph_visit_tag</a> BlockMap.t -><br>       BlockMap.key list -> BlockMap.key -> 'a <a href="Iterator.html#TYPEtarjan">tarjan</a></code></pre><pre><span id="VALtarjan"><span class="keyword">val</span> tarjan</span> : <code class="type">BlockMap.key list -> 'a <a href="Iterator.html#TYPEwto">wto</a></code></pre><pre><span id="VALdont_unroll_outer"><span class="keyword">val</span> dont_unroll_outer</span> : <code class="type">'a <a href="Iterator.html#TYPEwto">wto</a> -> 'a <a href="Iterator.html#TYPEwto">wto</a></code></pre><pre><span class="keyword">module</span> <a href="Iterator.Build.html">Build</a>: <div class="sig_block"><code class="code">functor (</code><code class="code">A</code><code class="code"> : </code><code class="type"><a href="Signatures.ARCHITECTURE_ABSTRACT_DOMAIN.html">Signatures.ARCHITECTURE_ABSTRACT_DOMAIN</a></code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Iterator.Build.html">..</a> <code class="code">end</code></div></pre></body></html>

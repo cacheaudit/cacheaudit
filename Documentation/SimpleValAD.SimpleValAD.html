@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<link rel="Start" href="index.html">
+<link rel="previous" href="SimpleValAD.SimpleVAD.html">
+<link rel="next" href="SimpleValAD.SimpleIntervalAD.html">
+<link rel="Up" href="SimpleValAD.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of exceptions" rel=Appendix href="index_exceptions.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Index of module types" rel=Appendix href="index_module_types.html">
+<link title="AsmUtil" rel="Chapter" href="AsmUtil.html">
+<link title="X86Util" rel="Chapter" href="X86Util.html">
+<link title="X86Types" rel="Chapter" href="X86Types.html">
+<link title="X86Print" rel="Chapter" href="X86Print.html">
+<link title="X86Parse" rel="Chapter" href="X86Parse.html">
+<link title="ExecInterfaces" rel="Chapter" href="ExecInterfaces.html">
+<link title="Elf" rel="Chapter" href="Elf.html">
+<link title="Macho" rel="Chapter" href="Macho.html">
+<link title="X86Headers" rel="Chapter" href="X86Headers.html">
+<link title="Cfg" rel="Chapter" href="Cfg.html">
+<link title="Signatures" rel="Chapter" href="Signatures.html">
+<link title="StackAD" rel="Chapter" href="StackAD.html">
+<link title="ValAD" rel="Chapter" href="ValAD.html">
+<link title="SimpleValAD" rel="Chapter" href="SimpleValAD.html">
+<link title="FlagAD" rel="Chapter" href="FlagAD.html">
+<link title="AgeFunction" rel="Chapter" href="AgeFunction.html">
+<link title="AgeFunctionSet" rel="Chapter" href="AgeFunctionSet.html">
+<link title="RelSetMap" rel="Chapter" href="RelSetMap.html">
+<link title="SimpleRelSetAD" rel="Chapter" href="SimpleRelSetAD.html">
+<link title="SimpleProfilingValAD" rel="Chapter" href="SimpleProfilingValAD.html">
+<link title="RelCacheAD" rel="Chapter" href="RelCacheAD.html">
+<link title="AsynchronousAttacker" rel="Chapter" href="AsynchronousAttacker.html">
+<link title="MemAD" rel="Chapter" href="MemAD.html">
+<link title="Iterator" rel="Chapter" href="Iterator.html">
+<link title="ArchitectureAD" rel="Chapter" href="ArchitectureAD.html">
+<link title="Config" rel="Chapter" href="Config.html"><title>SimpleValAD.SimpleValAD</title>
+</head>
+<body>
+<div class="navbar"><a class="pre" href="SimpleValAD.SimpleVAD.html" title="SimpleValAD.SimpleVAD">Previous</a>
+&nbsp;<a class="up" href="SimpleValAD.html" title="SimpleValAD">Up</a>
+&nbsp;<a class="post" href="SimpleValAD.SimpleIntervalAD.html" title="SimpleValAD.SimpleIntervalAD">Next</a>
+</div>
+<h1>Module <a href="type_SimpleValAD.SimpleValAD.html">SimpleValAD.SimpleValAD</a></h1>
+<pre><span class="keyword">module</span> SimpleValAD: <code class="type"><a href="SimpleValAD.SimpleVAD.html">SimpleVAD</a></code><code class="code">(</code><code class="type"><a href="ValAD.ValAD.html">ValAD.ValAD</a></code><code class="code">)</code></pre><hr width="100%">
+<pre><code><span id="TYPEt"><span class="keyword">type</span> <code class="type"></code>t</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTt.val_ad">val_ad</span>&nbsp;:<code class="type">V.t</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTt.maxval">maxval</span>&nbsp;:<code class="type">int</code>;</code></td>
+
+</tr></table>
+}
+
+
+<pre><span id="VALinit_with_max"><span class="keyword">val</span> init_with_max</span> : <code class="type">(<a href="Signatures.html#TYPEvar">Signatures.var</a> -> string) -> int -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a></code></pre><pre><span id="VALjoin"><span class="keyword">val</span> join</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a></code></pre><pre><span id="VALflatten"><span class="keyword">val</span> flatten</span> : <code class="type">V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> * V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> *<br>       V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> * V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> -> V.t</code></pre><pre><span id="VALvcomp"><span class="keyword">val</span> vcomp</span> : <code class="type">V.t -><br>       <a href="Signatures.html#TYPEcons_var">Signatures.cons_var</a> -><br>       <a href="Signatures.html#TYPEcons_var">Signatures.cons_var</a> -><br>       V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> * V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> *<br>       V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a></code></pre><pre><span id="VALvguard"><span class="keyword">val</span> vguard</span> : <code class="type">V.t -><br>       <a href="Signatures.html#TYPEvar">Signatures.var</a> -><br>       int -><br>       V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> * V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> *<br>       V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a></code></pre><pre><span id="VALinc_var"><span class="keyword">val</span> inc_var</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> <a href="Signatures.html#TYPEvar">Signatures.var</a> -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a></code></pre><pre><span id="VALget_keys"><span class="keyword">val</span> get_keys</span> : <code class="type">'a Signatures.ValMap.t -> Signatures.ValMap.key list</code></pre><pre><span id="VALset_var"><span class="keyword">val</span> set_var</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> <a href="Signatures.html#TYPEvar">Signatures.var</a> -> int -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a></code></pre><pre><span id="VALlist_max"><span class="keyword">val</span> list_max</span> : <code class="type">int64 list -> int64</code></pre><pre><span id="VALvNewEnv"><span class="keyword">val</span> vNewEnv</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -><br>       V.t <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a></code></pre><pre><span id="VALcomp"><span class="keyword">val</span> comp</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEvar">Signatures.var</a> -><br>       <a href="Signatures.html#TYPEvar">Signatures.var</a> -><br>       <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> *<br>       <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a></code></pre><pre><span id="VALcomp_with_val"><span class="keyword">val</span> comp_with_val</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEvar">Signatures.var</a> -><br>       int -><br>       <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a> *<br>       <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a></code></pre><pre><span id="VALexact_val"><span class="keyword">val</span> exact_val</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEvar">Signatures.var</a> -> int -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> <a href="Signatures.html#TYPEadd_bottom">Signatures.add_bottom</a></code></pre><pre><span id="VALpermute"><span class="keyword">val</span> permute</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -><br>       (int -> int) -> <a href="Signatures.html#TYPEvar">Signatures.var</a> -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a></code></pre><pre><span id="VALprint_delta"><span class="keyword">val</span> print_delta</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -><br>       Format.formatter -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> unit</code></pre><pre><span id="VALprint"><span class="keyword">val</span> print</span> : <code class="type">Format.formatter -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> unit</code></pre><pre><span id="VALsubseteq"><span class="keyword">val</span> subseteq</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> bool</code></pre><pre><span id="VALwiden"><span class="keyword">val</span> widen</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a></code></pre><pre><span id="VALget_var"><span class="keyword">val</span> get_var</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -><br>       <a href="Signatures.html#TYPEvar">Signatures.var</a> -><br>       <a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> Signatures.ValMap.t <a href="Signatures.html#TYPEadd_top">Signatures.add_top</a></code></pre><pre><span id="VALis_var"><span class="keyword">val</span> is_var</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> <a href="Signatures.html#TYPEvar">Signatures.var</a> -> bool</code></pre><pre><span id="VALget_values"><span class="keyword">val</span> get_values</span> : <code class="type"><a href="SimpleValAD.SimpleVAD.html#TYPEt">t</a> -> <a href="Signatures.html#TYPEvar">Signatures.var</a> -> int list</code></pre></body></html>
