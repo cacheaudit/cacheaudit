@@ -90,9 +90,8 @@ dep:
 include depend
 
 doc:
-	-ocamldoc -latex -o documentation.tex $(OCAMLINCLUDE) $(ML_FILES)
-	pdflatex documentation.tex
-	pdflatex documentation.tex
+	-ocamldoc -html -d Documentation/ $(OCAMLINCLUDE) $(ML_FILES)
+
 
 
 .PHONY: all clean dep
