@@ -174,7 +174,11 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
     Format.fprintf fmt "\nNumber of valid cache configurations (blurred): 
       0x%Lx, that is %f bits.\n" (sum bl_num_cstates) (log_sum bl_num_cstates)
  
-  let count_cache_states cache = failwith "Function not used"
+  let count_cache_states cache = 
+    let num_cstates,bl_num_cstates = cache_states_per_set cache in
+    match !adversary with
+    | Blurred -> bl_num_cstates
+    | SharedSpace -> num_cstates
 
   let var_to_string x = Printf.sprintf "%Lx" x 
   
