@@ -120,7 +120,7 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
             loop (n-1) (AddrSet.remove addr elements) (addr::tuple) s) 
             elements s in 
         loop n addr_set [] 0
-    end else 0
+    end else 0 
 
   (* Checks if the given cache state is valid *)
   (* with respect to the ages defined in cache.ages. *)
@@ -175,10 +175,10 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
       0x%Lx, that is %f bits.\n" (sum bl_num_cstates) (log_sum bl_num_cstates)
  
   let count_cache_states cache = 
-    let num_cstates,bl_num_cstates = cache_states_per_set cache in
+    let nums_cstates,bl_nums_cstates = cache_states_per_set cache in
     match !adversary with
-    | Blurred -> bl_num_cstates
-    | SharedSpace -> num_cstates
+    | Blurred -> big_int_of_int64 (sum bl_nums_cstates)
+    | SharedSpace -> big_int_of_int64 (sum nums_cstates)
 
   let var_to_string x = Printf.sprintf "%Lx" x 
   
