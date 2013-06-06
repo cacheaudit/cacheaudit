@@ -17,7 +17,11 @@ let analyze = ref false
 let prof = ref false
 let interval_cache = ref false
 
-type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
+type cache_age_analysis = IntAges | SetAges |
+#ifdef INCLUDE_OCT
+ OctAges |
+#endif
+RelAges
 
 let cache_analysis = ref SetAges
 
@@ -68,7 +72,9 @@ let speclist = [
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--noOuterUnroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), "overwrites the --unroll option, so that outer loops are not unrolled");
     ("-f", Arg.String anon_fun,                      "give the name of the binary file");
+#ifdef INCLUDE_OCT
     ("--oct", Arg.Unit (fun () -> cache_analysis := OctAges), "use the octagon abstract domain for the cache.") ;
+#endif
     ("--interval-cache", Arg.Unit (fun () -> cache_analysis := IntAges), "use the interval abstract domain for the cache.") ;
     ("--rset", Arg.Unit (fun () -> cache_analysis := RelAges), "use the relational set abstract domain for the cache.") ;
     ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.");
@@ -134,12 +140,16 @@ let _ =
         SimpleOctAD.OctAD.set_bin_name !bin_name; *)
         let m = 
           if !prof then match !cache_analysis with
+#ifdef INCLUDE_OCT
             OctAges -> (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN)
+#endif
           | RelAges ->  (module CacheAD.ProfRelSetCacheAD  : CACHE_ABSTRACT_DOMAIN)
           | SetAges -> (module CacheAD.ProfSimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
           | IntAges -> failwith "Profiling for interval-based cache analysis not implemented\n"
         else match !cache_analysis with
+#ifdef INCLUDE_OCT
             OctAges -> (module CacheAD.OctCacheAD : CACHE_ABSTRACT_DOMAIN)
+#endif
           | RelAges -> (module RelCacheAD.RelSetCacheAD : CACHE_ABSTRACT_DOMAIN)
           | SetAges -> (module CacheAD.SimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
           | IntAges -> (module CacheAD.IntervalCacheAD : CACHE_ABSTRACT_DOMAIN)

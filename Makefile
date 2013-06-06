@@ -1,4 +1,13 @@
-OCAMLC= ocamlc.opt -g -dtypes
+PREPROCESSOR= gcc -E -P -C -w
+
+ifneq ($(or $(oct),$(OCT)),)
+        PREPROCESSOR += -DINCLUDE_OCT
+endif
+
+PREPROCESSOR += -x c
+
+OCAMLC= ocamlc.opt -dtypes -pp "${PREPROCESSOR}"
+OCAMLDEP= ocamldep -pp "${PREPROCESSOR}"
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
 
@@ -8,6 +17,11 @@ OCAMLLIB= nums.cma
 
 #OCT_INCLUDE= $(shell oct-config --mlflags | sed 's/_iag//')
 OCT_INCLUDE= $(shell oct-config --mlflags)
+
+ifneq ($(or $(debug),$(DEBUG)),)
+        OCAMLC += -g
+endif
+
 
 ML_FILES := \
 	x86_frontend/asmUtil.ml \
@@ -34,7 +48,7 @@ ML_FILES := \
 	iterator/simpleProfilingValAD.ml\
 	iterator/cacheAD.ml\
 	iterator/relCacheAD.ml\
-        iterator/asynchronousAttacker.ml\
+	iterator/asynchronousAttacker.ml\
 	iterator/memAD.ml\
 	iterator/iterator.ml\
 	config.ml
@@ -66,7 +80,7 @@ clean:
 	rm -f depend cachecow */*.cmo */*.cmi */*~ *.cmo *.cmi *~ *.annot */*.annot
 
 depend: 
-	ocamldep $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli > depend
+	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli > depend
 
 dep:
 	rm -f depend
