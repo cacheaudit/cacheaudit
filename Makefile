@@ -5,18 +5,28 @@ ifneq ($(or $(oct),$(OCT)),)
 endif
 
 PREPROCESSOR += -x c
+#OCT_INCLUDE= $(shell oct-config --mlflags | sed 's/_iag//')
 
-OCAMLC= ocamlc.opt -dtypes -pp "${PREPROCESSOR}"
-OCAMLDEP= ocamldep -pp "${PREPROCESSOR}"
+ifneq ($(or $(opt),$(OPT)),)
+	OCAMLC = ocamlopt.opt
+	OCT_INCLUDE= $(shell oct-config --mlflags --with-ocamlopt)
+	OCAMLLIB= $(OCAMLLIB_STD:.cma=.cmxa)
+	CMO_FILES= $(ML_FILES:%.ml=%.cmx)
+	DEP_FLAGS= -native
+else
+	OCAMLC = ocamlc.opt
+	OCT_INCLUDE= $(shell oct-config --mlflags)
+	OCAMLLIB= $(OCAMLLIB_STD)
+	CMO_FILES= $(ML_FILES:%.ml=%.cmo)
+endif
+
+OCAMLC += -dtypes -pp "${PREPROCESSOR}"
+OCAMLDEP= ocamldep -pp "${PREPROCESSOR}" $(DEP_FLAGS)
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
 
 OCAMLINCLUDE:= -I x86_frontend -I iterator
-
-OCAMLLIB= nums.cma
-
-#OCT_INCLUDE= $(shell oct-config --mlflags | sed 's/_iag//')
-OCT_INCLUDE= $(shell oct-config --mlflags)
+OCAMLLIB_STD= nums.cma str.cma
 
 ifneq ($(or $(debug),$(DEBUG)),)
         OCAMLC += -g
@@ -72,13 +82,14 @@ all: cachecow
 %.cmo: %.ml
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCT_INCLUDE) -c $*.ml
 
-CMO_FILES= $(ML_FILES:%.ml=%.cmo)
+%.cmx: %.ml
+	$(OCAMLC) $(OCAMLINCLUDE) $(OCT_INCLUDE) -c $*.ml
 
 cachecow: $(CMO_FILES) cachecow.ml
-	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) str.cma $(OCT_INCLUDE) -o $@ $+
+	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) $(OCT_INCLUDE) -o $@ $+
 
 clean:
-	rm -f depend cachecow */*.cmo */*.cmi */*~ *.cmo *.cmi *~ *.annot */*.annot */*.html */*.css
+	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css
 
 depend: 
 	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli > depend
@@ -92,6 +103,13 @@ include depend
 doc:
 	-ocamldoc -html -colorize-code  -d Documentation/ $(OCAMLINCLUDE) $(ML_FILES)
 
+help:
+	@echo "usage:"
+	@echo "  - make         : Compile with ocamlc compiler without debug and without octagon library."
+	@echo "  - make opt=1   : Compile with the optimized native code compiler."
+	@echo "  - make debug=1 : Compile with debug flags."
+	@echo "  - make oct=1   : Compile including the octagon abstract domain library."
+	@echo "  - make doc     : Compile documentation."
+	@echo "  - make help    : Show this dialog."
 
-
-.PHONY: all clean dep
+.PHONY: all clean dep help
