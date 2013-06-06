@@ -192,6 +192,7 @@ module Build(A:ARCHITECTURE_ABSTRACT_DOMAIN) = struct
       | Movb(x,y) -> ftrace (A.memopb inv ADmov x y)
       | Movzx(x,y) -> ftrace (A.movzx inv x y)
       | Exchange(x,y) -> ftrace (A.memop inv ADexchg (Reg x) (Reg y))
+      (*
       (* DIV (unsigned divide): makes (1) EAX = EAX / operand;
                                       (2) EDX = EAX % operand;
         we translate it into EDX = EAX; EAX /= operand; EDX %= operand *)
@@ -199,6 +200,7 @@ module Build(A:ARCHITECTURE_ABSTRACT_DOMAIN) = struct
         let inv = interpret_instruction inv (addr,Mov(Reg EDX, Reg EAX)) in
         let inv = interpret_instruction inv (addr,Arith(ADiv, Reg EAX,x)) in
         interpret_instruction inv (addr,Arith(ARem, Reg EDX,x))
+      *)
       | Pop x -> ftrace (A.stackop inv ADpop x)
       | Push x -> ftrace (A.stackop inv ADpush x)
       | Shift(op,x,y) -> ftrace (A.shift inv op x y)
@@ -225,7 +227,7 @@ module Build(A:ARCHITECTURE_ABSTRACT_DOMAIN) = struct
       List.fold_left (fun res (ad,ad_inv) -> 
         (try (find_out_edge oe ad, ad_inv)::res
          with Not_found -> res) ) [] output
-
+  
   (* returns a list of out_edges * non-empty env for that edge *)
   let interpret_block inv b = 
     if !trace then Format.printf "Entering block %a@\n" pp_block_header b;
@@ -236,7 +238,8 @@ module Build(A:ARCHITECTURE_ABSTRACT_DOMAIN) = struct
       [] -> assert(b.content = []);[] (*we only have error and final blocks that don't have out edges. TODO: treat the Halt instruction... *)
     | [oe] -> (match b.jump_command with
         None -> [oe,last_inv]
-      | Some(Jmp _) -> [oe,A.elapse last_inv time_jmp]
+      | Some(Jmp _) ->
+        [oe,A. elapse last_inv time_jmp]
       | Some(Call addr) ->
           out_invs b.out_edges (A.call last_inv addr b.next_block_addr)
       | Some Ret -> out_invs b.out_edges (A.return last_inv)

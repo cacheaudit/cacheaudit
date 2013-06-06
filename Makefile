@@ -56,6 +56,7 @@ ML_FILES := \
 	iterator/relSetMap.ml\
 	iterator/simpleRelSetAD.ml\
 	iterator/simpleProfilingValAD.ml\
+	iterator/traceAD.ml\
 	iterator/cacheAD.ml\
 	iterator/relCacheAD.ml\
 	iterator/asynchronousAttacker.ml\
@@ -88,7 +89,7 @@ all: cachecow
 cachecow: $(CMO_FILES) cachecow.ml
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) $(OCT_INCLUDE) -o $@ $+
 
-clean:
+clean: 
 	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css
 
 depend: 

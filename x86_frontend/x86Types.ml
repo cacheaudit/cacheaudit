@@ -221,8 +221,8 @@ type arith_op =
   | Sub
   | Subb (* Sub with borrow *)
   | Xor
-  | ADiv
-  | ARem
+  (* | ADiv *)
+  (* | ARem *)
 
 (** Bitwise shift operations *)
 type shift_op =
@@ -245,7 +245,7 @@ type instr =
   | Jcc of cc * int64
   | Jmp of genop32
   | Lea of reg32 * address
-  | Div of genop32
+  (* | Div of genop32 *)
   | Leave
   | Mov of genop32 * genop32
   | Movb of genop8 * genop8
