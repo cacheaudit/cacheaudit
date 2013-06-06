@@ -1,3 +1,4 @@
+#ifdef INCLUDE_OCT
 open Printf
 open Signatures
 
@@ -385,7 +386,7 @@ module OctagonAD (Oct: OCT64): VALUE_ABSTRACT_DOMAIN = struct
       failwith "Variable in get_var has not been initialized using set_var."
 end
 
-
+#endif
 
 
 
