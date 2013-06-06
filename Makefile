@@ -78,7 +78,7 @@ cachecow: $(CMO_FILES) cachecow.ml
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) str.cma $(OCT_INCLUDE) -o $@ $+
 
 clean:
-	rm -f depend cachecow */*.cmo */*.cmi */*~ *.cmo *.cmi *~ *.annot */*.annot
+	rm -f depend cachecow */*.cmo */*.cmi */*~ *.cmo *.cmi *~ *.annot */*.annot */*.html */*.css
 
 depend: 
 	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli > depend
@@ -90,7 +90,7 @@ dep:
 include depend
 
 doc:
-	-ocamldoc -html -css-style style.css -colorize-code  -d Documentation/ $(OCAMLINCLUDE) $(ML_FILES)
+	-ocamldoc -html -colorize-code  -d Documentation/ $(OCAMLINCLUDE) $(ML_FILES)
 
 
 
