@@ -90,7 +90,7 @@ dep:
 include depend
 
 doc:
-	-ocamldoc -html -d Documentation/ $(OCAMLINCLUDE) $(ML_FILES)
+	-ocamldoc -html -css-style style.css -colorize-code  -d Documentation/ $(OCAMLINCLUDE) $(ML_FILES)
 
 
 
