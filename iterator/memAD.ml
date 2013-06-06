@@ -380,6 +380,8 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (CA : CACHE_ABSTRACT_DOMAIN) : MEMORY_AB
   
   (* we pass teh elapsed time to the cache domain, the only one keeping track of it so far *)
   let elapse env d = {env with cache = CA.elapse env.cache d}
+
+  let access_readonly env addr = {env with cache = CA.touch env.cache addr}
         
 end 
 

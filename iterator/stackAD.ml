@@ -69,6 +69,8 @@ module StackAD (M: MEMORY_ABSTRACT_DOMAIN) : CALL_ABSTRACT_DOMAIN = struct
 
   (* keep track of time *)
   let elapse = M.elapse
+
+  let access_readonly = M.access_readonly 
 end 
 
 

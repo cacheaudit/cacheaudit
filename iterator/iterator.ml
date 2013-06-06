@@ -139,10 +139,10 @@ let rec dont_unroll_outer = function
                             next_wto = dont_unroll_outer i.next_wto}
 | EmptyWto -> EmptyWto
 
-module Build(C:CALL_ABSTRACT_DOMAIN) = struct
+module Build(A:ARCHITECTURE_ABSTRACT_DOMAIN) = struct
   
   let print fmt bm = BlockMap.iter (fun b env -> 
-      Format.fprintf fmt "@[Incoming block %a@\n %a@]" pp_block_header b C.print env)
+      Format.fprintf fmt "@[Incoming block %a@\n %a@]" pp_block_header b A.print env)
       bm
 
   open X86Types
@@ -150,64 +150,68 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
   (* binary operations on possibly bottom elements for the domain C *)
   let widen x y = match x with
     Bot -> y
-  | Nb x -> C.widen x y
+  | Nb x -> A.widen x y
 
   let subseteq x y = match y with
     Bot -> false
-  | Nb y -> C.subseteq x y
+  | Nb y -> A.subseteq x y
 
   let op32_one = ((X86Types.Imm Int64.one):op32)
 
-  (* interpret_instruction interpret the effect of all non jump instructions over
-  * an incoming non-bottom environment *)
-  (* may raise Bottom *)
-  let rec interpret_instruction inv (addr, inst) = try (
-    let ftrace inv2 = if !trace then 
-        Format.printf "@[<v 2>%a %a @, %a@]@."
-        pp_block_addr addr X86Print.pp_instr inst (C.print_delta inv) inv2;
-        inv2 in
-    match inst with
-      Arith(op, x, y) -> ftrace (
-        match op with
-          CmpOp -> C.flagop inv (ADcmp(x,y))
-        | _ -> C.memop inv (ADarith op) x y
-      )
-    | Arithb(op, x, y) -> ftrace (
-            match op with
-              CmpOp -> failwith "8-bit CMP not implemented"
-            | _ -> C.memopb inv (ADarith op) x y
-      )
-    | Cmp(x, y) -> ftrace (C.flagop inv (ADcmp(x,y)))
-    | Test(x, y) -> ftrace (C.flagop inv (ADtest(x,y)))
-    | Inc x -> interpret_instruction inv (addr,Arith(Add, x, op32_one)) (*TODO: check that the effect on flags is correct *)
-    | Dec x -> interpret_instruction inv (addr,Arith(Sub, x, op32_one))
-    | Lea(r,a) -> ftrace (C.load_address inv r a)
-    | Leave -> 
-        let inv = interpret_instruction inv (addr,Mov(Reg ESP, Reg EBP)) in
-        interpret_instruction inv (addr,Pop(Reg EBP))
-    | Mov(x,y) -> ftrace (C.memop inv ADmov x y)
-    | Movb(x,y) -> ftrace (C.memopb inv ADmov x y)
-    | Movzx(x,y) -> ftrace (C.movzx inv x y)
-    | Exchange(x,y) -> ftrace (C.memop inv ADexchg (Reg x) (Reg y))
-    (* DIV (unsigned divide): makes (1) EAX = EAX / operand;
-                                    (2) EDX = EAX % operand;
-      we translate it into EDX = EAX; EAX /= operand; EDX %= operand *)
-    | Div x -> 
-      let inv = interpret_instruction inv (addr,Mov(Reg EDX, Reg EAX)) in
-      let inv = interpret_instruction inv (addr,Arith(ADiv, Reg EAX,x)) in
-      interpret_instruction inv (addr,Arith(ARem, Reg EDX,x))
-    | Pop x -> ftrace (C.stackop inv ADpop x)
-    | Push x -> ftrace (C.stackop inv ADpush x)
-    | Shift(op,x,y) -> ftrace (C.shift inv op x y)
-    | Halt -> if !trace then 
-            Format.printf "Just before Halt, we have %a\n" C.print inv;
-            raise Bottom
-    | Skip -> ftrace (C.elapse inv time_skip)
-    | FlagSet(f,b) -> ftrace (C.flagop inv (ADfset(f,b)))
-    | Call _ | Jcc _ | Jmp _ | _ -> failwith "Jump instruction in interpret_instruction\n"
-    ) with e -> (Format.fprintf Format.err_formatter "@[<v 2>Error while processing %a %a @, in environment %a@]@."
-        pp_block_addr addr X86Print.pp_instr inst C.print inv;
-        raise e)
+  let read_and_interpret_instruction inv (addr, inst) = 
+    (* TODO: call to record instruction read *)
+    let newInv = A.read_instruction inv addr in
+    (* interpret_instruction interpret the effect of all non jump instructions over
+    * an incoming non-bottom environment *)
+    (* may raise Bottom *)
+    let rec interpret_instruction inv (addr, inst) = try (
+      let ftrace inv2 = if !trace then 
+          Format.printf "@[<v 2>%a %a @, %a@]@."
+          pp_block_addr addr X86Print.pp_instr inst (A.print_delta inv) inv2;
+          inv2 in
+      match inst with
+        Arith(op, x, y) -> ftrace (
+          match op with
+            CmpOp -> A.flagop inv (ADcmp(x,y))
+          | _ -> A.memop inv (ADarith op) x y
+        )
+      | Arithb(op, x, y) -> ftrace (
+              match op with
+                CmpOp -> failwith "8-bit CMP not implemented"
+              | _ -> A.memopb inv (ADarith op) x y
+        )
+      | Cmp(x, y) -> ftrace (A.flagop inv (ADcmp(x,y)))
+      | Test(x, y) -> ftrace (A.flagop inv (ADtest(x,y)))
+      | Inc x -> interpret_instruction inv (addr,Arith(Add, x, op32_one)) (*TODO: check that the effect on flags is correct *)
+      | Dec x -> interpret_instruction inv (addr,Arith(Sub, x, op32_one))
+      | Lea(r,a) -> ftrace (A.load_address inv r a)
+      | Leave -> 
+          let inv = interpret_instruction inv (addr,Mov(Reg ESP, Reg EBP)) in
+          interpret_instruction inv (addr,Pop(Reg EBP))
+      | Mov(x,y) -> ftrace (A.memop inv ADmov x y)
+      | Movb(x,y) -> ftrace (A.memopb inv ADmov x y)
+      | Movzx(x,y) -> ftrace (A.movzx inv x y)
+      | Exchange(x,y) -> ftrace (A.memop inv ADexchg (Reg x) (Reg y))
+      (* DIV (unsigned divide): makes (1) EAX = EAX / operand;
+                                      (2) EDX = EAX % operand;
+        we translate it into EDX = EAX; EAX /= operand; EDX %= operand *)
+      | Div x -> 
+        let inv = interpret_instruction inv (addr,Mov(Reg EDX, Reg EAX)) in
+        let inv = interpret_instruction inv (addr,Arith(ADiv, Reg EAX,x)) in
+        interpret_instruction inv (addr,Arith(ARem, Reg EDX,x))
+      | Pop x -> ftrace (A.stackop inv ADpop x)
+      | Push x -> ftrace (A.stackop inv ADpush x)
+      | Shift(op,x,y) -> ftrace (A.shift inv op x y)
+      | Halt -> if !trace then 
+              Format.printf "Just before Halt, we have %a\n" A.print inv;
+              raise Bottom
+      | Skip -> ftrace (A.elapse inv time_skip)
+      | FlagSet(f,b) -> ftrace (A.flagop inv (ADfset(f,b)))
+      | Call _ | Jcc _ | Jmp _ | _ -> failwith "Jump instruction in interpret_instruction\n"
+      ) with e -> (Format.fprintf Format.err_formatter "@[<v 2>Error while processing %a %a @, in environment %a@]@."
+          pp_block_addr addr X86Print.pp_instr inst A.print inv;
+          raise e) in
+    interpret_instruction newInv (addr, inst)
 
 
   let find_out_edge oe x = List.find (fun bo -> bo.start_addr = x) oe
@@ -227,48 +231,48 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
     if !trace then Format.printf "Entering block %a@\n" pp_block_header b;
     try (
     let last_inv = List.fold_left 
-      (fun inv a -> interpret_instruction inv a) inv b.content in
+      (fun inv a -> read_and_interpret_instruction inv a) inv b.content in
     match b.out_edges with
       [] -> assert(b.content = []);[] (*we only have error and final blocks that don't have out edges. TODO: treat the Halt instruction... *)
     | [oe] -> (match b.jump_command with
         None -> [oe,last_inv]
-      | Some(Jmp _) -> [oe,C.elapse last_inv time_jmp]
+      | Some(Jmp _) -> [oe,A.elapse last_inv time_jmp]
       | Some(Call addr) ->
-          out_invs b.out_edges (C.call last_inv addr b.next_block_addr)
-      | Some Ret -> out_invs b.out_edges (C.return last_inv)
+          out_invs b.out_edges (A.call last_inv addr b.next_block_addr)
+      | Some Ret -> out_invs b.out_edges (A.return last_inv)
       | Some(Jcc _) -> failwith "Jcc with only one out-going edge"
       | Some _ -> failwith "Jump command is not one of CALL or JMP or JCC"
       )
     | _ -> (match b.jump_command with
       | Some(Call addr) ->
-          out_invs b.out_edges (C.call last_inv addr b.next_block_addr)
+          out_invs b.out_edges (A.call last_inv addr b.next_block_addr)
       | Some(Jmp addr) -> 
-          out_invs b.out_edges (C.get_offset (C.elapse last_inv time_jmp) addr)
+          out_invs b.out_edges (A.get_offset (A.elapse last_inv time_jmp) addr)
       | Some(Jcc((truth,cond),ad)) -> ( try 
-          let inv_true, inv_false = C.test last_inv cond in
+          let inv_true, inv_false = A.test last_inv cond in
           let next_b = find_out_edge b.out_edges b.next_block_addr
           and jump_b = find_out_edge b.out_edges (Int64.to_int ad) in
           let case_false = match inv_false with
             Bot -> []
           | Nb inv_false -> 
               [(if truth then next_b else jump_b), 
-               (C.elapse inv_false time_jmp)] in
+               (A.elapse inv_false time_jmp)] in
           ( match inv_true with 
             Bot -> case_false
           | Nb inv_true ->  
-              ((if truth then jump_b else next_b), C.elapse inv_true time_jmp)
+              ((if truth then jump_b else next_b), A.elapse inv_true time_jmp)
                 ::case_false
           )
           with Not_found -> failwith "Out edges don't match conditional jump\n"
-          | e -> Format.printf "@[Error while processing %a %a @, in environment %a@]@." pp_block_addr b.end_addr X86Print.pp_instr (Jcc((truth,cond),ad)) C.print last_inv;
+          | e -> Format.printf "@[Error while processing %a %a @, in environment %a@]@." pp_block_addr b.end_addr X86Print.pp_instr (Jcc((truth,cond),ad)) A.print last_inv;
              raise e)
-      | Some Ret -> out_invs b.out_edges (C.return last_inv)
+      | Some Ret -> out_invs b.out_edges (A.return last_inv)
       | _ -> failwith "Jump command inconsistent with the number of out edges\n"
       )
     ) with Bottom -> []
           
     
-  type environment = C.t BlockMap.t (* collected initial invariants of blocks *)
+  type environment = A.t BlockMap.t (* collected initial invariants of blocks *)
 
 (* env_add b binv env joins the invariant inv to b in env, which are supposed to
  * be non-bottom *)
@@ -277,8 +281,8 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
       let env1 = BlockMap.find b env in
       if !trace then Format.printf "@[Joining incoming envs for %a "
         pp_block_header b;
-      let res = C.join env1 binv in
-      if !trace then Format.printf " gives %a@]" (C.print_delta env1) res;
+      let res = A.join env1 binv in
+      if !trace then Format.printf " gives %a@]" (A.print_delta env1) res;
       res
     with Not_found -> binv in
     BlockMap.add b inv env
@@ -287,14 +291,14 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
   let env_remove pb b env =
     if List.mem b pb then env else BlockMap.remove b env
 
-  let iterate concr_mem start_values cfg cache_params =
+  let iterate concr_mem start_values cfg data_cache_params inst_cache_params inst_base_addr =
     if !verbose then trace:= true;
     if !verbose then Format.printf "CFG of %d blocks \n" (List.length cfg);
     let start_block = List.hd cfg in
     let final_blocks = List.filter (fun b -> b.out_edges = []) cfg in
     (* init_env and env below map blocks to their incoming non-empty abstract
      * environments *)
-    let init_env = BlockMap.singleton start_block (C.init concr_mem start_values cache_params) in
+    let init_env = BlockMap.singleton start_block (A.init concr_mem start_values data_cache_params inst_cache_params inst_base_addr) in
     if !trace then Format.printf "@[Initially, %a@]@." print init_env;
     let wto = tarjan cfg in
     let wto = if !unroll_outer_loop then wto else dont_unroll_outer wto in
@@ -309,7 +313,7 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
 	   Continue interpretation with next block w*)
 	if BlockMap.mem b env then
           let in_inv = BlockMap.find b env in
-	  (* out_invs : (Cfg.basicblock * C.t) list *)
+	  (* out_invs : (Cfg.basicblock * A.t) list *)
           let out_invs = interpret_block in_inv b in
           next_i pb (List.fold_left (fun e (ob,oinv) -> env_add ob oinv e) 
 		       (env_remove pb b env) out_invs) w
@@ -342,9 +346,9 @@ module Build(C:CALL_ABSTRACT_DOMAIN) = struct
             if !trace then (match it.head_invariant with 
 	      | Bot -> ()
               | Nb inv1 -> Format.printf "@[<2>Widening of @.--1-- %a @.and --2-- %a @.gives --1v2-- %a@]"
-		C.print inv1
-		C.print incoming_inv
-		C.print w_inv
+		A.print inv1
+		A.print incoming_inv
+		A.print w_inv
             );
 	    let it_env = next_i (it.head_block::pb )
               (BlockMap.add it.head_block w_inv env) 

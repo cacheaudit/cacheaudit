@@ -42,9 +42,13 @@ with End_of_file ->
 
 type cache_params =
 {
-    cache_s: int; (* in bytes *)
-    line_s: int;  (* same as "data block size"; in bytes *)
-    assoc: int;
+    data_cache_s: int; (* in bytes *)
+    data_line_s: int;  (* same as "data block size"; in bytes *)
+    data_assoc: int;
+    inst_cache_s: int; (* in bytes *)
+    inst_line_s: int;  (* same as "data block size"; in bytes *)
+    inst_assoc: int;
+    inst_base_addr: int64;
 }
 
 
@@ -72,14 +76,18 @@ let config filename =
     (let (st,regs,ca) = auxmatch ls (start,registers,cache)
     in match l with
       | ("START",i,_) ->  (Some (Int64.to_int i), regs, ca)
-      | ("cache_s",i,_) -> (st,regs,{ca with cache_s = Int64.to_int i})
-      | ("line_s",i,_) -> (st,regs,{ca with line_s = Int64.to_int i})
-      | ("assoc",i,_) -> (st,regs,{ca with assoc = Int64.to_int i})
+      | ("data_cache_s",i,_) -> (st,regs,{ca with data_cache_s = Int64.to_int i})
+      | ("data_line_s",i,_) -> (st,regs,{ca with data_line_s = Int64.to_int i})
+      | ("data_assoc",i,_) -> (st,regs,{ca with data_assoc = Int64.to_int i})
+      | ("inst_cache_s",i,_) -> (st,regs,{ca with inst_cache_s = Int64.to_int i})
+      | ("inst_line_s",i,_) -> (st,regs,{ca with inst_line_s = Int64.to_int i})
+      | ("inst_assoc",i,_) -> (st,regs,{ca with inst_assoc = Int64.to_int i})
+      | ("INST_BASE",i,_) -> (st,regs,{ca with inst_base_addr = i})
       | ("",0L,_)  -> (st,regs,ca)
       | (str, l, h) ->
                    try (
                      (st, (X86Util.string_to_reg32 str, l, h) :: regs,ca)
                    ) with Invalid_argument arg -> failwith (Printf.sprintf "Configuration not supported. %s is not a valid register" arg)
             )
-  in let empty_cparams = {cache_s = 0; line_s = 0; assoc = 0}
+  in let empty_cparams = {data_cache_s = 0; data_line_s = 0; data_assoc = 0; inst_cache_s = 0; inst_line_s = 0; inst_assoc = 0; inst_base_addr = (Int64.of_int 0)}
   in auxmatch scanned (None,[],empty_cparams)
