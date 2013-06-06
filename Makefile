@@ -51,6 +51,7 @@ ML_FILES := \
 	iterator/asynchronousAttacker.ml\
 	iterator/memAD.ml\
 	iterator/iterator.ml\
+	iterator/architectureAD.ml\
 	config.ml
 
 

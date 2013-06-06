@@ -1,0 +1,28 @@
+NOTE: In this analysis it doesn't matter the architecture chosen. There is only one possible data cache state.
+
+
+Values chosen for cache size were the default:
+Cache size 16384, array size 32.
+
+
+Analysis of longBranch:
+***********************
+
+Nonrelation analysis:
+Number of valid cache configurations : 0x20000, that is 17.000000 bits.
+
+Relational analysis:
+Valid cache configurations computed with relational Information : 0x2, that is 1.000000 bits.
+
+
+
+Analysis of longerBranch:
+*************************
+
+Nonrelation analysis:
+Number of valid cache configurations : 0x0, that is 70.000000 bits. (0x0: Overflow in configurations counter?? Also maximun number of leaked bits is supposed to be 32)
+
+Relational analysis:
+Valid cache configurations computed with relational Information : 0x2, that is 1.000000 bits.
+Analysis took 170 seconds.
+

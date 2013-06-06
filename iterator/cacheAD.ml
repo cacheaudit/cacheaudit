@@ -120,7 +120,7 @@ module CacheAD (SV: SIMPLE_VALUE_AD) : CACHE_ABSTRACT_DOMAIN = struct
             loop (n-1) (AddrSet.remove addr elements) (addr::tuple) s) 
             elements s in 
         loop n addr_set [] 0
-    end else 0 
+    end else 0
 
   (* Checks if the given cache state is valid *)
   (* with respect to the ages defined in cache.ages. *)
