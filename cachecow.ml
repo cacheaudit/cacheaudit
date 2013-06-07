@@ -184,16 +184,14 @@ let _ =
 (* LM: that seems wrong to me. Does it mean we write in the executable? 
         SimpleOctAD.OctAD.set_bin_name !bin_name; *)
         let generate_cache prof cache_analysis attacker =
-          let m = 
-            let octProf = IFDEF INCLUDEOCT THEN (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END in
-            let oct = IFDEF INCLUDEOCT THEN (module CacheAD.OctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END in
+          let m =
             if !prof then match !cache_analysis with
-              OctAges -> octProf 
+              OctAges -> IFDEF INCLUDEOCT THEN (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
             | RelAges ->  (module CacheAD.ProfRelSetCacheAD  : CACHE_ABSTRACT_DOMAIN)
             | SetAges -> (module CacheAD.ProfSimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
             | IntAges -> failwith "Profiling for interval-based cache analysis not implemented\n"
           else match !cache_analysis with
-              OctAges -> oct
+              OctAges -> IFDEF INCLUDEOCT THEN (module CacheAD.OctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
             | RelAges -> (module RelCacheAD.RelSetCacheAD : CACHE_ABSTRACT_DOMAIN)
             | SetAges -> (module CacheAD.SimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
             | IntAges -> (module CacheAD.IntervalCacheAD : CACHE_ABSTRACT_DOMAIN)
