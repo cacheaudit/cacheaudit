@@ -67,9 +67,9 @@ ML_FILES := \
 	iterator/architectureAD.ml\
 	config.ml
 
-ifneq ($(MAKECMDGOALS),clean)
-    -include depend
-endif
+#ifneq ($(MAKECMDGOALS),clean)
+#    -include depend
+#endif
 
 all: cachecow
 
@@ -99,6 +99,8 @@ clean:
 
 depend: 
 	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli > depend
+
+include depend
 
 doc:
 	-ocamldoc -html -colorize-code  -d Documentation/ $(OCAMLINCLUDE) $(ML_FILES)
