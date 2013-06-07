@@ -20,8 +20,11 @@ else
 	CMO_FILES= $(ML_FILES:%.ml=%.cmo)
 endif
 
-OCAMLC += -dtypes -pp "${PREPROCESSOR}"
-OCAMLDEP= ocamldep -pp "${PREPROCESSOR}" $(DEP_FLAGS)
+#OCAMLC += -dtypes -pp "${PREPROCESSOR}"
+#OCAMLDEP= ocamldep -pp "${PREPROCESSOR}" $(DEP_FLAGS)
+OCAMLC += -dtypes
+OCAMLDEP= ocamldep $(DEP_FLAGS)
+
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
 

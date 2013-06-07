@@ -374,12 +374,8 @@ end
 
 module SimpleCacheAD = CacheAD (SimpleValAD.SimpleValAD)
 module IntervalCacheAD = CacheAD (SimpleValAD.SimpleIntervalAD)
-#ifdef INCLUDE_OCT
 module OctCacheAD = CacheAD (SimpleOctAD.OctAD)
-#endif
 module ProfSimpleCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleValAD.SimpleValAD))
 module ProfRelSetCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleRelSetAD.SimpleRelSetAD))
-#ifdef INCLUDE_OCT
 module ProfOctCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleOctAD.OctAD))
-#endif
 
