@@ -1,10 +1,9 @@
-PREPROCESSOR= gcc -E -P -C -w
+PREPROCESSOR= camlp4o pa_macro.cmo
 
 ifneq ($(or $(oct),$(OCT)),)
-        PREPROCESSOR += -DINCLUDE_OCT
+        PREPROCESSOR += -DINCLUDEOCT
 endif
 
-PREPROCESSOR += -x c
 #OCT_INCLUDE= $(shell oct-config --mlflags | sed 's/_iag//')
 
 ifneq ($(or $(opt),$(OPT)),)
@@ -20,10 +19,10 @@ else
 	CMO_FILES= $(ML_FILES:%.ml=%.cmo)
 endif
 
-#OCAMLC += -dtypes -pp "${PREPROCESSOR}"
-#OCAMLDEP= ocamldep -pp "${PREPROCESSOR}" $(DEP_FLAGS)
-OCAMLC += -dtypes
-OCAMLDEP= ocamldep $(DEP_FLAGS)
+OCAMLC += -dtypes -pp "${PREPROCESSOR}"
+OCAMLDEP= ocamldep -pp "${PREPROCESSOR}" $(DEP_FLAGS)
+#OCAMLC += -dtypes
+#OCAMLDEP= ocamldep $(DEP_FLAGS)
 
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
@@ -68,6 +67,9 @@ ML_FILES := \
 	iterator/architectureAD.ml\
 	config.ml
 
+ifneq ($(MAKECMDGOALS),clean)
+    -include depend
+endif
 
 all: cachecow
 
@@ -93,16 +95,10 @@ cachecow: $(CMO_FILES) cachecow.ml
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) $(OCT_INCLUDE) -o $@ $+
 
 clean: 
-	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css
+	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css output_non_rel.latte output_final_state output_rel.latte
 
 depend: 
 	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli > depend
-
-dep:
-	rm -f depend
-	$(MAKE) depend
-
-include depend
 
 doc:
 	-ocamldoc -html -colorize-code  -d Documentation/ $(OCAMLINCLUDE) $(ML_FILES)

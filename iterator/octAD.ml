@@ -1,3 +1,4 @@
+IFDEF INCLUDEOCT THEN
 open Printf
 open Signatures
 
@@ -386,7 +387,7 @@ module OctagonAD (Oct: OCT64): VALUE_ABSTRACT_DOMAIN = struct
 end
 
 
-
+END
 
 
 
