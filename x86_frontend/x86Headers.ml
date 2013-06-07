@@ -23,7 +23,6 @@ let virtual_to_offset x addr =
 (*  Format.printf "%a found for address 0x%Lx@\n" pp_section s addr;*)
   let res = AsmUtil.off_to_int (Int64.sub addr s.start_addr) + s.offset in
   if res<s.max_valid_offset then res else raise AddressNotInFile
-  res
 
 let compute parse virtual_start sections bits =
   let internal = parse bits in
