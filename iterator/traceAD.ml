@@ -156,28 +156,16 @@ module TraceAD (CA : CACHE_ABSTRACT_DOMAIN) : TRACE_ABSTRACT_DOMAIN = struct
       if node1.Trie.node_UID = node2.Trie.node_UID then node1
       (* Same parents *)
       else if node1.Trie.parent_UIDs = node2.Trie.parent_UIDs then begin
-        (* assertion: if parents and values equal, should have same UID *)
+        (* assertion: if parents and values were equal, should have same UID *)
         assert (node1.Trie.value <> node2.Trie.value);
         if node1.Trie.value <> (Some N) && node2.Trie.value <> (Some N) then begin
           update_value node1 (Some HM) 
         end else failwith "TraceAD: Joining 'N' not implemented" end
       else
-        (* in the following case, at least one node N is dummy and *)
-        (* the other one's parents are contained in N's children. *)
-        (* then, return N *)
-        if (IntSet.subset node1.Trie.parent_UIDs node2.Trie.parent_UIDs) ||   
-          (IntSet.subset node2.Trie.parent_UIDs node1.Trie.parent_UIDs) then begin
-          assert ((is_dummy node1) || (is_dummy node2)); 
-          let node1,node2 = 
-            if IntSet.subset node1.Trie.parent_UIDs node2.Trie.parent_UIDs then
-              node2,node1
-            else node1,node2 in
-          node1
-        end else 
-          let parents = Couple (node1,node2) in 
-          (* A dummy node whose parents are the nodes we are joining *)
-          add_dummy parents
-  
+        let parents = Couple (node1,node2) in 
+        (* A dummy node whose parents are the nodes we are joining *)
+        add_dummy parents
+
   let join_times times1 times2 = 
     match times1,times2 with
     | Nt tms1,Nt tms2 ->
