@@ -1,4 +1,3 @@
-#ifdef INCLUDE_OCT
 open Printf
 open Signatures
 
@@ -399,5 +398,4 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
 end
 
 module OctAD = SimpleOctAD(Oct)
-#endif
 

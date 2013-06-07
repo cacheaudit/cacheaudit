@@ -24,11 +24,7 @@ let prof = ref false
 let interval_cache = ref false
 let do_traces = ref true
 
-type cache_age_analysis = IntAges | SetAges |
-#ifdef INCLUDE_OCT
- OctAges |
-#endif
-RelAges
+type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
 
 let data_cache_analysis = ref SetAges
 let inst_cache_analysis_opt = ref None
@@ -85,17 +81,13 @@ let speclist = [
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--noOuterUnroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), "overwrites the --unroll option, so that outer loops are not unrolled");
     ("-f", Arg.String anon_fun,                      "give the name of the binary file");
-#ifdef INCLUDE_OCT
     ("--oct", Arg.Unit (fun () -> data_cache_analysis := OctAges), "use the octagon abstract domain for the cache.") ;
-#endif
     ("--interval-cache", Arg.Unit (fun () -> data_cache_analysis := IntAges), "use the interval abstract domain for the cache.") ;
     ("--rset", Arg.Unit (fun () -> data_cache_analysis := RelAges), "use the relational set abstract domain for the cache.") ;
     ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.");
     ("--fifo", Arg.Unit (fun () -> data_cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
     ("--plru", Arg.Unit (fun () -> data_cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
-#ifdef INCLUDE_OCT
     ("--inst-oct", Arg.Unit (fun () -> inst_cache_analysis_opt := Some OctAges), "use the octagon abstract domain for the cache.") ;
-#endif
     ("--inst-interval-cache", Arg.Unit (fun () -> inst_cache_analysis_opt := Some IntAges), "use the interval abstract domain for the cache.") ;
     ("--inst-rset", Arg.Unit (fun () -> inst_cache_analysis_opt := Some RelAges), "use the relational set abstract domain for the cache.") ;
     ("--inst-fifo", Arg.Unit (fun () -> inst_cache_strategy_opt := Some Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
@@ -193,16 +185,12 @@ let _ =
         let generate_cache prof cache_analysis attacker =
           let m = 
             if !prof then match !cache_analysis with
-#ifdef INCLUDE_OCT
               OctAges -> (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN)
-#endif
             | RelAges ->  (module CacheAD.ProfRelSetCacheAD  : CACHE_ABSTRACT_DOMAIN)
             | SetAges -> (module CacheAD.ProfSimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
             | IntAges -> failwith "Profiling for interval-based cache analysis not implemented\n"
           else match !cache_analysis with
-#ifdef INCLUDE_OCT
               OctAges -> (module CacheAD.OctCacheAD : CACHE_ABSTRACT_DOMAIN)
-#endif
             | RelAges -> (module RelCacheAD.RelSetCacheAD : CACHE_ABSTRACT_DOMAIN)
             | SetAges -> (module CacheAD.SimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
             | IntAges -> (module CacheAD.IntervalCacheAD : CACHE_ABSTRACT_DOMAIN)
