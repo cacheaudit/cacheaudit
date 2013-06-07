@@ -1,3 +1,4 @@
+IFDEF INCLUDEOCT THEN
 open Printf
 open Signatures
 
@@ -399,3 +400,4 @@ end
 
 module OctAD = SimpleOctAD(Oct)
 
+END

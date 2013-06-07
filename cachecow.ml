@@ -24,6 +24,7 @@ let prof = ref false
 let interval_cache = ref false
 let do_traces = ref true
 
+
 type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
 
 let data_cache_analysis = ref SetAges
@@ -184,13 +185,15 @@ let _ =
         SimpleOctAD.OctAD.set_bin_name !bin_name; *)
         let generate_cache prof cache_analysis attacker =
           let m = 
+            let octProf = IFDEF INCLUDEOCT THEN (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END in
+            let oct = IFDEF INCLUDEOCT THEN (module CacheAD.OctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END in
             if !prof then match !cache_analysis with
-              OctAges -> (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN)
+              OctAges -> octProf 
             | RelAges ->  (module CacheAD.ProfRelSetCacheAD  : CACHE_ABSTRACT_DOMAIN)
             | SetAges -> (module CacheAD.ProfSimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
             | IntAges -> failwith "Profiling for interval-based cache analysis not implemented\n"
           else match !cache_analysis with
-              OctAges -> (module CacheAD.OctCacheAD : CACHE_ABSTRACT_DOMAIN)
+              OctAges -> oct
             | RelAges -> (module RelCacheAD.RelSetCacheAD : CACHE_ABSTRACT_DOMAIN)
             | SetAges -> (module CacheAD.SimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
             | IntAges -> (module CacheAD.IntervalCacheAD : CACHE_ABSTRACT_DOMAIN)
