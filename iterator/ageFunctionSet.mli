@@ -1,15 +1,3 @@
-module AF :
-  sig
-    type t = AgeFunction.PairListAgeFunction.t
-    val add : Signatures.var -> int -> t -> t
-    val compare : t -> t -> int
-    val empty : t
-    val get : Signatures.var -> t -> int
-    val project : t -> Signatures.var list -> t
-    val join : t -> t -> t
-    val toString : t -> string
-    val vars : t -> AgeFunction.VarSet.t
-  end
 module type AGE_FUNCTION_SET =
   sig
     type t
