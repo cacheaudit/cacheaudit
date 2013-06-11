@@ -165,8 +165,8 @@ let _ =
     with Macho.NonMachOFile -> (
       Printf.printf "Not an ELF, or Mach-O file, entry point not determined\n";
       if !start_addr= -1 then start_addr:=0;
-      (read_from_file !bin_name), None ) 
-  in
+      (read_from_file !bin_name), None 
+    ) in
   if !print_ass then print_assembly (read_assembly bits);
   (*  if !print_ass then debug bits;*)
   let data_cache_params = (!data_cache_s,!data_line_s,!data_assoc,!data_cache_strategy) in
@@ -181,45 +181,94 @@ let _ =
   | None -> ()
   | Some sections ->
     if !build_cfg then Cfg.printcfg (Cfg.makecfg !start_addr sections);
-    if !analyze then (
+    if !analyze then begin 
+      (* Analysis will be performed. *)
+      (* First, the proper abstract domains will be generated, *)
+      (* according to the configurations and the command-line arguments *)
+      
+      (* function generating a cache AD used for data or instruction caches *)
       let generate_cache prof cache_analysis attacker =
-	let m =
-	  if !prof then match !cache_analysis with
-	  | OctAges -> IFDEF INCLUDEOCT THEN (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
-	  | RelAges ->  (module CacheAD.ProfRelSetCacheAD  : CACHE_ABSTRACT_DOMAIN)
-	  | SetAges -> (module CacheAD.ProfSimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
-	  | IntAges -> failwith "Profiling for interval-based cache analysis not implemented\n"
-	  else match !cache_analysis with
-	  | OctAges -> IFDEF INCLUDEOCT THEN (module CacheAD.OctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
-	  | RelAges -> (module RelCacheAD.RelSetCacheAD : CACHE_ABSTRACT_DOMAIN)
-	  | SetAges -> (module CacheAD.SimpleCacheAD : CACHE_ABSTRACT_DOMAIN)
-	  | IntAges -> (module CacheAD.IntervalCacheAD : CACHE_ABSTRACT_DOMAIN)
-	in let module BaseCache = (val m: CACHE_ABSTRACT_DOMAIN) in
-	   match !attacker with
-	   | Final -> m
-	   | Instructions d -> AsynchronousAttacker.min_frequency := d;
-	     (module AsynchronousAttacker.InstructionBasedAttacker(BaseCache) :CACHE_ABSTRACT_DOMAIN)
-	   | OneInstrInterrupt -> (module AsynchronousAttacker.OneInstructionInterrupt(BaseCache) : CACHE_ABSTRACT_DOMAIN)
-	   | OneTimedInterrupt -> (module AsynchronousAttacker.OneTimeInterrupt(BaseCache) : CACHE_ABSTRACT_DOMAIN)	      
-      in let m = generate_cache prof data_cache_analysis attacker
-	 in let module Cache = (val m: CACHE_ABSTRACT_DOMAIN) in
-	    let trcs = if !do_traces then 
-		(module TraceAD.TraceAD(Cache): TRACE_ABSTRACT_DOMAIN)
-	      else (module TraceAD.NoTraceAD(Cache)) in
-	    let module Traces = (val trcs) in
-	    let module Mem = MemAD.MemAD(FlagAD.FlagsAD)(Traces) in
-	    let module Stack = StackAD.StackAD(Mem) in
-	    let arch = match !architecture with
-		Split -> let m = generate_cache prof inst_cache_analysis attacker in
-			 let module InstCache = (val m: CACHE_ABSTRACT_DOMAIN) in
-			 (module ArchitectureAD.SplitCacheArchitectureAD(Stack)(InstCache): ARCHITECTURE_ABSTRACT_DOMAIN)
-	      | Joint -> (module ArchitectureAD.JointCacheArchitectureAD(Stack): ARCHITECTURE_ABSTRACT_DOMAIN)
-	      | NoInstructionCache -> (module ArchitectureAD.NoInstructionCacheArchitectureAD(Stack): ARCHITECTURE_ABSTRACT_DOMAIN) in
-	    let module Architecture = (val arch: ARCHITECTURE_ABSTRACT_DOMAIN) in
-	    let module Iter = Iterator.Build(Architecture) in
-	    let iterate = Iter.iterate in
-	    let start = Sys.time () in 
-	    iterate sections start_values (Cfg.makecfg !start_addr sections) data_cache_params (Some(inst_cache_params)) !instruction_base_addr;
-	    Printf.printf "Analysis took %d seconds.\n" (int_of_float (Sys.time () -. start))
-    )
-
+        if !cache_analysis = IntAges && !prof then
+            failwith "Profiling for interval-based cache analysis not implemented";
+        let cad = match !cache_analysis with
+          | OctAges -> IFDEF INCLUDEOCT THEN 
+            if !prof then 
+              (module CacheAD.CacheAD (SimpleProfilingValAD.SimpleProfilingValAD
+                (SimpleOctAD.OctAD)) : CACHE_ABSTRACT_DOMAIN)
+            else 
+              (module CacheAD.CacheAD (SimpleOctAD.OctAD) : CACHE_ABSTRACT_DOMAIN) 
+          ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
+          | RelAges ->
+            if !prof then
+              (module CacheAD.CacheAD(SimpleProfilingValAD.SimpleProfilingValAD
+                (SimpleRelSetAD.SimpleRelSetAD))  : CACHE_ABSTRACT_DOMAIN)
+            else
+              (module RelCacheAD.RelCacheAD
+                (SimpleRelSetAD.SimpleRelSetAD) : CACHE_ABSTRACT_DOMAIN)
+          | (SetAges | IntAges) -> 
+            (* Generate the simple value abstract domain *)
+            let svad = 
+              if !cache_analysis = SetAges then
+                (module SimpleValAD.SimpleValAD:SIMPLE_VALUE_AD)
+              else 
+                (module SimpleValAD.SimpleIntervalAD :SIMPLE_VALUE_AD) in
+            let module BaseSVAD = (val svad: SIMPLE_VALUE_AD) in
+            let svad = if not (!prof) then svad
+              else (* using profiling *)
+                (module SimpleProfilingValAD.SimpleProfilingValAD(BaseSVAD) : SIMPLE_VALUE_AD) in
+            let module SimpleVAD = (val svad: SIMPLE_VALUE_AD) in
+            (module CacheAD.CacheAD (SimpleVAD) : CACHE_ABSTRACT_DOMAIN) 
+        in
+      	  (* if !prof then match !cache_analysis with                                                                                                                                   *)
+      	  (* | OctAges -> IFDEF INCLUDEOCT THEN (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END *)
+      	  (* | RelAges ->                                                                                                                                                               *)
+          (*   (module CacheAD.CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleRelSetAD.SimpleRelSetAD))  : CACHE_ABSTRACT_DOMAIN)                                             *)
+      	  (* | SetAges ->                                                                                                                                                               *)
+          (*   (module CacheAD.CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleValAD.SimpleValAD)) : CACHE_ABSTRACT_DOMAIN)                                                    *)
+      	  (* | IntAges -> failwith "Profiling for interval-based cache analysis not implemented\n"                                                                                      *)
+      	  (* else match !cache_analysis with                                                                                                                                            *)
+      	  (* | OctAges -> IFDEF INCLUDEOCT THEN (module CacheAD.OctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END     *)
+      	  (* | RelAges -> (module RelCacheAD.RelCacheAD (SimpleRelSetAD.SimpleRelSetAD) : CACHE_ABSTRACT_DOMAIN)                                                                        *)
+      	  (* | SetAges -> (module CacheAD.CacheAD (SimpleValAD.SimpleValAD) : CACHE_ABSTRACT_DOMAIN)                                                                                    *)
+      	  (* | IntAges -> (module CacheAD.CacheAD (SimpleValAD.SimpleIntervalAD) : CACHE_ABSTRACT_DOMAIN) in                                                                            *)
+    	  (* Make distinction whether asynchronious attacker is used  *)
+    	  let module BaseCache = (val cad: CACHE_ABSTRACT_DOMAIN) in
+        match !attacker with
+        | Final -> cad
+        | Instructions d -> AsynchronousAttacker.min_frequency := d;
+          (module AsynchronousAttacker.InstructionBasedAttacker(BaseCache) :CACHE_ABSTRACT_DOMAIN)
+        | OneInstrInterrupt -> 
+          (module AsynchronousAttacker.OneInstructionInterrupt(BaseCache) : CACHE_ABSTRACT_DOMAIN)
+        | OneTimedInterrupt -> 
+          (module AsynchronousAttacker.OneTimeInterrupt(BaseCache) : CACHE_ABSTRACT_DOMAIN) in
+        (* end of generate_cache definition *)
+        
+      (* Generate the data cache AD*)
+      let module Cache = (val (generate_cache prof data_cache_analysis attacker):
+         CACHE_ABSTRACT_DOMAIN) in
+      (* Generate the trace AD *)
+      let trcs = if !do_traces then 
+      	(module TraceAD.TraceAD(Cache): TRACE_ABSTRACT_DOMAIN)
+      else (module TraceAD.NoTraceAD(Cache)) in
+      let module Traces = (val trcs) in
+      (* Generate the memory AD *)
+      let module Mem = MemAD.MemAD(FlagAD.FlagsAD)(Traces) in
+      (* Generate the stack AD *)
+      let module Stack = StackAD.StackAD(Mem) in
+      (* Generate the architecture AD *)
+      let arch = match !architecture with
+        | Split -> let cad = generate_cache prof inst_cache_analysis attacker in
+          let module InstCache = (val cad: CACHE_ABSTRACT_DOMAIN) in
+          (module ArchitectureAD.SplitCacheArchitectureAD(Stack)(InstCache): ARCHITECTURE_ABSTRACT_DOMAIN)
+        | Joint -> (module ArchitectureAD.JointCacheArchitectureAD(Stack): ARCHITECTURE_ABSTRACT_DOMAIN)
+        | NoInstructionCache -> 
+          (module ArchitectureAD.NoInstructionCacheArchitectureAD(Stack): ARCHITECTURE_ABSTRACT_DOMAIN) in
+      let module Architecture = (val arch: ARCHITECTURE_ABSTRACT_DOMAIN) in
+      (* Generate iterator *)
+      let module Iter = Iterator.Build(Architecture) in
+      let iterate = Iter.iterate in
+      let start = Sys.time () in 
+      (* Run the analysis *)
+      iterate sections start_values (Cfg.makecfg !start_addr sections) data_cache_params (Some(inst_cache_params)) !instruction_base_addr;
+      Printf.printf "Analysis took %d seconds.\n" (int_of_float (Sys.time () -. start))
+    end
