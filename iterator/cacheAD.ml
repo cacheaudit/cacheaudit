@@ -1,4 +1,3 @@
-
 open Signatures
 
 open Big_int 
@@ -27,18 +26,18 @@ module IntSet = Set.Make(struct type t = int let compare = compare end)
 module Make (SV: SIMPLE_VALUE_AD) :
  CACHE_ABSTRACT_DOMAIN = struct
   type t = {
-    handled_addrs : AddrSet.t; (** holds addresses handled so far *)
+    handled_addrs : AddrSet.t; (* holds addresses handled so far *)
     cache_sets : AddrSet.t CacheMap.t;
-    (** holds a set of addreses which fall into a cache set
+    (* holds a set of addreses which fall into a cache set
         as implemented now it may also hold addresses evicted from the cache *)
     ages : SV.t;
-    (** for each accessed memory address holds its possible ages *)
+    (* for each accessed memory address holds its possible ages *)
 
     cache_size: int;
-    line_size: int; (** same as "data block size" *)
+    line_size: int; (* same as "data block size" *)
     associativity: int;
 
-    num_sets : int; (** computed from the previous three *)
+    num_sets : int; (* computed from the previous three *)
     strategy : cache_strategy; (*Can be LRU or FIFO so far *)
   }
 
@@ -135,19 +134,19 @@ module Make (SV: SIMPLE_VALUE_AD) :
       strategy = strategy;
     }
 
-  (** Determine the set in which an address is cached
+  (* Determine the set in which an address is cached
       calculated addr mod num_sets *)
   let get_set_addr cache addr =
     Int64.to_int (Int64.rem addr (Int64.of_int cache.num_sets))
 
-  (** Gives the block address *)
+  (* Gives the block address *)
   let get_block_addr cache addr = Int64.div addr (Int64.of_int cache.line_size)
 
   let get_keys map = let keys,_ = List.split (ValMap.bindings map)
                      in List.map Int64.to_int keys
                     (*TODO simplify this in Simple Values *)
 
-  (** Removes a block when we know it cannot be in the cache *)
+  (* Removes a block when we know it cannot be in the cache *)
   let remove_block cache addr =
     let addr_set = get_set_addr cache addr in
     let cset = CacheMap.find addr_set cache.cache_sets in
@@ -256,7 +255,7 @@ module Make (SV: SIMPLE_VALUE_AD) :
       let cache_sets = CacheMap.add set_addr (AddrSet.add addr cset) cache.cache_sets in
       {cache with ages = ages; handled_addrs = h_addrs; cache_sets = cache_sets}
 
-  (** Reads or writes an address into cache *)
+  (* Reads or writes an address into cache *)
   let touch cache orig_addr =
     let env = 
 
@@ -370,6 +369,4 @@ module Make (SV: SIMPLE_VALUE_AD) :
   let elapse env d = env
   
 end
-
-                                                                                   *)
 
