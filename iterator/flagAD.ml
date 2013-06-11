@@ -294,7 +294,3 @@ module FlagAD (V: VALUE_ABSTRACT_DOMAIN) : FLAG_ABSTRACT_DOMAIN = struct
 
 
 end
-
-module FlagsAD = FlagAD(ValAD.ValAD) 
-
-      

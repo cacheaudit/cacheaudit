@@ -662,4 +662,3 @@ module ValADFunctor(O:VALADOPT) : VALUE_ABSTRACT_DOMAIN = struct
 
 end
 
-module ValAD = ValADFunctor(ValADOptForMemory)

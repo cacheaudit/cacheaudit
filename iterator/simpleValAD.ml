@@ -117,6 +117,3 @@ possible, so it approximates Bottom *)
      List.map (fun (k,v) -> Int64.to_int k) l
 end
 
-module SimpleValAD = SimpleVAD (ValAD.ValAD)
-module SimpleIntervalAD = SimpleVAD(ValAD.ValADFunctor(
-    struct let max_get_var_size = 256 let max_set_size = 0 end))
