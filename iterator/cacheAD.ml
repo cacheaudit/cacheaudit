@@ -25,7 +25,7 @@ module CacheMap = Map.Make(struct type t = int let compare = compare end)
 module AddrSet = Set.Make(Int64)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
-module CacheAD (SV: SIMPLE_VALUE_AD) :
+module Make (SV: SIMPLE_VALUE_AD) :
  CACHE_ABSTRACT_DOMAIN = struct
   type t = {
     handled_addrs : AddrSet.t; (** holds addresses handled so far *)
