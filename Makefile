@@ -101,7 +101,7 @@ ifneq ($(MAKECMDGOALS),clean)
 endif
 
 doc:
-	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d Documentation/ $(OCAMLINCLUDE) $(ML_FILES) */*.mli
+	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d Documentation/ $(OCAMLINCLUDE) */*.mli
 
 help:
 	@echo "usage:"
