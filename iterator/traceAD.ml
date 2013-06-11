@@ -1,7 +1,3 @@
-(** Abstract domain maintaining a Trie-data structure
-    where nodes store a Hit/Miss/Top-status of a cache access
- *)
-
 open Big_int
 
 open Signatures
@@ -108,7 +104,7 @@ module TraceAD (CA : CACHE_ABSTRACT_DOMAIN) : TRACE_ABSTRACT_DOMAIN = struct
       Trie.num_traces = num_tr;
     }
     
-  (** A hash table holding all nodes exactly once *)
+  (* A hash table holding all nodes exactly once *)
   let hash_table = HashTable.create 500
   
   (* Find the value in the hash table or add it; return the node *)
@@ -141,7 +137,7 @@ module TraceAD (CA : CACHE_ABSTRACT_DOMAIN) : TRACE_ABSTRACT_DOMAIN = struct
 
   
 
-  (** Add a new child to a node *)
+  (* Add a new child to a node *)
   let add node value = 
     let new_node = create_node (Single node) (Some value) in
     let new_node = find_or_add new_node in
@@ -206,7 +202,6 @@ module TraceAD (CA : CACHE_ABSTRACT_DOMAIN) : TRACE_ABSTRACT_DOMAIN = struct
     subeq_times &&
     subseteq_traces env1.traces env2.traces
   
-  (* (** {6 Print} *) *)
   
   let print fmt env =
     CA.print fmt env.cache;
