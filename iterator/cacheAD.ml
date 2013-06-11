@@ -372,13 +372,13 @@ module CacheAD (SV: SIMPLE_VALUE_AD) :
   
 end
 
-module SimpleCacheAD = CacheAD (SimpleValAD.SimpleValAD)
-module IntervalCacheAD = CacheAD (SimpleValAD.SimpleIntervalAD)
-module ProfSimpleCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleValAD.SimpleValAD))
-module ProfRelSetCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleRelSetAD.SimpleRelSetAD))
+(* module SimpleCacheAD = CacheAD (SimpleValAD.SimpleValAD)                                                      *)
+(* module IntervalCacheAD = CacheAD (SimpleValAD.SimpleIntervalAD)                                               *)
+(* module ProfSimpleCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleValAD.SimpleValAD))       *)
+(* module ProfRelSetCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleRelSetAD.SimpleRelSetAD)) *)
 
-IFDEF INCLUDEOCT THEN
-module OctCacheAD = CacheAD (SimpleOctAD.OctAD)
-module ProfOctCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleOctAD.OctAD))
-END
+(* IFDEF INCLUDEOCT THEN                                                                          *)
+(* module OctCacheAD = CacheAD (SimpleOctAD.OctAD)                                                *)
+(* module ProfOctCacheAD = CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleOctAD.OctAD)) *)
+(* END                                                                                            *)
 
