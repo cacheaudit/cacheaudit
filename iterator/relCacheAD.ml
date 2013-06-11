@@ -15,7 +15,7 @@ module AddrMap = Map.Make(Int64)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
 
-module RelCacheAD (SV: SIMPLE_REL_SET_DOMAIN) : CACHE_ABSTRACT_DOMAIN = struct
+module Make (SV: SIMPLE_REL_SET_DOMAIN) : CACHE_ABSTRACT_DOMAIN = struct
   type t = {
     (* holds addresses handled so far *)
     handled_addrs : AddrSet.t;
@@ -386,5 +386,5 @@ let (rel_abs,rel_log) = rel_cache_states cache in Format.fprintf fmt "Valid cach
   
 end 
 
-module RelSetCacheAD = RelCacheAD (SimpleRelSetAD.SimpleRelSetAD)
+(* module RelSetCacheAD = RelCacheAD (SimpleRelSetAD.SimpleRelSetAD) *)
 

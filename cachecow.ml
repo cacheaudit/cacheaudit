@@ -193,17 +193,17 @@ let _ =
         let cad = match !cache_analysis with
           | OctAges -> IFDEF INCLUDEOCT THEN 
             if !prof then 
-              (module CacheAD.CacheAD (SimpleProfilingValAD.SimpleProfilingValAD
+              (module CacheAD.Make (SimpleProfilingValAD.SimpleProfilingValAD
                 (SimpleOctAD.OctAD)) : CACHE_ABSTRACT_DOMAIN)
             else 
-              (module CacheAD.CacheAD (SimpleOctAD.OctAD) : CACHE_ABSTRACT_DOMAIN) 
+              (module CacheAD.Make (SimpleOctAD.OctAD) : CACHE_ABSTRACT_DOMAIN) 
           ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
           | RelAges ->
             if !prof then
-              (module CacheAD.CacheAD(SimpleProfilingValAD.SimpleProfilingValAD
+              (module CacheAD.Make(SimpleProfilingValAD.SimpleProfilingValAD
                 (SimpleRelSetAD.SimpleRelSetAD))  : CACHE_ABSTRACT_DOMAIN)
             else
-              (module RelCacheAD.RelCacheAD
+              (module RelCacheAD.Make
                 (SimpleRelSetAD.SimpleRelSetAD) : CACHE_ABSTRACT_DOMAIN)
           | (SetAges | IntAges) -> 
             (* Generate the simple value abstract domain *)
@@ -217,7 +217,7 @@ let _ =
               else (* using profiling *)
                 (module SimpleProfilingValAD.SimpleProfilingValAD(BaseSVAD) : SIMPLE_VALUE_AD) in
             let module SimpleVAD = (val svad: SIMPLE_VALUE_AD) in
-            (module CacheAD.CacheAD (SimpleVAD) : CACHE_ABSTRACT_DOMAIN) 
+            (module CacheAD.Make (SimpleVAD) : CACHE_ABSTRACT_DOMAIN) 
         in
       	  (* if !prof then match !cache_analysis with                                                                                                                                   *)
       	  (* | OctAges -> IFDEF INCLUDEOCT THEN (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END *)
