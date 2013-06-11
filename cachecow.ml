@@ -209,9 +209,11 @@ let _ =
             (* Generate the simple value abstract domain *)
             let svad = 
               if !cache_analysis = SetAges then
-                (module SimpleValAD.SimpleValAD:SIMPLE_VALUE_AD)
-              else 
-                (module SimpleValAD.SimpleIntervalAD :SIMPLE_VALUE_AD) in
+                (module SimpleValAD.SimpleVAD (ValAD.ValADFunctor(ValAD.ValADOptForMemory)):SIMPLE_VALUE_AD)
+              else (* !cache_analysis = IntAges *)
+                (module SimpleValAD.SimpleVAD(ValAD.ValADFunctor(
+                  struct let max_get_var_size = 256 let max_set_size = 0 end)):
+                  SIMPLE_VALUE_AD) in
             let module BaseSVAD = (val svad: SIMPLE_VALUE_AD) in
             let svad = if not (!prof) then svad
               else (* using profiling *)
@@ -219,18 +221,6 @@ let _ =
             let module SimpleVAD = (val svad: SIMPLE_VALUE_AD) in
             (module CacheAD.Make (SimpleVAD) : CACHE_ABSTRACT_DOMAIN) 
         in
-      	  (* if !prof then match !cache_analysis with                                                                                                                                   *)
-      	  (* | OctAges -> IFDEF INCLUDEOCT THEN (module CacheAD.ProfOctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END *)
-      	  (* | RelAges ->                                                                                                                                                               *)
-          (*   (module CacheAD.CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleRelSetAD.SimpleRelSetAD))  : CACHE_ABSTRACT_DOMAIN)                                             *)
-      	  (* | SetAges ->                                                                                                                                                               *)
-          (*   (module CacheAD.CacheAD (SimpleProfilingValAD.SimpleProfilingValAD(SimpleValAD.SimpleValAD)) : CACHE_ABSTRACT_DOMAIN)                                                    *)
-      	  (* | IntAges -> failwith "Profiling for interval-based cache analysis not implemented\n"                                                                                      *)
-      	  (* else match !cache_analysis with                                                                                                                                            *)
-      	  (* | OctAges -> IFDEF INCLUDEOCT THEN (module CacheAD.OctCacheAD : CACHE_ABSTRACT_DOMAIN) ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END     *)
-      	  (* | RelAges -> (module RelCacheAD.RelCacheAD (SimpleRelSetAD.SimpleRelSetAD) : CACHE_ABSTRACT_DOMAIN)                                                                        *)
-      	  (* | SetAges -> (module CacheAD.CacheAD (SimpleValAD.SimpleValAD) : CACHE_ABSTRACT_DOMAIN)                                                                                    *)
-      	  (* | IntAges -> (module CacheAD.CacheAD (SimpleValAD.SimpleIntervalAD) : CACHE_ABSTRACT_DOMAIN) in                                                                            *)
     	  (* Make distinction whether asynchronious attacker is used  *)
     	  let module BaseCache = (val cad: CACHE_ABSTRACT_DOMAIN) in
         match !attacker with
@@ -249,10 +239,10 @@ let _ =
       (* Generate the trace AD *)
       let trcs = if !do_traces then 
       	(module TraceAD.TraceAD(Cache): TRACE_ABSTRACT_DOMAIN)
-      else (module TraceAD.NoTraceAD(Cache)) in
-      let module Traces = (val trcs) in
+      else (module TraceAD.NoTraceAD(Cache): TRACE_ABSTRACT_DOMAIN) in
+      let module Traces = (val trcs: TRACE_ABSTRACT_DOMAIN) in
       (* Generate the memory AD *)
-      let module Mem = MemAD.MemAD(FlagAD.FlagsAD)(Traces) in
+      let module Mem = MemAD.MemAD(FlagAD.FlagAD(ValAD.ValADFunctor(ValAD.ValADOptForMemory)))(Traces) in
       (* Generate the stack AD *)
       let module Stack = StackAD.StackAD(Mem) in
       (* Generate the architecture AD *)
