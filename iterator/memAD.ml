@@ -240,7 +240,8 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (T:TRACE_ABSTRACT_DOMAIN) :
   (** @return the enviroment that corresponds to a memory access *)
   let decide_env d s ed es = 
     match d,s with
-      Address _, _ -> ed
+    | Address _, Address _ -> failwith "Memory-to-memory operation not supported" (* works but records only one cache access *)
+    | Address _, _ -> ed
     | _, Address _ -> es
     | _, _ -> ed
 
