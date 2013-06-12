@@ -139,7 +139,7 @@ let rec dont_unroll_outer = function
                             next_wto = dont_unroll_outer i.next_wto}
 | EmptyWto -> EmptyWto
 
-module Build(A:ARCHITECTURE_ABSTRACT_DOMAIN) = struct
+module Make(A:ArchitectureAD.T) = struct
   
   let print fmt bm = BlockMap.iter (fun b env -> 
       Format.fprintf fmt "@[Incoming block %a@\n %a@]" pp_block_header b A.print env)

@@ -3,8 +3,8 @@ val unroll_outer_loop : bool ref
 
 
 
-module Build :
-  functor (A : Signatures.ARCHITECTURE_ABSTRACT_DOMAIN) ->
+module Make :
+  functor (A : ArchitectureAD.T) ->
     sig
       val iterate :
         X86Headers.t ->

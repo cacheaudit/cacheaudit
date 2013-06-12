@@ -249,13 +249,13 @@ let _ =
       let arch = match !architecture with
         | Split -> let cad = generate_cache prof inst_cache_analysis attacker in
           let module InstCache = (val cad: CACHE_ABSTRACT_DOMAIN) in
-          (module ArchitectureAD.MakeSeparate(Stack)(InstCache): ARCHITECTURE_ABSTRACT_DOMAIN)
-        | Joint -> (module ArchitectureAD.MakeShared(Stack): ARCHITECTURE_ABSTRACT_DOMAIN)
+          (module ArchitectureAD.MakeSeparate(Stack)(InstCache): ArchitectureAD.T)
+        | Joint -> (module ArchitectureAD.MakeShared(Stack): ArchitectureAD.T)
         | NoInstructionCache -> 
-          (module ArchitectureAD.MakeDataOnly(Stack): ARCHITECTURE_ABSTRACT_DOMAIN) in
-      let module Architecture = (val arch: ARCHITECTURE_ABSTRACT_DOMAIN) in
+          (module ArchitectureAD.MakeDataOnly(Stack): ArchitectureAD.T) in
+      let module Architecture = (val arch: ArchitectureAD.T) in
       (* Generate iterator *)
-      let module Iter = Iterator.Build(Architecture) in
+      let module Iter = Iterator.Make(Architecture) in
       let iterate = Iter.iterate in
       let start = Sys.time () in 
       (* Run the analysis *)
