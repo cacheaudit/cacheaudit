@@ -56,7 +56,7 @@ possible, so it approximates Bottom *)
         failwith "simpleValAD: set_var cannot set to values greater than the maximal value"
       else
         let val_ad = if not (V.is_var env.val_ad v) then 
-                    V.new_var env.val_ad v
+                    V.new_var env.val_ad v None
                   else env.val_ad
         in let val_ad = flatten(V.update_var val_ad v NoMask (Cons(Int64.of_int a)) NoMask Move) in
         {env with val_ad = val_ad}

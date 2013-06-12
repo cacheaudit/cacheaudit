@@ -51,6 +51,17 @@ type cache_params =
     inst_base_addr: int64;
 }
 
+let setInitialValue addr lower upper =
+  let parse_interval_bound n =
+    if Int64.compare n 0L = -1 then failwith "Negative numbers are not allowed"
+    else if Int64.compare n 0xFFFFFFFFL = 1 then failwith "Numbers have to be in the 32bit range"
+    else n in
+  let lower = parse_interval_bound lower in
+  let upper = parse_interval_bound upper in
+  if Int64.compare lower upper = 1 then failwith "lower bound should be lower or equal than upper bound"
+  else MemAD.preset_addresses := MemAD.PresetMap.add addr (Signatures.Interval(lower,upper)) !MemAD.preset_addresses
+
+
 
 let config filename =
   let scanned = 
@@ -85,9 +96,11 @@ let config filename =
       | ("INST_BASE",i,_) -> (st,regs,{ca with inst_base_addr = i})
       | ("",0L,_)  -> (st,regs,ca)
       | (str, l, h) ->
-                   try (
-                     (st, (X86Util.string_to_reg32 str, l, h) :: regs,ca)
-                   ) with Invalid_argument arg -> failwith (Printf.sprintf "Configuration not supported. %s is not a valid register" arg)
+                  try (
+                    (st, (X86Util.string_to_reg32 str, l, h) :: regs,ca)
+                  ) with Invalid_argument arg -> try (
+                    setInitialValue (Int64.of_string str) l h; (st, regs, ca)
+                  ) with Failure arg -> failwith (Printf.sprintf "Configuration not supported. %s is not a valid register or a memory location" arg)
             )
   in let empty_cparams = {data_cache_s = 0; data_line_s = 0; data_assoc = 0; inst_cache_s = 0; inst_line_s = 0; inst_assoc = 0; inst_base_addr = (Int64.of_int 0)}
   in auxmatch scanned (None,[],empty_cparams)
