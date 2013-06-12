@@ -27,7 +27,7 @@ module type T =
 
 (* Simple stack abstract domain. Translates pushs and pops to register operations *)
 
-module Make (M: MEMORY_ABSTRACT_DOMAIN) = struct
+module Make (M: MemAD.T) = struct
     (* Stack.top and Memory abstract domain *)
   type t = M.t
 

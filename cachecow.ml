@@ -242,7 +242,7 @@ let _ =
       else (module TraceAD.NoTraceAD(Cache): TRACE_ABSTRACT_DOMAIN) in
       let module Traces = (val trcs: TRACE_ABSTRACT_DOMAIN) in
       (* Generate the memory AD *)
-      let module Mem = MemAD.MemAD(FlagAD.FlagAD(ValAD.ValADFunctor(ValAD.ValADOptForMemory)))(Traces) in
+      let module Mem = MemAD.Make(FlagAD.Make(ValAD.ValADFunctor(ValAD.ValADOptForMemory)))(Traces) in
       (* Generate the stack AD *)
       let module Stack = StackAD.Make(Mem) in
       (* Generate the architecture AD *)

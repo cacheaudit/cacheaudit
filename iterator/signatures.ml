@@ -78,52 +78,6 @@ module type ABSTRACT_DOMAIN = sig
 end
 
 
-module type MEMORY_ABSTRACT_DOMAIN = sig
-  include ABSTRACT_DOMAIN
-  
-  (* init is used to return an initial abstract state *)
-  (* the first arguments returns the initial value at a given address if it *)
-  (* is defined, None otherwize (meaning it's random *)
-  val init: (int64 -> int64 option) -> (X86Types.reg32 * int64 * int64) list -> 
-    cache_param -> t
-
-  (* from a genop32 expression, returns a finite list of possible values,
-     each value associated with an approximation of the corresponding memory 
-     states leading to that particular value. In case no finite list can be
-     determied, returns Top.
-  *)
-  val get_offset: t -> op32 -> (int,t) finite_set
-  val test : t -> X86Types.condition -> (t add_bottom)*(t add_bottom)
-  val memop : t -> memop -> op32 -> op32 -> t
-  val memopb : t -> memop -> op8 -> op8 -> t
-  val load_address : t -> X86Types.reg32 -> X86Types.address -> t
-  val movzx : t -> op32 -> op8 -> t
-  val flagop : t -> op32 flagop -> t
-  val shift : t -> X86Types.shift_op -> op32 -> op8 -> t
-  (* Used by trace recording abstract domains. elapse env d signals that time should be increased by d *)
-  val elapse : t -> int -> t
-  val access_readonly : t -> int64 -> t
-end
-
-
-module type FLAG_ABSTRACT_DOMAIN = sig
-    (* Keeps track of flags. Currently restricted to combinations of
-       CF and ZF) *)
-
-  include ABSTRACT_DOMAIN
-  val init : (var->string) -> t
-  val new_var : t -> var -> var_t option -> t
-  val delete_var : t -> var -> t
-  val get_var : t -> var -> (t ValMap.t) add_top
-  val set_var : t -> var -> int64 -> int64 -> t
-  val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
-  val is_var : t -> var -> bool
-  val meet : t -> t -> t (*TODO: should be add_bottom *)
-  val test : t -> X86Types.condition -> (t add_bottom)*(t add_bottom)
-  val flagop : t -> cons_var flagop -> t
-  val shift : t -> X86Types.shift_op -> var -> cons_var -> mask -> t
-end
-
 
 module type VALUE_ABSTRACT_DOMAIN = sig
   include ABSTRACT_DOMAIN
