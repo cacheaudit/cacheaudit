@@ -31,7 +31,7 @@ module type T =
 
 
 
-module MakeSeparate (S: STACK_ABSTRACT_DOMAIN) (IC: CACHE_ABSTRACT_DOMAIN) = struct
+module MakeSeparate (S: StackAD.T) (IC: CACHE_ABSTRACT_DOMAIN) = struct
 
   type t = {
     call_ad: S.t;
@@ -107,7 +107,7 @@ module MakeSeparate (S: STACK_ABSTRACT_DOMAIN) (IC: CACHE_ABSTRACT_DOMAIN) = str
 
 end
 
-module MakeShared (S: STACK_ABSTRACT_DOMAIN) = struct
+module MakeShared (S: StackAD.T) = struct
 
   type t = S.t
 
@@ -144,7 +144,7 @@ module MakeShared (S: STACK_ABSTRACT_DOMAIN) = struct
 end
 
 
-module MakeDataOnly (S: STACK_ABSTRACT_DOMAIN) = struct
+module MakeDataOnly (S: StackAD.T) = struct
   include MakeShared (S)
 
   let read_instruction env addr = env 

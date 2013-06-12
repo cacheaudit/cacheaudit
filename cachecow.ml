@@ -244,7 +244,7 @@ let _ =
       (* Generate the memory AD *)
       let module Mem = MemAD.MemAD(FlagAD.FlagAD(ValAD.ValADFunctor(ValAD.ValADOptForMemory)))(Traces) in
       (* Generate the stack AD *)
-      let module Stack = StackAD.StackAD(Mem) in
+      let module Stack = StackAD.Make(Mem) in
       (* Generate the architecture AD *)
       let arch = match !architecture with
         | Split -> let cad = generate_cache prof inst_cache_analysis attacker in

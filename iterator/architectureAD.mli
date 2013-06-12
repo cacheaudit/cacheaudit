@@ -4,7 +4,6 @@ module type T =
   sig
     include Signatures.ABSTRACT_DOMAIN
 
-
     val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> cache_param -> cache_param option -> int64 -> t
   (* from a genop32 expression, returns a finite list of possible values,
      each value associated with an approximation of the corresponding memory 
@@ -33,9 +32,7 @@ module type T =
 
 
 module MakeSeparate :
-  functor (S : Signatures.STACK_ABSTRACT_DOMAIN) ->
+  functor (S : StackAD.T) ->
     functor (IC : Signatures.CACHE_ABSTRACT_DOMAIN) -> T
-module MakeShared :
-  functor (S : Signatures.STACK_ABSTRACT_DOMAIN) -> T
-module MakeDataOnly :
-  functor (S : Signatures.STACK_ABSTRACT_DOMAIN) -> T
+module MakeShared : functor (S : StackAD.T) -> T
+module MakeDataOnly : functor (S : StackAD.T) -> T
