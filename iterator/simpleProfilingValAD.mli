@@ -1,2 +1,2 @@
 module Make :
-  functor (S : SimpleValAD.T) -> SimpleValAD.T
+  functor (S : AgeAD.T) -> AgeAD.T

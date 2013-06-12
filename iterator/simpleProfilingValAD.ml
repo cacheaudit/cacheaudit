@@ -6,7 +6,7 @@ let calls : int SM.t ref = ref SM.empty
 let cTime : float SM.t ref = ref SM.empty
 let sumTime : float SM.t ref = ref SM.empty
 
-module Make(S:SimpleValAD.T) = struct
+module Make(S:AgeAD.T) = struct
   type t = S.t
 
   let start (fn : string) : unit = 

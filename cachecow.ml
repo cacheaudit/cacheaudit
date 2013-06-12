@@ -206,20 +206,20 @@ let _ =
               (module RelCacheAD.Make
                 (SimpleRelSetAD.SimpleRelSetAD) : CacheAD.T)
           | (SetAges | IntAges) -> 
-            (* Generate the simple value abstract domain *)
-            let svad = 
+            (* Generate the age abstract domain *)
+            let age = 
               if !cache_analysis = SetAges then
-                (module SimpleValAD.Make (ValAD.Make(ValAD.ValADOptForMemory)):SimpleValAD.T)
+                (module AgeAD.Make (ValAD.Make(ValAD.ValADOptForMemory)):AgeAD.T)
               else (* !cache_analysis = IntAges *)
-                (module SimpleValAD.Make(ValAD.Make(
+                (module AgeAD.Make(ValAD.Make(
                   struct let max_get_var_size = 256 let max_set_size = 0 end)):
-                  SimpleValAD.T) in
-            let module BaseSVAD = (val svad: SimpleValAD.T) in
-            let svad = if not (!prof) then svad
+                  AgeAD.T) in
+            let module BaseSVAD = (val age: AgeAD.T) in
+            let age = if not (!prof) then age 
               else (* using profiling *)
-                (module SimpleProfilingValAD.Make(BaseSVAD) : SimpleValAD.T) in
-            let module SimpleVAD = (val svad: SimpleValAD.T) in
-            (module CacheAD.Make (SimpleVAD) : CacheAD.T) 
+                (module SimpleProfilingValAD.Make(BaseSVAD) : AgeAD.T) in
+            let module Age = (val age: AgeAD.T) in
+            (module CacheAD.Make (Age) : CacheAD.T) 
         in
     	  (* Make distinction whether asynchronious attacker is used  *)
     	  let module BaseCache = (val cad: CacheAD.T) in
