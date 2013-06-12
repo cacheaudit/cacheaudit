@@ -59,7 +59,7 @@ let setInitialValue addr lower upper =
   let lower = parse_interval_bound lower in
   let upper = parse_interval_bound upper in
   if Int64.compare lower upper = 1 then failwith "lower bound should be lower or equal than upper bound"
-  else MemAD.preset_addresses := MemAD.PresetMap.add addr (Signatures.Interval(lower,upper)) !MemAD.preset_addresses
+  else MemAD.preset_address addr (Signatures.Interval(lower,upper))
 
 
 

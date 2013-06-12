@@ -9,6 +9,10 @@ module PresetMap = Map.Make(Int64)
 let preset_addresses = ref PresetMap.empty
 (*let logged_addresses = ref []*)
 
+let preset_address addr value = 
+  preset_addresses := PresetMap.add addr value !preset_addresses
+
+
 module MemSet = Set.Make(Int64)
 
 (* *)
