@@ -39,48 +39,48 @@ module Make (SV: SimpleRelSetAD.T) : CacheAD.T = struct
 
   let print_addr_set fmt = AddrSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
  
-  (* Returns a list of all n-tuples that can be created from the adresses in a. *)
-  let rec n_tuples (valid:var list -> bool)(n: int) (a: AddrSet.t) : var list list = match n with
-     0 -> [[]](*AddrSet.fold (fun _ vll -> []::vll ) a []*)
-   | n -> AddrSet.fold (fun addr vll -> let n_minus_one_tuples = n_tuples (fun _ -> true) (n-1) (AddrSet.remove addr a) in
-  List.fold_left (fun vll' x -> let l = addr::x in if valid l then l::vll' else vll') vll n_minus_one_tuples) a []
+  (* (* Returns a list of all n-tuples that can be created from the adresses in a. *)                                                                            *)
+  (* let rec n_tuples (valid:var list -> bool)(n: int) (a: AddrSet.t) : var list list = match n with                                                             *)
+  (*    0 -> [[]](*AddrSet.fold (fun _ vll -> []::vll ) a []*)                                                                                                   *)
+  (*  | n -> AddrSet.fold (fun addr vll -> let n_minus_one_tuples = n_tuples (fun _ -> true) (n-1) (AddrSet.remove addr a) in                                    *)
+  (* List.fold_left (fun vll' x -> let l = addr::x in if valid l then l::vll' else vll') vll n_minus_one_tuples) a []                                            *)
 
-  (* Checks if the given cache state is valid with respect to the ages defined in cache.ages. *)
-  let valid_cache_state (cache:t) (addr_set:AddrSet.t) (cache_state: var list) : bool = 
-   let rec pos addr l i = match l with 
-       [] -> cache.associativity 
-    | hd::tl -> if hd = addr then i else pos addr tl (i+1) in
-   AddrSet.for_all (fun (addr:var) -> List.mem (pos addr cache_state 0) (SV.get_values cache.ages addr) ) addr_set 
+  (* (* Checks if the given cache state is valid with respect to the ages defined in cache.ages. *)                                                              *)
+  (* let valid_cache_state (cache:t) (addr_set:AddrSet.t) (cache_state: var list) : bool =                                                                       *)
+  (*  let rec pos addr l i = match l with                                                                                                                        *)
+  (*      [] -> cache.associativity                                                                                                                              *)
+  (*   | hd::tl -> if hd = addr then i else pos addr tl (i+1) in                                                                                                 *)
+  (*  AddrSet.for_all (fun (addr:var) -> List.mem (pos addr cache_state 0) (SV.get_values cache.ages addr) ) addr_set                                            *)
 
-  (* Helper for cache_states_per_set and blurred_cache_states_per_set *)
-  let rec num_blocks n = match n with 0 -> [0] | m -> m::num_blocks (m-1)
+  (* (* Helper for cache_states_per_set and blurred_cache_states_per_set *)                                                                                      *)
+  (* let rec num_blocks n = match n with 0 -> [0] | m -> m::num_blocks (m-1)                                                                                     *)
 
-  (* Computes a list where each item i is the number of possible cache states of cache set i. *)
-  let cache_states_per_set (cache:t) : int list = 
-    CacheMap.fold (fun (set_number:int) (addr_set:AddrSet.t) (sol:int list) -> 
-      let tuples = List.fold_left (fun l i -> List.append l (n_tuples (valid_cache_state cache addr_set) i addr_set)) [] (num_blocks cache.associativity) in 
-      let set_solutions = List.length (List.filter (fun (cache_state: var list) -> valid_cache_state cache addr_set cache_state) tuples) in 
-    set_solutions::sol) cache.cache_sets []
+  (* (* Computes a list where each item i is the number of possible cache states of cache set i. *)                                                              *)
+  (* let cache_states_per_set (cache:t) : int list =                                                                                                             *)
+  (*   CacheMap.fold (fun (set_number:int) (addr_set:AddrSet.t) (sol:int list) ->                                                                                *)
+  (*     let tuples = List.fold_left (fun l i -> List.append l (n_tuples (valid_cache_state cache addr_set) i addr_set)) [] (num_blocks cache.associativity) in  *)
+  (*     let set_solutions = List.length (List.filter (fun (cache_state: var list) -> valid_cache_state cache addr_set cache_state) tuples) in                   *)
+  (*   set_solutions::sol) cache.cache_sets []                                                                                                                   *)
 
-  (* Same as cache_states_per_set, but the adversary can only see the number of blocks *)
-  let blurred_cache_states_per_set (cache:t) : int list = 
-    CacheMap.fold (fun (set_number:int) (addr_set:AddrSet.t) (sol:int list) -> 
-      let tuples = List.fold_left (fun l i -> List.append l (n_tuples (valid_cache_state cache addr_set) i addr_set)) [] (num_blocks cache.associativity) in 
-      let tmp_solutions = List.filter (fun (cache_state: var list) -> valid_cache_state cache addr_set cache_state) tuples in 
-      let blurred_solutions = List.fold_left (fun (res:IntSet.t) (state:var list) -> IntSet.add (List.length state) res) IntSet.empty tmp_solutions in
-      let set_solutions = IntSet.cardinal blurred_solutions in
-    set_solutions::sol) cache.cache_sets []
+  (* (* Same as cache_states_per_set, but the adversary can only see the number of blocks *)                                                                     *)
+  (* let blurred_cache_states_per_set (cache:t) : int list =                                                                                                     *)
+  (*   CacheMap.fold (fun (set_number:int) (addr_set:AddrSet.t) (sol:int list) ->                                                                                *)
+  (*     let tuples = List.fold_left (fun l i -> List.append l (n_tuples (valid_cache_state cache addr_set) i addr_set)) [] (num_blocks cache.associativity) in  *)
+  (*     let tmp_solutions = List.filter (fun (cache_state: var list) -> valid_cache_state cache addr_set cache_state) tuples in                                 *)
+  (*     let blurred_solutions = List.fold_left (fun (res:IntSet.t) (state:var list) -> IntSet.add (List.length state) res) IntSet.empty tmp_solutions in        *)
+  (*     let set_solutions = IntSet.cardinal blurred_solutions in                                                                                                *)
+  (*   set_solutions::sol) cache.cache_sets []                                                                                                                   *)
 
-  (* Computes the number of possible cache states in a logarithmic scale *)
-  let log_cache_states (cache:t) (counting_fun:t->int list): float = (match cache.strategy with
-    PLRU -> Format.printf "Counting on PLRU is incorrect\n"
-  | _ -> ());
-     let sum = List.fold_left (fun sol set_sol -> log10 (float_of_int set_sol) +. sol) 0.0 (counting_fun cache) in
-     sum /. (log10 2.0)
+  (* (* Computes the number of possible cache states in a logarithmic scale *)                                                                                   *)
+  (* let log_cache_states (cache:t) (counting_fun:t->int list): float = (match cache.strategy with                                                               *)
+  (*   PLRU -> Format.printf "Counting on PLRU is incorrect\n"                                                                                                   *)
+  (* | _ -> ());                                                                                                                                                 *)
+  (*    let sum = List.fold_left (fun sol set_sol -> log10 (float_of_int set_sol) +. sol) 0.0 (counting_fun cache) in                                            *)
+  (*    sum /. (log10 2.0)                                                                                                                                       *)
 
-  (* Computes the number of possible cache states in an absolute scale *)
-  let absolute_cache_states (cache:t) (counting_fun:t->int list): int64 = 
-     List.fold_left (fun sol set_sol -> Int64.mul sol (Int64.of_int set_sol)) Int64.one (counting_fun cache)
+  (* (* Computes the number of possible cache states in an absolute scale *)                                                                                     *)
+  (* let absolute_cache_states (cache:t) (counting_fun:t->int list): int64 =                                                                                     *)
+  (*    List.fold_left (fun sol set_sol -> Int64.mul sol (Int64.of_int set_sol)) Int64.one (counting_fun cache)                                                  *)
 
   (*partition helper *)
   let rec add_to_setlist setlist set  =     match setlist with 
@@ -168,14 +168,14 @@ type af = (var*int) list
 
 open Big_int
 
-  let count_cache_states cache =
-    match !adversary with
-(* TODO: compute a better bound when we have a bulrred adversary *)
-       Blurred -> List.fold_left (fun sol set_sol -> mult_big_int sol (big_int_of_int set_sol)) unit_big_int (blurred_cache_states_per_set cache)
-    | SharedSpace -> 
-        let setnums = comp_setnums cache in
-        let states_per_part = cache_states_per_partition cache setnums in
-        List.fold_left (fun sol set_sol -> mult_big_int sol (big_int_of_int set_sol)) unit_big_int states_per_part
+  let count_cache_states cache = failwith "count_cache_states not implemented for relational cache"
+(*     match !adversary with                                                                                                                         *)
+(* (* TODO: compute a better bound when we have a bulrred adversary *)                                                                               *)
+(*        Blurred -> List.fold_left (fun sol set_sol -> mult_big_int sol (big_int_of_int set_sol)) unit_big_int (blurred_cache_states_per_set cache) *)
+(*     | SharedSpace ->                                                                                                                              *)
+(*         let setnums = comp_setnums cache in                                                                                                       *)
+(*         let states_per_part = cache_states_per_partition cache setnums in                                                                         *)
+(*         List.fold_left (fun sol set_sol -> mult_big_int sol (big_int_of_int set_sol)) unit_big_int states_per_part                                *)
 
   let print fmt cache =
     Format.fprintf fmt "@[";
@@ -187,8 +187,8 @@ open Big_int
         )
       ) cache.cache_sets;
      Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" SV.print cache.ages;
-Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f bits.\n" (absolute_cache_states cache cache_states_per_set) (log_cache_states cache cache_states_per_set);
-Format.fprintf fmt "\nNumber of valid cache configurations (blurred): 0x%Lx, that is %f bits.\n" (absolute_cache_states cache blurred_cache_states_per_set) (log_cache_states cache blurred_cache_states_per_set);
+(* Format.fprintf fmt "\nNumber of valid cache configurations : 0x%Lx, that is %f bits.\n" (absolute_cache_states cache cache_states_per_set) (log_cache_states cache cache_states_per_set);                          *)
+(* Format.fprintf fmt "\nNumber of valid cache configurations (blurred): 0x%Lx, that is %f bits.\n" (absolute_cache_states cache blurred_cache_states_per_set) (log_cache_states cache blurred_cache_states_per_set); *)
 let (rel_abs,rel_log) = rel_cache_states cache in Format.fprintf fmt "Valid cache configurations computed with relational Information : 0x%Lx, that is %f bits.\n" rel_abs rel_log
  
   let var_to_string x = Printf.sprintf "%Lx" x 

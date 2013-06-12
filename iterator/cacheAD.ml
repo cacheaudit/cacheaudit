@@ -44,7 +44,7 @@ module CacheMap = Map.Make(struct type t = int let compare = compare end)
 module AddrSet = Set.Make(Int64)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
-module Make (SV: SimpleValAD.T) = struct
+module Make (SV: AgeAD.T) = struct
   type t = {
     handled_addrs : AddrSet.t; (* holds addresses handled so far *)
     cache_sets : AddrSet.t CacheMap.t;
@@ -67,7 +67,7 @@ module Make (SV: SimpleValAD.T) = struct
 
 
   (* Count the number of n-permutations of the address set addr_set *)
-  let num_tuples (is_valid:var list -> bool) (n: int) (addr_set: AddrSet.t) = 
+  let num_tuples is_valid n addr_set = 
     if AddrSet.cardinal addr_set >= n then begin
       let rec loop n elements tuple s = 
         if n = 0 then begin
@@ -81,11 +81,11 @@ module Make (SV: SimpleValAD.T) = struct
     
   (* Checks if the given cache state is valid *)
   (* with respect to the ages defined in cache.ages. *)
-  let is_valid_cstate (cache:t) (addr_set:AddrSet.t) (cache_state: var list)  = 
+  let is_valid_cstate cache addr_set cache_state  = 
     let rec pos addr l i = match l with 
        [] -> cache.associativity 
     | hd::tl -> if hd = addr then i else pos addr tl (i+1) in
-    AddrSet.for_all (fun (addr:var) -> 
+    AddrSet.for_all (fun addr -> 
       List.mem (pos addr cache_state 0)(SV.get_values cache.ages addr)) addr_set 
   
   (* Computes two lists list where each item i is the number of possible *)

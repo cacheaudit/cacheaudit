@@ -21,5 +21,5 @@ end
 
 
 (** Creates cache domain from given value domain *)
-module Make : functor (SV : SimpleValAD.T) -> T
+module Make : functor (SV : AgeAD.T) -> T
 

@@ -1,6 +1,6 @@
 open Signatures
 module type T = sig
-  include SimpleValAD.T
+  include AgeAD.T
   val mem : t -> (var * int) list -> bool
   val partition: t -> var list list
 end
