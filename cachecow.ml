@@ -114,8 +114,8 @@ let speclist = [
     ("--instrAttacker", Arg.Int (fun d -> analyze:=true; attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).");
     ("--oneInstrInterrupt", Arg.Unit (fun () -> analyze := true; attacker:=OneInstrInterrupt),"attacker that can interrupt only once per round, based on the number of instructions");
     ("--oneTimedInterrupt", Arg.Unit (fun () -> analyze:=true; attacker:=OneTimedInterrupt),"attacker that can interrupt only once per round, based on time");
-    ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), "Use the same cache for instructios and data.");
-    ("--noInstructionCache", Arg.Unit (fun () -> architecture := NoInstructionCache),"Don't take into account the instruction cache");
+    ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), "Shared cache for data and instructions");
+    ("--noInstructionCache", Arg.Unit (fun () -> architecture := NoInstructionCache),"Data cache only");
     ("--noTraces", Arg.Unit (fun () -> do_traces := false),"Disable tracking of traces (and time)");
   ] 
 
@@ -249,10 +249,10 @@ let _ =
       let arch = match !architecture with
         | Split -> let cad = generate_cache prof inst_cache_analysis attacker in
           let module InstCache = (val cad: CACHE_ABSTRACT_DOMAIN) in
-          (module ArchitectureAD.SplitCacheArchitectureAD(Stack)(InstCache): ARCHITECTURE_ABSTRACT_DOMAIN)
-        | Joint -> (module ArchitectureAD.JointCacheArchitectureAD(Stack): ARCHITECTURE_ABSTRACT_DOMAIN)
+          (module ArchitectureAD.MakeSeparate(Stack)(InstCache): ARCHITECTURE_ABSTRACT_DOMAIN)
+        | Joint -> (module ArchitectureAD.MakeShared(Stack): ARCHITECTURE_ABSTRACT_DOMAIN)
         | NoInstructionCache -> 
-          (module ArchitectureAD.NoInstructionCacheArchitectureAD(Stack): ARCHITECTURE_ABSTRACT_DOMAIN) in
+          (module ArchitectureAD.MakeDataOnly(Stack): ARCHITECTURE_ABSTRACT_DOMAIN) in
       let module Architecture = (val arch: ARCHITECTURE_ABSTRACT_DOMAIN) in
       (* Generate iterator *)
       let module Iter = Iterator.Build(Architecture) in

@@ -1,11 +1,14 @@
 open Signatures
 open X86Types
 
+
+
+
 (* Architecture abstract domain. Right now it only allows two different caches for instructions and data *)
 
 let instruction_addr_base = ref (Int64.of_int 0)
 
-module SplitCacheArchitectureAD (S: STACK_ABSTRACT_DOMAIN) (IC: CACHE_ABSTRACT_DOMAIN) : ARCHITECTURE_ABSTRACT_DOMAIN = struct
+module MakeSeparate (S: STACK_ABSTRACT_DOMAIN) (IC: CACHE_ABSTRACT_DOMAIN) :ARCHITECTURE_ABSTRACT_DOMAIN = struct
 
   type t = {
     call_ad: S.t;
@@ -81,7 +84,7 @@ module SplitCacheArchitectureAD (S: STACK_ABSTRACT_DOMAIN) (IC: CACHE_ABSTRACT_D
 
 end
 
-module JointCacheArchitectureAD (S: STACK_ABSTRACT_DOMAIN) : ARCHITECTURE_ABSTRACT_DOMAIN = struct
+module MakeShared (S: STACK_ABSTRACT_DOMAIN) : ARCHITECTURE_ABSTRACT_DOMAIN = struct
 
   type t = S.t
 
@@ -118,8 +121,8 @@ module JointCacheArchitectureAD (S: STACK_ABSTRACT_DOMAIN) : ARCHITECTURE_ABSTRA
 end
 
 
-module NoInstructionCacheArchitectureAD (S: STACK_ABSTRACT_DOMAIN) : ARCHITECTURE_ABSTRACT_DOMAIN = struct
-  include JointCacheArchitectureAD (S)
+module MakeDataOnly (S: STACK_ABSTRACT_DOMAIN) : ARCHITECTURE_ABSTRACT_DOMAIN = struct
+  include MakeShared (S)
 
   let read_instruction env addr = env 
 end
