@@ -116,10 +116,14 @@ module ValADFunctor(O:VALADOPT) : VALUE_ABSTRACT_DOMAIN = struct
     carry <> Int64.zero
   let flag_zero res = ((precision 32 res) = 0L)
 
+  (* set_or_interval given two bounds either returns an interval or a set if its size is less than O.max_set_size *)
+  let set_or_interval l h = if range_over (l,h) O.max_set_size then Interval(l,h) else FSet (interval_to_set l h)
+
   let init v2s = variable_naming:=v2s; VarMap.empty
 
   let new_var m v initial = match initial with
     | None -> VarMap.add v top m
+    | Some (Interval(l,h)) -> VarMap.add v (set_or_interval l h) m
     | Some init -> VarMap.add v init m
 
   let delete_var m v = VarMap.remove v m
@@ -135,9 +139,6 @@ module ValADFunctor(O:VALADOPT) : VALUE_ABSTRACT_DOMAIN = struct
                    (f (Int64.succ l) h) in
           Nt(f l h)
   ) with Not_found -> failwith  (Printf.sprintf "valAD.get_var: non-existent variable %Lx\n" v)
-
-  (* set_or_interval given two bounds either returns an interval or a set if its size is less than O.max_set_size *)
-  let set_or_interval l h = if range_over (l,h) O.max_set_size then Interval(l,h) else FSet (interval_to_set l h)
 
   let set_var m v l h = VarMap.add v (set_or_interval l h) m
 
