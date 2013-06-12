@@ -41,4 +41,4 @@ module type AGE_FUNCTION =
     val vars : t -> VarSet.t
   end
 
-module PairListAgeFunction : AGE_FUNCTION
+module AgeFunction : AGE_FUNCTION
