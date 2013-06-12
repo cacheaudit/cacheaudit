@@ -1,11 +1,9 @@
 val min_frequency : int ref
 
 module InstructionBasedAttacker :
-  functor (C : Signatures.CACHE_ABSTRACT_DOMAIN) ->
-    Signatures.CACHE_ABSTRACT_DOMAIN
+  functor (C : CacheAD.T) -> CacheAD.T
 module OneInstructionInterrupt :
-  functor (C : Signatures.CACHE_ABSTRACT_DOMAIN) ->
-    Signatures.CACHE_ABSTRACT_DOMAIN
+  functor (C : CacheAD.T) -> CacheAD.T
 module OneTimeInterrupt :
-  functor (C : Signatures.CACHE_ABSTRACT_DOMAIN) ->
-    Signatures.CACHE_ABSTRACT_DOMAIN
+  functor (C : CacheAD.T) -> CacheAD.T
+    

@@ -49,7 +49,7 @@ let preset_address addr value =
 module MemSet = Set.Make(Int64)
 
 (* *)
-module Make (F : FlagAD.T) (TR:TRACE_ABSTRACT_DOMAIN) = struct
+module Make (F : FlagAD.T) (TR:TraceAD.T) = struct
 
   type t = {
           vals : F.t; (** Element of the Value Abstract Domain *)

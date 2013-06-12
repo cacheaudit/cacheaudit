@@ -21,7 +21,7 @@ let map_join f m1 m2 = IntMap.fold (fun k c1 res ->
 
 (* we suppose an attecker that can choose the number of instructions elpased *)
 (* This is only correct on programs without branching !!! ********************)
-module InstructionBasedAttacker (C: CACHE_ABSTRACT_DOMAIN) : CACHE_ABSTRACT_DOMAIN = struct
+module InstructionBasedAttacker (C: CacheAD.T) : CacheAD.T = struct
   type one_attacker_age_state = {
     caches : C.t;
     leakage : big_int; (* we use big_int to be able to represent up to 2^258 configurations *)
@@ -124,7 +124,7 @@ let print_delta env1 fmt env2 = () (*print fmt env2 (*TODO*) *)
 
 end 
 
-module OneInstructionInterrupt(C:CACHE_ABSTRACT_DOMAIN):CACHE_ABSTRACT_DOMAIN =
+module OneInstructionInterrupt(C:CacheAD.T):CacheAD.T =
 struct
   (*Simple implementation where we assume that there is no branching, so that we don't need to store cache states at each position in time *)
 
@@ -160,7 +160,7 @@ struct
 end
 
 (* This is not correct, as it does not take into account meddling of the attacker in the cache hits and misses *)    
-module OneTimeInterrupt(C:CACHE_ABSTRACT_DOMAIN):CACHE_ABSTRACT_DOMAIN =
+module OneTimeInterrupt(C:CacheAD.T):CacheAD.T =
 struct
   
   type t = { observables : C.t IntMap.t; (* will contain observables at each time step *)

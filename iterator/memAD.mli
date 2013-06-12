@@ -34,4 +34,4 @@ end
 
 module Make :
   functor (F : FlagAD.T) ->
-    functor (TR : Signatures.TRACE_ABSTRACT_DOMAIN) -> T
+    functor (TR : TraceAD.T) -> T

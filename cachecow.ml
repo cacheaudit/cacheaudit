@@ -193,62 +193,62 @@ let _ =
         let cad = match !cache_analysis with
           | OctAges -> IFDEF INCLUDEOCT THEN 
             if !prof then 
-              (module CacheAD.Make (SimpleProfilingValAD.SimpleProfilingValAD
-                (SimpleOctAD.OctAD)) : CACHE_ABSTRACT_DOMAIN)
+              (module CacheAD.Make (SimpleProfilingValAD.Make
+                (SimpleOctAD.OctAD)) : CacheAD.T)
             else 
-              (module CacheAD.Make (SimpleOctAD.OctAD) : CACHE_ABSTRACT_DOMAIN) 
+              (module CacheAD.Make (SimpleOctAD.OctAD) : CacheAD.T) 
           ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
           | RelAges ->
             if !prof then
-              (module CacheAD.Make(SimpleProfilingValAD.SimpleProfilingValAD
-                (SimpleRelSetAD.SimpleRelSetAD))  : CACHE_ABSTRACT_DOMAIN)
+              (module CacheAD.Make(SimpleProfilingValAD.Make
+                (SimpleRelSetAD.SimpleRelSetAD))  : CacheAD.T)
             else
               (module RelCacheAD.Make
-                (SimpleRelSetAD.SimpleRelSetAD) : CACHE_ABSTRACT_DOMAIN)
+                (SimpleRelSetAD.SimpleRelSetAD) : CacheAD.T)
           | (SetAges | IntAges) -> 
             (* Generate the simple value abstract domain *)
             let svad = 
               if !cache_analysis = SetAges then
-                (module SimpleValAD.SimpleVAD (ValAD.ValADFunctor(ValAD.ValADOptForMemory)):SIMPLE_VALUE_AD)
+                (module SimpleValAD.Make (ValAD.Make(ValAD.ValADOptForMemory)):SimpleValAD.T)
               else (* !cache_analysis = IntAges *)
-                (module SimpleValAD.SimpleVAD(ValAD.ValADFunctor(
+                (module SimpleValAD.Make(ValAD.Make(
                   struct let max_get_var_size = 256 let max_set_size = 0 end)):
-                  SIMPLE_VALUE_AD) in
-            let module BaseSVAD = (val svad: SIMPLE_VALUE_AD) in
+                  SimpleValAD.T) in
+            let module BaseSVAD = (val svad: SimpleValAD.T) in
             let svad = if not (!prof) then svad
               else (* using profiling *)
-                (module SimpleProfilingValAD.SimpleProfilingValAD(BaseSVAD) : SIMPLE_VALUE_AD) in
-            let module SimpleVAD = (val svad: SIMPLE_VALUE_AD) in
-            (module CacheAD.Make (SimpleVAD) : CACHE_ABSTRACT_DOMAIN) 
+                (module SimpleProfilingValAD.Make(BaseSVAD) : SimpleValAD.T) in
+            let module SimpleVAD = (val svad: SimpleValAD.T) in
+            (module CacheAD.Make (SimpleVAD) : CacheAD.T) 
         in
     	  (* Make distinction whether asynchronious attacker is used  *)
-    	  let module BaseCache = (val cad: CACHE_ABSTRACT_DOMAIN) in
+    	  let module BaseCache = (val cad: CacheAD.T) in
         match !attacker with
         | Final -> cad
         | Instructions d -> AsynchronousAttacker.min_frequency := d;
-          (module AsynchronousAttacker.InstructionBasedAttacker(BaseCache) :CACHE_ABSTRACT_DOMAIN)
+          (module AsynchronousAttacker.InstructionBasedAttacker(BaseCache) :CacheAD.T)
         | OneInstrInterrupt -> 
-          (module AsynchronousAttacker.OneInstructionInterrupt(BaseCache) : CACHE_ABSTRACT_DOMAIN)
+          (module AsynchronousAttacker.OneInstructionInterrupt(BaseCache) : CacheAD.T)
         | OneTimedInterrupt -> 
-          (module AsynchronousAttacker.OneTimeInterrupt(BaseCache) : CACHE_ABSTRACT_DOMAIN) in
+          (module AsynchronousAttacker.OneTimeInterrupt(BaseCache) : CacheAD.T) in
         (* end of generate_cache definition *)
         
       (* Generate the data cache AD*)
       let module Cache = (val (generate_cache prof data_cache_analysis attacker):
-         CACHE_ABSTRACT_DOMAIN) in
+         CacheAD.T) in
       (* Generate the trace AD *)
       let trcs = if !do_traces then 
-      	(module TraceAD.TraceAD(Cache): TRACE_ABSTRACT_DOMAIN)
-      else (module TraceAD.NoTraceAD(Cache): TRACE_ABSTRACT_DOMAIN) in
-      let module Traces = (val trcs: TRACE_ABSTRACT_DOMAIN) in
+      	(module TraceAD.Make(Cache): TraceAD.T)
+      else (module TraceAD.MakeNot(Cache): TraceAD.T) in
+      let module Traces = (val trcs: TraceAD.T) in
       (* Generate the memory AD *)
-      let module Mem = MemAD.Make(FlagAD.Make(ValAD.ValADFunctor(ValAD.ValADOptForMemory)))(Traces) in
+      let module Mem = MemAD.Make(FlagAD.Make(ValAD.Make(ValAD.ValADOptForMemory)))(Traces) in
       (* Generate the stack AD *)
       let module Stack = StackAD.Make(Mem) in
       (* Generate the architecture AD *)
       let arch = match !architecture with
         | Split -> let cad = generate_cache prof inst_cache_analysis attacker in
-          let module InstCache = (val cad: CACHE_ABSTRACT_DOMAIN) in
+          let module InstCache = (val cad: CacheAD.T) in
           (module ArchitectureAD.MakeSeparate(Stack)(InstCache): ArchitectureAD.T)
         | Joint -> (module ArchitectureAD.MakeShared(Stack): ArchitectureAD.T)
         | NoInstructionCache -> 

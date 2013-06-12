@@ -6,7 +6,14 @@ open RelSetMap
 
 let debug = ref false
 
-module SimpleRelSetAD : SIMPLE_REL_SET_DOMAIN  = struct
+module type T = sig
+  include SimpleValAD.T
+  val mem : t -> (var * int) list -> bool
+  val partition: t -> var list list
+end
+
+
+module SimpleRelSetAD = struct
   module M = RelSetMap
   type t = {map : M.t; arity : int; max : int}
 

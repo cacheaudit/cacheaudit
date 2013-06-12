@@ -19,7 +19,7 @@ module type T =
   end
 
 
-module Make (V: VALUE_ABSTRACT_DOMAIN) = struct
+module Make (V: ValAD.T) = struct
   
   (* Handles invariants corresponding to combinations of flags.
      For now only supports CF, ZF *)
