@@ -18,14 +18,10 @@ end
 
 module VarMap = Map.Make(OrdVar)
 
-module ValSet = Set.Make(Int64)
-
 module ValADFunctor(O:VALADOPT) : VALUE_ABSTRACT_DOMAIN = struct
 (* A basic variable contains a 32 bits unsigned integer. *)
   open X86Types
 
-(* Type of the abstract elements representing one variable *)
-  type var_t = FSet of ValSet.t | Interval of int64*int64
   let min_elt = 0L
   let max_elt = 0xffffffffL
   let two32 = 0x100000000L
@@ -122,7 +118,9 @@ module ValADFunctor(O:VALADOPT) : VALUE_ABSTRACT_DOMAIN = struct
 
   let init v2s = variable_naming:=v2s; VarMap.empty
 
-  let new_var m v = VarMap.add v top m
+  let new_var m v initial = match initial with
+    | None -> VarMap.add v top m
+    | Some init -> VarMap.add v init m
 
   let delete_var m v = VarMap.remove v m
 

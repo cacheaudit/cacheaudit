@@ -149,7 +149,7 @@ module FlagAD (V: VALUE_ABSTRACT_DOMAIN) : FLAG_ABSTRACT_DOMAIN = struct
       ff=compwiden st1.ff st2.ff;}
 
 
-  let new_var st var = tmap (fun x -> V.new_var x var) st
+  let new_var st var initial = tmap (fun x -> V.new_var x var initial) st
 
   let delete_var st var = tmap (fun x -> V.delete_var x var) st
 

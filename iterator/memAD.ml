@@ -4,6 +4,11 @@ let time_effective_load = 0;
 
 open Signatures
 
+(* preset_addresses store initial values for specific addresses that have been specified by the user in the conf file *)
+module PresetMap = Map.Make(Int64)
+let preset_addresses = ref PresetMap.empty
+(*let logged_addresses = ref []*)
+
 module MemSet = Set.Make(Int64)
 
 (* *)
@@ -22,10 +27,13 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (T:TRACE_ABSTRACT_DOMAIN) :
 
   let pp_vars fmt v = MemSet.iter (Format.fprintf fmt "%a, @," X86Print.pp_addr) v
 
+  let log_vars fmt mem = ()
+
   let print fmt mem = 
     if MemSet.is_empty mem.memory then Format.fprintf fmt "%a %a"
         F.print mem.vals T.print mem.traces
-    else 
+    else
+      log_vars fmt mem;
       Format.fprintf fmt "List of variable memory locations: @[%a@\n%a@, %a@]"
       pp_vars mem.memory F.print mem.vals T.print mem.traces
 
@@ -61,7 +69,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (T:TRACE_ABSTRACT_DOMAIN) :
   (* initRegs : F.t -> F.t *)
   (** Adds variables and values for the registers in the value domain *)
   let initRegs v regList = 
-    let varsadded = List.fold_left (fun vt x -> let r,_,_ = x in F.new_var vt (reg_to_var r)) v regList in
+    let varsadded = List.fold_left (fun vt x -> let r,_,_ = x in F.new_var vt (reg_to_var r) None) v regList in
     List.fold_left (fun vt x -> let r,l,h = x in F.set_var vt (reg_to_var r) l h) varsadded regList
 
  (** Return an element of type t with initialized registers *)
@@ -80,7 +88,7 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (T:TRACE_ABSTRACT_DOMAIN) :
   let merge_with f g x y = if x == y then x else
     let x_minus_y = MemSet.diff x.memory y.memory in
     let y_minus_x = MemSet.diff y.memory x.memory in
-    let create_vars = MemSet.fold (fun x v -> F.new_var v x) in
+    let create_vars = MemSet.fold (fun x v -> F.new_var v x None) in
     { x with vals = f (create_vars y_minus_x x.vals) 
                       (create_vars x_minus_y y.vals);
              memory = MemSet.union x.memory y.memory;
@@ -142,8 +150,11 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (T:TRACE_ABSTRACT_DOMAIN) :
     
     
   (** Create an unitialized variable; assume it is not already created. *) 
-  let create_var env n =
-    {env with vals = F.new_var env.vals n; memory = MemSet.add n env.memory}
+  let create_var env n addr =
+    try
+      {env with vals = F.new_var env.vals n (Some (PresetMap.find addr !preset_addresses)); memory = MemSet.add n env.memory}
+    with
+      | Not_found -> {env with vals = F.new_var env.vals n None; memory = MemSet.add n env.memory}
 
   (* var_of_op : t -> op32 -> rw_t -> (cons_var, t) list *)
   (** @return the list of constants or variables corresponding to the constant, register or address passed *)
@@ -166,12 +177,12 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (T:TRACE_ABSTRACT_DOMAIN) :
 		if not (MemSet.mem n env.memory) then 
                   match env.initial_values n with
                       Some v -> Cons v, env
-                    | None -> VarOp n, create_var env n 
+                    | None -> VarOp n, create_var env n n
 		else VarOp n, env
               | Write -> 
               if not (MemSet.mem n env.memory) then 
                 VarOp n,
-                  let env = create_var env n in
+                  let env = create_var env n n in
                   let env = {env with memory = MemSet.add n env.memory } in
                   match  env.initial_values n with
                     Some value -> 
@@ -207,12 +218,12 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (T:TRACE_ABSTRACT_DOMAIN) :
               if not (MemSet.mem n env.memory) then
                 match env.initial_values n with
                   Some v -> Cons v, env
-                | None -> VarOp n, create_var env n
+                | None -> VarOp n, create_var env n n
               else VarOp n, env
           | Write ->
               if not (MemSet.mem n env.memory) then
                 VarOp n,
-                  let env = create_var env n in
+                  let env = create_var env n n in
                   let env = {env with memory = MemSet.add n env.memory} in
                   match env.initial_values n with
                     Some value -> {env with vals = F.update_var env.vals n NoMask (Cons value) NoMask Move}
@@ -294,8 +305,8 @@ module MemAD (F : FLAG_ABSTRACT_DOMAIN) (T:TRACE_ABSTRACT_DOMAIN) :
     let slist = var_of_op8 m src8 Read in
     let dlist = var_of_op m dst32 Write in
     let doOp (s, msk, es) = List.map (fun (d,ed) -> let joinds = decide_env dst32 src8 ed es in { joinds with vals = F.update_var joinds.vals (consvar_to_var d) NoMask s (Mask msk) Move }) dlist in
-    let res = list_join (List.concat (List.map doOp slist))
-    in {res with traces = T.elapse res.traces time_instr}
+    let res = list_join (List.concat (List.map doOp slist)) in
+    {res with traces = T.elapse res.traces time_instr}
   ) with Bottom -> failwith "MemAD.movzx: bottom after an operation on non bottom environment"
 
   (* flagop: missing ADfset in FlagAD *)

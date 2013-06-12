@@ -28,6 +28,11 @@ let pp_var fmt = function n -> Format.fprintf fmt "V%Lx" n
 
 type cons_var = Cons of int64 | VarOp of var
 
+module ValSet = Set.Make(Int64)
+
+(* Type of the abstract elements representing one variable *)
+type var_t = FSet of ValSet.t | Interval of int64*int64
+
 let var_to_consvar = function
   x -> VarOp x
 let consvar_to_var = function
@@ -166,7 +171,7 @@ module type FLAG_ABSTRACT_DOMAIN = sig
 
   include ABSTRACT_DOMAIN
   val init : (var->string) -> t
-  val new_var : t -> var -> t
+  val new_var : t -> var -> var_t option -> t
   val delete_var : t -> var -> t
   val get_var : t -> var -> (t ValMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
@@ -182,7 +187,7 @@ end
 module type VALUE_ABSTRACT_DOMAIN = sig
   include ABSTRACT_DOMAIN
   val init : (var->string) -> t
-  val new_var : t -> var -> t
+  val new_var : t -> var -> var_t option -> t
   val delete_var : t -> var -> t
  (* val guard : t -> var_name -> guardop -> int64 -> t add_bottom *)
   val get_var : t -> var -> (t ValMap.t) add_top
