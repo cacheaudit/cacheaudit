@@ -27,7 +27,7 @@ module type AGE_FUNCTION = sig
   val vars : t -> VarSet.t
 end
 
-module PairListAgeFunction : AGE_FUNCTION = struct
+module AgeFunction : AGE_FUNCTION = struct
   type t = (var * int) list
   
   let rec compare af1 af2 : int = match af1,af2 with

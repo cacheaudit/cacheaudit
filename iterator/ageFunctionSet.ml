@@ -1,27 +1,42 @@
 open Signatures
 open AgeFunction
 
-module AF = PairListAgeFunction
-
+module AF = AgeFunction
+(* An AgeFunctionSet is a set of partial cache states (AgeFunctions) *)
 module type AGE_FUNCTION_SET = sig
   type t 
-  val combine : t -> t -> t (* Combines two AgeFunctionSets with distinct variables *)
+
+  (* Combines two AgeFunctionSets with distinct variables. *)
+  val combine : t -> t -> t 
   (* True if there is a common variable v , s.t. there is no AF' in AFS with AF(v)=AF'(v) *)  
   val contradicts: t -> (var * int) list -> bool 
+  (* Returns an empty set. *)
   val empty : t
+  (* Tests if two AFS contain the same partial cache states. *)
   val equal : t -> t -> bool
+  (* Filter the set according to a compare function applied two given variables. *)
   val filter_comp : t -> var -> var -> (int -> int -> int) -> t
+  (* Filter all partial cache states from afs1 which constitue a contradiction to afs2. *)
+  (* afs1 and afs2 can have different variable sets *)
   val filter : t -> t -> t
+  (* Increase the age of a variable by 1 upto a given maximum age. *)
   val inc_var : t -> var -> int -> t
+  (* Tests if the AgeFunctionSet is empty. *)
   val is_empty : t -> bool
-  val join : t -> t -> t   (* Joins two AgeFunctionSets with the same variables *)
+  (* Joins two AgeFunctionSets with the same variables *)
+  val join : t -> t -> t   
+  (* Projects the AgeFunctionSet on the given list of variables. *)
   val project : t -> var list -> t
+  (* Returns an AgeFunctionSet containing a single partial cache state in which the variable is assigned the given age. *)
   val singleton : var -> int -> t
+  (* Tests if one AgeFunctionSet is a subset or equal to another AgeFunctionSet. *)
   val subseteq : t -> t -> bool
+  (* Returns a string representation of the AgeFunctionSet *)
   val toString : t -> string
+  (* Returns all possible ages of the given variable *)
   val values : t -> var -> int list
+  (* Returns the set of variables of the AgeFunctionSet *)
   val vset : t -> VarSet.t
-  
 end
 
 module AgeFunctionSet : AGE_FUNCTION_SET = struct
@@ -57,7 +72,6 @@ module AgeFunctionSet : AGE_FUNCTION_SET = struct
     let common_vars : VarSet.t = VarSet.inter afs.vars (AF.vars af) in
     not (S.exists (fun (af':AF.t) -> VarSet.for_all (fun (v:var) -> (AF.get v af) = (AF.get v af')) common_vars) afs.set)
     
-
   let empty = {set = S.empty; vars = VarSet.empty}
 
   let equal afs1 afs2 : bool = 
@@ -65,7 +79,6 @@ module AgeFunctionSet : AGE_FUNCTION_SET = struct
       S.equal afs1.set afs2.set
     else false
 
-  (* Filter age functions from afs1 that violate afs2.*)
   let filter afs1 afs2 : t = 
     let common_vars = VarSet.inter afs1.vars afs2.vars in
     let afs2_c = project afs2 (VarSet.elements common_vars) in
@@ -74,8 +87,6 @@ module AgeFunctionSet : AGE_FUNCTION_SET = struct
 
   let filter_comp afs v1 v2 compare = 
     {afs with set = S.filter (fun af -> compare (AF.get v1 af) (AF.get v2 af) = -1) afs.set}
-
-(*let filter f afs : t = {afs with set = S.filter f afs.set}*)
 
   let inc_var afs v max = 
     {afs with set = S.fold (fun af set -> S.add (AF.add v (Pervasives.min (AF.get v af + 1) max) af) set) afs.set S.empty}
