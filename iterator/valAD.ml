@@ -407,6 +407,7 @@ module ValADFunctor(O:VALADOPT) : VALUE_ABSTRACT_DOMAIN = struct
         | _,_,_ -> raise Bottom)
     | CmpOp -> failwith "interval_update: CmpOp"
 
+  (** Arguments: environment, destination var., dest. var. mask, source var., src. var. mask *)
   let update_var m dstvar mkvar srcvar mkcvar op = match op with
     | Op Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)
               Bot, Bot, Nb(VarMap.add dstvar zero m), Bot
@@ -466,7 +467,12 @@ module ValADFunctor(O:VALADOPT) : VALUE_ABSTRACT_DOMAIN = struct
             Move -> 
               begin
                 match dst_vals, src_vals with
-                | FSet ds, FSet ss -> 
+                | FSet ds, FSet ss_unmasked ->
+                    let (c_mask, c_shift) = mask_to_intoff mkc in
+                    (* Nullify everything but the 8 bits corresponding to the mask *)
+                    let ss_shifted = set_map (fun x -> Int64.logand x c_mask) ss_unmasked in
+                    (* Then shift it to the first 8 bits *)
+                    let ss = set_map (fun x -> Int64.shift_right x c_shift) ss_shifted in
                     let (v_mask, v_shift) = mask_to_intoff mkv in
                     (* Align cv values in order to write them into v *)
                     let cvSet = set_map (fun x -> Int64.shift_left x v_shift) ss in
