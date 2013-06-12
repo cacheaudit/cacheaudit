@@ -16,6 +16,36 @@ type stackop = ADpop | ADpush
 type var = int64
 val pp_var : Format.formatter -> int64 -> unit
 type cons_var = Cons of int64 | VarOp of var
+module ValSet :
+  sig
+    type elt = Int64.t
+    type t = Set.Make(Int64).t
+    val empty : t
+    val is_empty : t -> bool
+    val mem : elt -> t -> bool
+    val add : elt -> t -> t
+    val singleton : elt -> t
+    val remove : elt -> t -> t
+    val union : t -> t -> t
+    val inter : t -> t -> t
+    val diff : t -> t -> t
+    val compare : t -> t -> int
+    val equal : t -> t -> bool
+    val subset : t -> t -> bool
+    val iter : (elt -> unit) -> t -> unit
+    val fold : (elt -> 'a -> 'a) -> t -> 'a -> 'a
+    val for_all : (elt -> bool) -> t -> bool
+    val exists : (elt -> bool) -> t -> bool
+    val filter : (elt -> bool) -> t -> t
+    val partition : (elt -> bool) -> t -> t * t
+    val cardinal : t -> int
+    val elements : t -> elt list
+    val min_elt : t -> elt
+    val max_elt : t -> elt
+    val choose : t -> elt
+    val split : elt -> t -> t * bool * t
+  end
+type var_t = FSet of ValSet.t | Interval of int64 * int64
 val var_to_consvar : var -> cons_var
 val consvar_to_var : cons_var -> var
 type mask_t = HH | HL | LH | LL
@@ -146,7 +176,7 @@ module type FLAG_ABSTRACT_DOMAIN =
     val print : Format.formatter -> t -> unit
     val print_delta : t -> Format.formatter -> t -> unit
     val init : (var -> string) -> t
-    val new_var : t -> var -> t
+    val new_var : t -> var -> var_t option -> t
     val delete_var : t -> var -> t
     val get_var : t -> var -> t ValMap.t add_top
     val set_var : t -> var -> int64 -> int64 -> t
@@ -166,7 +196,7 @@ module type VALUE_ABSTRACT_DOMAIN =
     val print : Format.formatter -> t -> unit
     val print_delta : t -> Format.formatter -> t -> unit
     val init : (var -> string) -> t
-    val new_var : t -> var -> t
+    val new_var : t -> var -> var_t option -> t
     val delete_var : t -> var -> t
     val get_var : t -> var -> t ValMap.t add_top
     val set_var : t -> var -> int64 -> int64 -> t
