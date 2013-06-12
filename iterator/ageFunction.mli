@@ -40,6 +40,5 @@ module type AGE_FUNCTION =
     val toString : t -> string
     val vars : t -> VarSet.t
   end
-module MapAgeFunction : AGE_FUNCTION
-module ListAgeFunction : AGE_FUNCTION
+
 module PairListAgeFunction : AGE_FUNCTION
