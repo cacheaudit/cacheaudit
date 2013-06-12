@@ -25,4 +25,4 @@ module type T =
 
 
 module Make :
-  functor (M : Signatures.MEMORY_ABSTRACT_DOMAIN) -> T
+  functor (M : MemAD.T) -> T
