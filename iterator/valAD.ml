@@ -1,4 +1,24 @@
 open Signatures
+open X86Types
+
+module type T = sig
+  include ABSTRACT_DOMAIN
+  val init : (var->string) -> t
+  val new_var : t -> var -> var_t option -> t
+  val delete_var : t -> var -> t
+ (* val guard : t -> var_name -> guardop -> int64 -> t add_bottom *)
+  val get_var : t -> var -> (t ValMap.t) add_top
+ (* set_var env x l h sets the value of x to be in the interval [l,h] *)
+  val set_var : t -> var -> int64 -> int64 -> t
+  val update_var : t -> var -> mask -> cons_var -> mask -> varop -> 
+    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
+  val is_var : t -> var -> bool
+  val meet : t -> t -> t add_bottom (*TODO: should be add_bottom *)
+  val flagop : t -> X86Types.arith_op -> cons_var -> cons_var -> 
+    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
+  val shift : t -> X86Types.shift_op -> var -> cons_var -> mask -> 
+    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
+end
 
 (* We use a module for the options so that we can have different instances in the same analysis *)
 module type VALADOPT = sig
@@ -18,7 +38,7 @@ end
 
 module VarMap = Map.Make(OrdVar)
 
-module ValADFunctor(O:VALADOPT) : VALUE_ABSTRACT_DOMAIN = struct
+module Make (O:VALADOPT) = struct
 (* A basic variable contains a 32 bits unsigned integer. *)
   open X86Types
 

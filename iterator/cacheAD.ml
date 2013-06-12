@@ -1,4 +1,25 @@
 open Signatures
+open X86Types
+
+module type T = sig
+  include ABSTRACT_DOMAIN
+  val init : cache_param -> t
+  (** initialize an empty cache
+   takes arguments cache_size (in bytes), 
+  line_size (in bytes) and associativity *)
+  val touch : t -> int64 -> t
+  (** reads or writes an address into cache *)
+
+  (** Same as touch, but returns more precise informations about hit and misses *)
+  (** @return, the first set overapproximates hit cases, the second one misses *)
+  val touch_hm : t -> int64 -> (t add_bottom*t add_bottom)
+  (** Used to keep track of time, if neccessary *)
+  val elapse : t -> int -> t
+  val count_cache_states : t -> Big_int.big_int
+end
+
+
+
 
 open Big_int 
 
@@ -23,8 +44,7 @@ module CacheMap = Map.Make(struct type t = int let compare = compare end)
 module AddrSet = Set.Make(Int64)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
-module Make (SV: SIMPLE_VALUE_AD) :
- CACHE_ABSTRACT_DOMAIN = struct
+module Make (SV: SimpleValAD.T) = struct
   type t = {
     handled_addrs : AddrSet.t; (* holds addresses handled so far *)
     cache_sets : AddrSet.t CacheMap.t;

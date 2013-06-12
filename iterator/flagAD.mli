@@ -24,4 +24,4 @@ module type T =
 
 
 module Make :
-  functor (V : VALUE_ABSTRACT_DOMAIN) -> T
+  functor (V : ValAD.T) -> T

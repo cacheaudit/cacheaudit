@@ -1,6 +1,20 @@
 open Signatures
 
-module SimpleVAD (V: VALUE_ABSTRACT_DOMAIN) : SIMPLE_VALUE_AD = struct
+module type T = sig
+  include ABSTRACT_DOMAIN
+  val init_with_max : (var->string) -> int -> t
+  val inc_var : t -> var -> t
+  val set_var : t -> var -> int -> t
+  val comp : t -> var -> var -> (t add_bottom)*(t add_bottom)
+  val comp_with_val : t -> var -> int -> (t add_bottom)*(t add_bottom)
+  val exact_val : t -> var -> int -> (t add_bottom)
+  val permute : t -> (int -> int) -> var -> t
+  val get_values : t -> var -> int list
+  val is_var : t -> var -> bool
+end
+
+
+module Make (V: ValAD.T) = struct
   
   type t = 
   {

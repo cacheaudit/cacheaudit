@@ -12,7 +12,7 @@ let instruction_addr_base = ref (Int64.of_int 0)
 
 module type T =
   sig
-    include Signatures.ABSTRACT_DOMAIN
+    include ABSTRACT_DOMAIN
     val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> cache_param -> cache_param option -> int64 -> t
     val get_offset: t -> op32 -> (int,t) finite_set
     val test : t -> X86Types.condition -> (t add_bottom)*(t add_bottom)
@@ -31,7 +31,7 @@ module type T =
 
 
 
-module MakeSeparate (S: StackAD.T) (IC: CACHE_ABSTRACT_DOMAIN) = struct
+module MakeSeparate (S: StackAD.T) (IC: CacheAD.T) = struct
 
   type t = {
     call_ad: S.t;

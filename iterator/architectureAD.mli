@@ -33,6 +33,6 @@ module type T =
 
 module MakeSeparate :
   functor (S : StackAD.T) ->
-    functor (IC : Signatures.CACHE_ABSTRACT_DOMAIN) -> T
+    functor (IC : CacheAD.T) -> T
 module MakeShared : functor (S : StackAD.T) -> T
 module MakeDataOnly : functor (S : StackAD.T) -> T

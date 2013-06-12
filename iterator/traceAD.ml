@@ -15,7 +15,19 @@ let duration_H, duration_M, duration_N = 3,20,1
 
 let max_times = 10000000
 
-module TraceAD (CA : CACHE_ABSTRACT_DOMAIN) : TRACE_ABSTRACT_DOMAIN = struct
+
+module type T = sig
+  include ABSTRACT_DOMAIN
+  val init: cache_param -> t 
+  val touch : t -> int64 -> t
+  val elapse : t -> int -> t
+end
+
+
+
+
+
+module Make (CA : CacheAD.T) = struct
   
   type 'a parent_t = Root | Single of 'a | Couple of 'a * 'a
   
@@ -260,7 +272,7 @@ module TraceAD (CA : CACHE_ABSTRACT_DOMAIN) : TRACE_ABSTRACT_DOMAIN = struct
 end
 
 
-module NoTraceAD (CA : CACHE_ABSTRACT_DOMAIN) : TRACE_ABSTRACT_DOMAIN = struct
+module MakeNot (CA : CacheAD.T)= struct
   type t = CA.t
   let join = CA.join
   let widen = CA.widen
