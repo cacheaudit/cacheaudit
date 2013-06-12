@@ -4,11 +4,34 @@ open X86Types
 
 
 
-(* Architecture abstract domain. Right now it only allows two different caches for instructions and data *)
+(* Architecture abstract domain. Right now it allows two different caches for instructions and data *)
 
 let instruction_addr_base = ref (Int64.of_int 0)
 
-module MakeSeparate (S: STACK_ABSTRACT_DOMAIN) (IC: CACHE_ABSTRACT_DOMAIN) :ARCHITECTURE_ABSTRACT_DOMAIN = struct
+
+
+module type T =
+  sig
+    include Signatures.ABSTRACT_DOMAIN
+    val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> cache_param -> cache_param option -> int64 -> t
+    val get_offset: t -> op32 -> (int,t) finite_set
+    val test : t -> X86Types.condition -> (t add_bottom)*(t add_bottom)
+    val call : t -> op32 -> int -> (int,t) finite_set 
+    val return : t -> (int,t) finite_set
+    val memop : t -> memop -> op32 -> op32 -> t
+    val memopb : t -> memop -> op8 -> op8 -> t
+    val movzx : t -> op32 -> op8 -> t
+    val load_address : t -> X86Types.reg32 -> X86Types.address -> t
+    val flagop : t -> op32 flagop -> t
+    val stackop : t -> stackop -> op32 -> t
+    val shift : t -> X86Types.shift_op -> op32 -> op8 -> t
+    val elapse : t -> int -> t
+    val read_instruction: t -> int -> t
+  end
+
+
+
+module MakeSeparate (S: STACK_ABSTRACT_DOMAIN) (IC: CACHE_ABSTRACT_DOMAIN) = struct
 
   type t = {
     call_ad: S.t;
@@ -84,7 +107,7 @@ module MakeSeparate (S: STACK_ABSTRACT_DOMAIN) (IC: CACHE_ABSTRACT_DOMAIN) :ARCH
 
 end
 
-module MakeShared (S: STACK_ABSTRACT_DOMAIN) : ARCHITECTURE_ABSTRACT_DOMAIN = struct
+module MakeShared (S: STACK_ABSTRACT_DOMAIN) = struct
 
   type t = S.t
 
@@ -121,7 +144,7 @@ module MakeShared (S: STACK_ABSTRACT_DOMAIN) : ARCHITECTURE_ABSTRACT_DOMAIN = st
 end
 
 
-module MakeDataOnly (S: STACK_ABSTRACT_DOMAIN) : ARCHITECTURE_ABSTRACT_DOMAIN = struct
+module MakeDataOnly (S: STACK_ABSTRACT_DOMAIN) = struct
   include MakeShared (S)
 
   let read_instruction env addr = env 
