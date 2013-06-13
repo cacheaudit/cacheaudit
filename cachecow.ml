@@ -17,7 +17,7 @@ let inst_cache_strategy_opt = ref None
 
 let instruction_base_addr = ref (Int64.of_int 0)
 
-let build_cfg = ref false
+let print_cfg = ref false
 let print_ass = ref false
 let analyze = ref false
 let prof = ref false
@@ -44,8 +44,6 @@ let attacker = ref Final
 type architecture_model = Joint | Split | NoInstructionCache
 
 let architecture = ref Split
-
-let verbose_array = Array.init 5 (fun _ -> false)
 
 let more_to_parse b = more b && (!end_addr=0 || get_byte b <= !end_addr)
 
@@ -76,7 +74,7 @@ let anon_fun = (fun x ->  if !bin_name = "" then bin_name := x
 let speclist = [
     ("--start", Arg.String (fun s -> start_addr := int_of_string s), "set the address (in bytes) where we start parsing");
     ("--end", Arg.String (fun s -> end_addr := int_of_string s), "set the oddress (in bytes) where we stop parsing");
-    ("--cfg", Arg.Unit (fun () -> build_cfg := true; print_ass := false), "build a control flow graph before printing");
+    ("--cfg", Arg.Unit (fun () -> print_cfg := true; print_ass := false), "prints a control flow graph");
     ("--silent", Arg.Unit (fun () -> print_ass := false),            "do not print the assembly code");
     ("--analyze", Arg.Set analyze, "run analysis");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
@@ -180,7 +178,7 @@ let _ =
   match mem with
   | None -> ()
   | Some sections ->
-    if !build_cfg then Cfg.printcfg (Cfg.makecfg !start_addr sections);
+    if !print_cfg then Cfg.printcfg (Cfg.makecfg !start_addr sections);
     if !analyze then begin 
       (* Analysis will be performed. *)
       (* First, the proper abstract domains will be generated, *)
