@@ -94,6 +94,7 @@ let config filename =
       | ("inst_line_s",i,_) -> (st,regs,{ca with inst_line_s = Int64.to_int i})
       | ("inst_assoc",i,_) -> (st,regs,{ca with inst_assoc = Int64.to_int i})
       | ("INST_BASE",i,_) -> (st,regs,{ca with inst_base_addr = i})
+      | ("LOG",i,_) -> MemAD.log_address i; (st,regs,ca)
       | ("",0L,_)  -> (st,regs,ca)
       | (str, l, h) ->
                   try (

@@ -1,8 +1,6 @@
 open Signatures
 open X86Types
 
-val preset_address: int64 -> Signatures.var_t -> unit
-
 module type T =
   sig
     include ABSTRACT_DOMAIN
@@ -35,3 +33,9 @@ end
 module Make :
   functor (F : FlagAD.T) ->
     functor (TR : TraceAD.T) -> T
+
+(** Set default value for a memory location. It will be set the first time it is accessed *)
+val preset_address: int64 -> Signatures.var_t -> unit
+(** Add an address to the list of logged addresses that will appear in the log file.
+ * Log file values follow the order in which this function is called *)
+val log_address: int64 -> unit

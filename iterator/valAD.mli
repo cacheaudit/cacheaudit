@@ -7,6 +7,8 @@ module type T = sig
   val new_var : t -> var -> var_t option -> t
   val delete_var : t -> var -> t
  (* val guard : t -> var_name -> guardop -> int64 -> t add_bottom *)
+ (** Log the current value of a variable to the log file. For automated testing *)
+  val log_var : var -> t -> unit
   val get_var : t -> var -> (t ValMap.t) add_top
  (* set_var env x l h sets the value of x to be in the interval [l,h] *)
   val set_var : t -> var -> int64 -> int64 -> t

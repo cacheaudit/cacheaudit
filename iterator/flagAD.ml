@@ -8,6 +8,8 @@ module type T =
   val init : (var->string) -> t
   val new_var : t -> var -> var_t option -> t
   val delete_var : t -> var -> t
+ (** Log the current value of a variable to the log file. For automated testing *)
+  val log_var : t -> var -> unit
   val get_var : t -> var -> (t ValMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
   val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
@@ -64,7 +66,6 @@ module Make (V: ValAD.T) = struct
        (print_delta_flag true false st1.tf) st2.tf
        (print_delta_flag false true st1.ft) st2.ft
        (print_delta_flag false false st1.ff) st2.ff
-
 
 
 (* Maps a function to the components of a state *) 
@@ -170,6 +171,7 @@ module Make (V: ValAD.T) = struct
 
   let set_var st var l h = tmap (fun x -> V.set_var x var l h) st
  
+  let log_var env v = let _ = tmap (fun x -> V.log_var v x; x) env in ()
 
 (* get_var : FlagAD.t -> var -> EnvMap add_top *)
 
