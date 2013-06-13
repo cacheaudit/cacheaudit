@@ -40,11 +40,13 @@ end
 (* preset_addresses store initial values for specific addresses that have been specified by the user in the conf file *)
 module PresetMap = Map.Make(Int64)
 let preset_addresses = ref PresetMap.empty
-(*let logged_addresses = ref []*)
+let logged_addresses = ref []
 
 let preset_address addr value = 
   preset_addresses := PresetMap.add addr value !preset_addresses
 
+let log_address addr =
+  logged_addresses := !logged_addresses @ [addr]
 
 module MemSet = Set.Make(Int64)
 
@@ -62,13 +64,13 @@ module Make (F : FlagAD.T) (TR:TraceAD.T) = struct
 
   let pp_vars fmt v = MemSet.iter (Format.fprintf fmt "%a, @," X86Print.pp_addr) v
 
-  let log_vars fmt mem = ()
+  let log_vars mem = List.iter (F.log_var mem.vals) !logged_addresses
 
   let print fmt mem = 
     if MemSet.is_empty mem.memory then Format.fprintf fmt "%a %a"
         F.print mem.vals TR.print mem.traces
     else
-      log_vars fmt mem;
+      log_vars mem;
       Format.fprintf fmt "List of variable memory locations: @[%a@\n%a@, %a@]"
       pp_vars mem.memory F.print mem.vals TR.print mem.traces
 

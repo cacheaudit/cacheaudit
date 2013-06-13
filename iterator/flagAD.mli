@@ -12,6 +12,8 @@ module type T =
   val init : (var->string) -> t
   val new_var : t -> var -> var_t option -> t
   val delete_var : t -> var -> t
+ (** Log the current value of a variable to the log file. For automated testing *)
+  val log_var : t -> var -> unit
   val get_var : t -> var -> (t ValMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
   val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
