@@ -10,9 +10,9 @@ let instruction_addr_base = ref (Int64.of_int 0)
 
 
 
-module type T =
+module type S =
   sig
-    include ABSTRACT_DOMAIN
+    include AD.S
     val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> cache_param -> cache_param option -> int64 -> t
     val get_offset: t -> op32 -> (int,t) finite_set
     val test : t -> X86Types.condition -> (t add_bottom)*(t add_bottom)
@@ -31,17 +31,17 @@ module type T =
 
 
 
-module MakeSeparate (S: StackAD.T) (IC: CacheAD.T) = struct
+module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
 
   type t = {
-    call_ad: S.t;
+    call_ad: ST.t;
     inst_ad: IC.t
   }
 
   let init concr_mem start_values data_cache_params inst_cache_params addr_base = 
     instruction_addr_base := addr_base;
     {
-      call_ad = S.init concr_mem start_values data_cache_params;
+      call_ad = ST.init concr_mem start_values data_cache_params;
       inst_ad = IC.init (match inst_cache_params with
           Some(params) -> params
         | _ -> failwith "No/Invalid parameters supplied to instruction cache")
@@ -54,51 +54,51 @@ module MakeSeparate (S: StackAD.T) (IC: CacheAD.T) = struct
 
   
   let join env env2 = 
-    let call_ad = S.join env.call_ad env2.call_ad in
+    let call_ad = ST.join env.call_ad env2.call_ad in
     let inst_ad = IC.join env.inst_ad env2.inst_ad in
     {call_ad = call_ad; inst_ad = inst_ad}
   
   let widen env env2 =
-    let call_ad = S.widen env.call_ad env2.call_ad in
+    let call_ad = ST.widen env.call_ad env2.call_ad in
     let inst_ad = IC.widen env.inst_ad env2.inst_ad in
     {call_ad = call_ad; inst_ad = inst_ad}
 
-  let subseteq env env2 = S.subseteq env.call_ad env2.call_ad && IC.subseteq env.inst_ad env2.inst_ad
+  let subseteq env env2 = ST.subseteq env.call_ad env2.call_ad && IC.subseteq env.inst_ad env2.inst_ad
 
   let test env cond = 
     let subs_nb = function
     | Bot -> Bot
     | Nb(v) -> Nb(subs_e env v) in
-    let (l,r) = (S.test env.call_ad cond) in
+    let (l,r) = (ST.test env.call_ad cond) in
     (subs_nb l,subs_nb r)
 
   (* Redirect all usual stack calls to the stackAD *)
-  let get_offset env op = subs_finite_set env (S.get_offset env.call_ad op)
-  let memop env mop op1 op2 = subs_e env (S.memop env.call_ad mop op1 op2)
-  let memopb  env mop op1 op2 = subs_e env (S.memopb env.call_ad mop op1 op2)
-  let movzx env op1 op2 = subs_e env (S.movzx env.call_ad op1 op2)
-  let flagop env fop = subs_e env (S.flagop env.call_ad fop)
-  let load_address env reg add = subs_e env (S.load_address env.call_ad reg add)
-  let shift env sop op1 op2 = subs_e env (S.shift env.call_ad sop op1 op2)
-  let stackop env sop op1 = subs_e env (S.stackop env.call_ad sop op1) 
-  let call env op n = subs_finite_set env (S.call env.call_ad op n)
-  let return env = subs_finite_set env (S.return env.call_ad)
+  let get_offset env op = subs_finite_set env (ST.get_offset env.call_ad op)
+  let memop env mop op1 op2 = subs_e env (ST.memop env.call_ad mop op1 op2)
+  let memopb  env mop op1 op2 = subs_e env (ST.memopb env.call_ad mop op1 op2)
+  let movzx env op1 op2 = subs_e env (ST.movzx env.call_ad op1 op2)
+  let flagop env fop = subs_e env (ST.flagop env.call_ad fop)
+  let load_address env reg add = subs_e env (ST.load_address env.call_ad reg add)
+  let shift env sop op1 op2 = subs_e env (ST.shift env.call_ad sop op1 op2)
+  let stackop env sop op1 = subs_e env (ST.stackop env.call_ad sop op1) 
+  let call env op n = subs_finite_set env (ST.call env.call_ad op n)
+  let return env = subs_finite_set env (ST.return env.call_ad)
   let print form env = 
     Printf.printf "\n\n\n\n#######################\n\n\n------ Data Cache -----\n\n";
-    S.print form env.call_ad;
+    ST.print form env.call_ad;
     Printf.printf "\n\n\n-- Instruction Cache --\n";
     IC.print form env.inst_ad;
     Printf.printf "\n-----------------------\n\n"
 
   let print_delta env1 form env2 = 
     Printf.printf "\n\n\n\n#######################\n\n\n------ Data Cache -----\n\n";
-    S.print_delta env1.call_ad form env2.call_ad;
+    ST.print_delta env1.call_ad form env2.call_ad;
     Printf.printf "\n\n\n-- Instruction Cache --\n\n";
     IC.print_delta env1.inst_ad form env2.inst_ad;
     Printf.printf "\n-----------------------\n\n"
 
   let elapse env t = {
-    call_ad = S.elapse env.call_ad t;
+    call_ad = ST.elapse env.call_ad t;
     inst_ad = IC.elapse env.inst_ad t
   }
 
@@ -107,45 +107,45 @@ module MakeSeparate (S: StackAD.T) (IC: CacheAD.T) = struct
 
 end
 
-module MakeShared (S: StackAD.T) = struct
+module MakeShared (ST: StackAD.S) = struct
 
-  type t = S.t
+  type t = ST.t
 
   let init concr_mem start_values data_cache_params inst_cache_params addr_base =
     instruction_addr_base := addr_base;
-    S.init concr_mem start_values data_cache_params
+    ST.init concr_mem start_values data_cache_params
 
   (* Redirect all usual stack calls to the stackAD *)
-  let join = S.join
-  let widen = S.widen
-  let subseteq = S.subseteq
-  let get_offset = S.get_offset
-  let test = S.test
-  let memop = S.memop
-  let memopb = S.memopb
-  let movzx = S.movzx
-  let flagop = S.flagop
-  let load_address = S.load_address
-  let shift = S.shift
-  let stackop = S.stackop
-  let call = S.call
-  let return = S.return
-  let elapse = S.elapse
+  let join = ST.join
+  let widen = ST.widen
+  let subseteq = ST.subseteq
+  let get_offset = ST.get_offset
+  let test = ST.test
+  let memop = ST.memop
+  let memopb = ST.memopb
+  let movzx = ST.movzx
+  let flagop = ST.flagop
+  let load_address = ST.load_address
+  let shift = ST.shift
+  let stackop = ST.stackop
+  let call = ST.call
+  let return = ST.return
+  let elapse = ST.elapse
   let print form env = 
     Printf.printf "\n\n\n\n#######################\n\n";
-    S.print form env
+    ST.print form env
     
   let print_delta env1 form env2 = 
     Printf.printf "\n\n\n\n#######################\n\n";
-    S.print_delta env1 form env2
+    ST.print_delta env1 form env2
     
-  let read_instruction env addr = S.access_readonly env (Int64.add (Int64.of_int addr) !instruction_addr_base)
+  let read_instruction env addr = ST.access_readonly env (Int64.add (Int64.of_int addr) !instruction_addr_base)
 
 end
 
 
-module MakeDataOnly (S: StackAD.T) = struct
-  include MakeShared (S)
+module MakeDataOnly (ST: StackAD.S) = struct
+  include MakeShared (ST)
 
   let read_instruction env addr = env 
 end

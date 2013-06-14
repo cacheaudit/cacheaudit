@@ -5,8 +5,8 @@ open Signatures
     where nodes store a Hit/Miss/Top-status of a cache access
  *)
 
-module type T = sig
-  include ABSTRACT_DOMAIN
+module type S = sig
+  include AD.S
   val init: cache_param -> t 
   
   val touch : t -> int64 -> t
@@ -16,6 +16,6 @@ end
 
 
 module Make :
-  functor (C : CacheAD.T) -> T
+  functor (C : CacheAD.S) -> S
 module MakeNot :
-  functor (C : CacheAD.T) -> T
+  functor (C : CacheAD.S) -> S

@@ -1,7 +1,7 @@
 open Signatures
 
-module type T = sig
-  include ABSTRACT_DOMAIN
+module type S = sig
+  include AD.S
   (* Initialize with a maximal value *)
   val init_with_max : (var->string) -> int -> t
   (* Increment variable, does not increase above the max value *)
@@ -25,5 +25,5 @@ module type T = sig
 end
 
 module Make :
-  functor (V : ValAD.T) -> T
+  functor (V : ValAD.S) -> S
 

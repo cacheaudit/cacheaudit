@@ -6,9 +6,9 @@ open Signatures
 open X86Types
 
 
-module type T =
+module type S =
   sig
-    include ABSTRACT_DOMAIN
+    include AD.S
   
   (* init is used to return an initial abstract state *)
   (* the first arguments returns the initial value at a given address if it *)
@@ -51,7 +51,7 @@ let log_address addr =
 module MemSet = Set.Make(Int64)
 
 (* *)
-module Make (F : FlagAD.T) (TR:TraceAD.T) = struct
+module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
 
   type t = {
           vals : F.t; (** Element of the Value Abstract Domain *)

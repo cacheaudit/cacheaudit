@@ -16,8 +16,8 @@ let duration_H, duration_M, duration_N = 3,20,1
 let max_times = 10000000
 
 
-module type T = sig
-  include ABSTRACT_DOMAIN
+module type S = sig
+  include AD.S
   val init: cache_param -> t 
   val touch : t -> int64 -> t
   val elapse : t -> int -> t
@@ -27,7 +27,7 @@ end
 
 
 
-module Make (CA : CacheAD.T) = struct
+module Make (CA : CacheAD.S) = struct
   
   type 'a parent_t = Root | Single of 'a | Couple of 'a * 'a
   
@@ -294,7 +294,7 @@ module Make (CA : CacheAD.T) = struct
 end
 
 
-module MakeNot (CA : CacheAD.T)= struct
+module MakeNot (CA : CacheAD.S)= struct
   type t = CA.t
   let join = CA.join
   let widen = CA.widen

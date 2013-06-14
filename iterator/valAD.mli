@@ -1,8 +1,8 @@
 open Signatures
 open X86Types
 
-module type T = sig
-  include ABSTRACT_DOMAIN
+module type S = sig
+  include AD.S
   val init : (var->string) -> t
   val new_var : t -> var -> var_t option -> t
   val delete_var : t -> var -> t
@@ -29,4 +29,4 @@ module type VALADOPT =
 module ValADOptForMemory :
   sig val max_get_var_size : int val max_set_size : int end
 
-module Make : functor (O : VALADOPT) -> T
+module Make : functor (O : VALADOPT) -> S

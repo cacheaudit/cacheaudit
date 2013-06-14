@@ -4,7 +4,7 @@ val unroll_outer_loop : bool ref
 
 
 module Make :
-  functor (A : ArchitectureAD.T) ->
+  functor (A : ArchitectureAD.S) ->
     sig
       val iterate :
         X86Headers.t ->

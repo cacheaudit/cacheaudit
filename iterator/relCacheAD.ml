@@ -15,7 +15,7 @@ module AddrMap = Map.Make(Int64)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
 
-module Make (SV: SimpleRelSetAD.T) : CacheAD.T = struct
+module Make (SV: SimpleRelSetAD.S) : CacheAD.S = struct
   type t = {
     (* holds addresses handled so far *)
     handled_addrs : AddrSet.t;

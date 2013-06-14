@@ -46,8 +46,9 @@ ML_FILES := \
 	x86_frontend/macho.ml \
 	x86_frontend/x86Headers.ml \
 	iterator/cfg.ml\
-	iterator/signatures.ml\
-	iterator/stackAD.ml\
+        iterator/signatures.ml\
+        iterator/AD.mli\
+        iterator/stackAD.ml\
 	iterator/valAD.ml\
 	iterator/ageAD.ml\
 	iterator/flagAD.ml\

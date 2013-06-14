@@ -1,8 +1,8 @@
 open Signatures
 open X86Types
 
-module type T = sig
-  include ABSTRACT_DOMAIN
+module type S = sig
+  include AD.S
   val init : cache_param -> t
   (** initialize an empty cache
    takes arguments cache_size (in bytes), 
@@ -21,5 +21,5 @@ end
 
 
 (** Creates cache domain from given value domain *)
-module Make : functor (SV : AgeAD.T) -> T
+module Make : functor (SV : AgeAD.S) -> S
 

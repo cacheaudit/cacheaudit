@@ -1,10 +1,10 @@
 open X86Types
 open Signatures
 
-module type T = 
+module type S = 
   sig
 
-  include ABSTRACT_DOMAIN
+  include AD.S
   val init : (var->string) -> t
   val new_var : t -> var -> var_t option -> t
   val delete_var : t -> var -> t
@@ -21,7 +21,7 @@ module type T =
   end
 
 
-module Make (V: ValAD.T) = struct
+module Make (V: ValAD.S) = struct
   
   (* Handles invariants corresponding to combinations of flags.
      For now only supports CF, ZF *)
