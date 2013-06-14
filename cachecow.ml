@@ -20,7 +20,6 @@ let instruction_base_addr = ref (Int64.of_int 0)
 let print_cfg = ref false
 let print_ass = ref false
 let analyze = ref false
-let prof = ref false
 let interval_cache = ref false
 let do_traces = ref true
 
@@ -83,7 +82,6 @@ let speclist = [
     ("--oct", Arg.Unit (fun () -> data_cache_analysis := OctAges), "use the octagon abstract domain for the cache.") ;
     ("--interval-cache", Arg.Unit (fun () -> data_cache_analysis := IntAges), "use the interval abstract domain for the cache.") ;
     ("--rset", Arg.Unit (fun () -> data_cache_analysis := RelAges), "use the relational set abstract domain for the cache.") ;
-    ("--prof", Arg.Unit (fun () -> prof := true), "collect and output additional profiling information for the cache.");
     ("--fifo", Arg.Unit (fun () -> data_cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
     ("--plru", Arg.Unit (fun () -> data_cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
     ("--inst-oct", Arg.Unit (fun () -> inst_cache_analysis_opt := Some OctAges), "use the octagon abstract domain for the cache.") ;
@@ -183,26 +181,15 @@ let _ =
       (* Analysis will be performed. *)
       (* First, the proper abstract domains will be generated, *)
       (* according to the configurations and the command-line arguments *)
-      
-      (* function generating a cache AD used for data or instruction caches *)
-      let generate_cache prof cache_analysis attacker =
-        if !cache_analysis = IntAges && !prof then
-            failwith "Profiling for interval-based cache analysis not implemented";
+       (* function generating a cache AD used for data or instruction caches *)
+      let generate_cache cache_analysis attacker =
         let cad = match !cache_analysis with
           | OctAges -> IFDEF INCLUDEOCT THEN 
-            if !prof then 
-              (module CacheAD.Make (SimpleProfilingValAD.Make
-                (SimpleOctAD.OctAD)) : CacheAD.T)
-            else 
-              (module CacheAD.Make (SimpleOctAD.OctAD) : CacheAD.T) 
-          ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
+	    (module CacheAD.Make (SimpleOctAD.OctAD) : CacheAD.T) 
+            ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
           | RelAges ->
-            if !prof then
-              (module CacheAD.Make(SimpleProfilingValAD.Make
-                (SimpleRelSetAD.SimpleRelSetAD))  : CacheAD.T)
-            else
-              (module RelCacheAD.Make
-                (SimpleRelSetAD.SimpleRelSetAD) : CacheAD.T)
+            (module RelCacheAD.Make
+		(SimpleRelSetAD.SimpleRelSetAD) : CacheAD.T)
           | (SetAges | IntAges) -> 
             (* Generate the age abstract domain *)
             let age = 
@@ -211,16 +198,12 @@ let _ =
               else (* !cache_analysis = IntAges *)
                 (module AgeAD.Make(ValAD.Make(
                   struct let max_get_var_size = 256 let max_set_size = 0 end)):
-                  AgeAD.T) in
-            let module BaseSVAD = (val age: AgeAD.T) in
-            let age = if not (!prof) then age 
-              else (* using profiling *)
-                (module SimpleProfilingValAD.Make(BaseSVAD) : AgeAD.T) in
+                    AgeAD.T) in
             let module Age = (val age: AgeAD.T) in
             (module CacheAD.Make (Age) : CacheAD.T) 
         in
     	  (* Make distinction whether asynchronious attacker is used  *)
-    	  let module BaseCache = (val cad: CacheAD.T) in
+    	let module BaseCache = (val cad: CacheAD.T) in
         match !attacker with
         | Final -> cad
         | Instructions d -> AsynchronousAttacker.min_frequency := d;
@@ -229,10 +212,10 @@ let _ =
           (module AsynchronousAttacker.OneInstructionInterrupt(BaseCache) : CacheAD.T)
         | OneTimedInterrupt -> 
           (module AsynchronousAttacker.OneTimeInterrupt(BaseCache) : CacheAD.T) in
-        (* end of generate_cache definition *)
+      (* end of generate_cache definition *)
         
       (* Generate the data cache AD*)
-      let module Cache = (val (generate_cache prof data_cache_analysis attacker):
+      let module Cache = (val (generate_cache data_cache_analysis attacker):
          CacheAD.T) in
       (* Generate the trace AD *)
       let trcs = if !do_traces then 
@@ -245,7 +228,7 @@ let _ =
       let module Stack = StackAD.Make(Mem) in
       (* Generate the architecture AD *)
       let arch = match !architecture with
-        | Split -> let cad = generate_cache prof inst_cache_analysis attacker in
+        | Split -> let cad = generate_cache inst_cache_analysis attacker in
           let module InstCache = (val cad: CacheAD.T) in
           (module ArchitectureAD.MakeSeparate(Stack)(InstCache): ArchitectureAD.T)
         | Joint -> (module ArchitectureAD.MakeShared(Stack): ArchitectureAD.T)
