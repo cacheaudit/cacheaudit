@@ -261,7 +261,26 @@ module Make (CA : CacheAD.T) = struct
     let traces = add env.traces status in
     let times = add_time_status status env.times in
     {traces = traces; cache = cache; times = times}
-  
+
+  (* Hitmiss tracking for touch_hm *)
+  let touch_hm env addr =
+    let c_hit,c_miss = CA.touch_hm env.cache addr in
+    let nu_hit = match c_hit with
+      | Nb c -> 
+	Nb {traces = add env.traces H;
+  	    cache = c ;
+  	    times = add_time_status H env.times}
+      | Bot -> Bot
+    in
+    let nu_miss = match c_miss with
+      | Nb c -> 
+	Nb {traces = add env.traces M; 
+	    cache = c ;
+  	    times = add_time_status M env.times}
+      | Bot -> Bot
+    in (nu_hit,nu_miss)
+
+
   let elapse env time = 
     let times = add_time time env.times in
     (* elapse is called after each instruction and adds an "N"-node; *)
@@ -269,6 +288,9 @@ module Make (CA : CacheAD.T) = struct
     let traces = add env.traces N in
     let times = add_time_status N times in
     {env with times = times; traces = traces}
+
+  let count_cache_states = CA.count_cache_states 
+
 end
 
 
