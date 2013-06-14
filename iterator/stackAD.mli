@@ -1,9 +1,9 @@
 open Signatures
 open X86Types
 
-module type T = 
+module type S = 
   sig
-    include ABSTRACT_DOMAIN
+    include AD.S
 
     val init :
       X86Headers.t ->
@@ -25,4 +25,4 @@ module type T =
 
 
 module Make :
-  functor (M : MemAD.T) -> T
+  functor (M : MemAD.S) -> S

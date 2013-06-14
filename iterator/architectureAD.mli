@@ -1,8 +1,8 @@
 open Signatures
 
-module type T =
+module type S =
   sig
-    include Signatures.ABSTRACT_DOMAIN
+    include AD.S
 
     val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> cache_param -> cache_param option -> int64 -> t
   (* from a genop32 expression, returns a finite list of possible values,
@@ -32,7 +32,7 @@ module type T =
 
 
 module MakeSeparate :
-  functor (S : StackAD.T) ->
-    functor (IC : CacheAD.T) -> T
-module MakeShared : functor (S : StackAD.T) -> T
-module MakeDataOnly : functor (S : StackAD.T) -> T
+  functor (ST : StackAD.S) ->
+    functor (IC : CacheAD.S) -> S
+module MakeShared : functor (ST : StackAD.S) -> S
+module MakeDataOnly : functor (ST : StackAD.S) -> S

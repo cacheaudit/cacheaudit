@@ -5,10 +5,10 @@ open Signatures
        CF and ZF) *)
 
 
-module type T = 
+module type S = 
   sig
 
-    include ABSTRACT_DOMAIN
+    include AD.S
   val init : (var->string) -> t
   val new_var : t -> var -> var_t option -> t
   val delete_var : t -> var -> t
@@ -26,4 +26,4 @@ module type T =
 
 
 module Make :
-  functor (V : ValAD.T) -> T
+  functor (V : ValAD.S) -> S

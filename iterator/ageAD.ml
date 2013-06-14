@@ -1,7 +1,7 @@
 open Signatures
 
-module type T = sig
-  include ABSTRACT_DOMAIN
+module type S = sig
+  include AD.S
   val init_with_max : (var->string) -> int -> t
   val inc_var : t -> var -> t
   val set_var : t -> var -> int -> t
@@ -14,7 +14,7 @@ module type T = sig
 end
 
 
-module Make (V: ValAD.T) = struct
+module Make (V: ValAD.S) = struct
   
   type t = 
   {

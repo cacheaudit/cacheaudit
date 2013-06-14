@@ -1,8 +1,8 @@
 open Signatures
 open X86Types
 
-module type T = sig
-  include ABSTRACT_DOMAIN
+module type S = sig
+  include AD.S
   val init : cache_param -> t
   (** initialize an empty cache
    takes arguments cache_size (in bytes), 
@@ -44,7 +44,7 @@ module CacheMap = Map.Make(struct type t = int let compare = compare end)
 module AddrSet = Set.Make(Int64)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
-module Make (SV: AgeAD.T) = struct
+module Make (SV: AgeAD.S) = struct
   type t = {
     handled_addrs : AddrSet.t; (* holds addresses handled so far *)
     cache_sets : AddrSet.t CacheMap.t;

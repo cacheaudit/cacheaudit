@@ -1,4 +1,4 @@
 module Make :
-  functor (SV : SimpleRelSetAD.T) -> CacheAD.T
+  functor (SV : SimpleRelSetAD.S) -> CacheAD.S
 
 

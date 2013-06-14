@@ -185,43 +185,43 @@ let _ =
       let generate_cache cache_analysis attacker =
         let cad = match !cache_analysis with
           | OctAges -> IFDEF INCLUDEOCT THEN 
-	    (module CacheAD.Make (SimpleOctAD.OctAD) : CacheAD.T) 
+	    (module CacheAD.Make (SimpleOctAD.OctAD) : CacheAD.S) 
             ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
           | RelAges ->
             (module RelCacheAD.Make
-		(SimpleRelSetAD.SimpleRelSetAD) : CacheAD.T)
+		(SimpleRelSetAD.SimpleRelSetAD) : CacheAD.S)
           | (SetAges | IntAges) -> 
             (* Generate the age abstract domain *)
             let age = 
               if !cache_analysis = SetAges then
-                (module AgeAD.Make (ValAD.Make(ValAD.ValADOptForMemory)):AgeAD.T)
+                (module AgeAD.Make (ValAD.Make(ValAD.ValADOptForMemory)):AgeAD.S)
               else (* !cache_analysis = IntAges *)
                 (module AgeAD.Make(ValAD.Make(
                   struct let max_get_var_size = 256 let max_set_size = 0 end)):
-                    AgeAD.T) in
-            let module Age = (val age: AgeAD.T) in
-            (module CacheAD.Make (Age) : CacheAD.T) 
+                    AgeAD.S) in
+            let module Age = (val age: AgeAD.S) in
+            (module CacheAD.Make (Age) : CacheAD.S) 
         in
     	  (* Make distinction whether asynchronious attacker is used  *)
-    	let module BaseCache = (val cad: CacheAD.T) in
+    	let module BaseCache = (val cad: CacheAD.S) in
         match !attacker with
         | Final -> cad
         | Instructions d -> AsynchronousAttacker.min_frequency := d;
-          (module AsynchronousAttacker.InstructionBasedAttacker(BaseCache) :CacheAD.T)
+          (module AsynchronousAttacker.InstructionBasedAttacker(BaseCache) :CacheAD.S)
         | OneInstrInterrupt -> 
-          (module AsynchronousAttacker.OneInstructionInterrupt(BaseCache) : CacheAD.T)
+          (module AsynchronousAttacker.OneInstructionInterrupt(BaseCache) : CacheAD.S)
         | OneTimedInterrupt -> 
-          (module AsynchronousAttacker.OneTimeInterrupt(BaseCache) : CacheAD.T) in
+          (module AsynchronousAttacker.OneTimeInterrupt(BaseCache) : CacheAD.S) in
       (* end of generate_cache definition *)
         
       (* Generate the data cache AD*)
       let module Cache = (val (generate_cache data_cache_analysis attacker):
-         CacheAD.T) in
+         CacheAD.S) in
       (* Generate the trace AD *)
       let trcs = if !do_traces then 
-      	(module TraceAD.Make(Cache): TraceAD.T)
-      else (module TraceAD.MakeNot(Cache): TraceAD.T) in
-      let module Traces = (val trcs: TraceAD.T) in
+      	(module TraceAD.Make(Cache): TraceAD.S)
+      else (module TraceAD.MakeNot(Cache): TraceAD.S) in
+      let module Traces = (val trcs: TraceAD.S) in
       (* Generate the memory AD *)
       let module Mem = MemAD.Make(FlagAD.Make(ValAD.Make(ValAD.ValADOptForMemory)))(Traces) in
       (* Generate the stack AD *)
@@ -229,12 +229,12 @@ let _ =
       (* Generate the architecture AD *)
       let arch = match !architecture with
         | Split -> let cad = generate_cache inst_cache_analysis attacker in
-          let module InstCache = (val cad: CacheAD.T) in
-          (module ArchitectureAD.MakeSeparate(Stack)(InstCache): ArchitectureAD.T)
-        | Joint -> (module ArchitectureAD.MakeShared(Stack): ArchitectureAD.T)
+          let module InstCache = (val cad: CacheAD.S) in
+          (module ArchitectureAD.MakeSeparate(Stack)(InstCache): ArchitectureAD.S)
+        | Joint -> (module ArchitectureAD.MakeShared(Stack): ArchitectureAD.S)
         | NoInstructionCache -> 
-          (module ArchitectureAD.MakeDataOnly(Stack): ArchitectureAD.T) in
-      let module Architecture = (val arch: ArchitectureAD.T) in
+          (module ArchitectureAD.MakeDataOnly(Stack): ArchitectureAD.S) in
+      let module Architecture = (val arch: ArchitectureAD.S) in
       (* Generate iterator *)
       let module Iter = Iterator.Make(Architecture) in
       let iterate = Iter.iterate in

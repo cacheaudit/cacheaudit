@@ -1,9 +1,9 @@
 open Signatures
 open X86Types
 
-module type T =
+module type S =
   sig
-    include ABSTRACT_DOMAIN
+    include AD.S
   
   (* init is used to return an initial abstract state *)
   (* the first arguments returns the initial value at a given address if it *)
@@ -31,8 +31,8 @@ end
   
 
 module Make :
-  functor (F : FlagAD.T) ->
-    functor (TR : TraceAD.T) -> T
+  functor (F : FlagAD.S) ->
+    functor (TR : TraceAD.S) -> S
 
 (** Set default value for a memory location. It will be set the first time it is accessed *)
 val preset_address: int64 -> Signatures.var_t -> unit

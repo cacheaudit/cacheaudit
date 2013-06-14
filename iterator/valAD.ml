@@ -1,8 +1,8 @@
 open Signatures
 open X86Types
 
-module type T = sig
-  include ABSTRACT_DOMAIN
+module type S = sig
+  include AD.S
   val init : (var->string) -> t
   val new_var : t -> var -> var_t option -> t
   val delete_var : t -> var -> t

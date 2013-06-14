@@ -2,9 +2,9 @@ open Signatures
 open X86Types
 
 
-module type T = 
+module type S = 
   sig
-    include ABSTRACT_DOMAIN
+    include AD.S
 
     val init :
       X86Headers.t ->
@@ -27,7 +27,7 @@ module type T =
 
 (* Simple stack abstract domain. Translates pushs and pops to register operations *)
 
-module Make (M: MemAD.T) = struct
+module Make (M: MemAD.S) = struct
     (* Stack.top and Memory abstract domain *)
   type t = M.t
 
