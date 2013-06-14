@@ -198,7 +198,7 @@ module Oct64 (Oct:OCT) : OCT64 = struct
       | Some x -> Int64.of_int (- x)
 end
 
-module OctagonAD (Oct: OCT64): VALUE_ABSTRACT_DOMAIN = struct
+module OctagonAD (Oct: OCT64): ValAD.T = struct
   (* oct = The Octagon; map = Mapping from variables to their position in the octagon *)
   type t = {oct : Oct.oct; map : int VarMap.t; max : int64; v2s : var -> string}
 
@@ -355,9 +355,11 @@ module OctagonAD (Oct: OCT64): VALUE_ABSTRACT_DOMAIN = struct
   let is_var (octAD: t) (v: var) : bool = 
     VarMap.mem v octAD.map
 
+  let log_var = failwith "logging not implemented yet"
+
   let shift = failwith "shift not supported yet"
 
-  let flagop = failwith "shift not supported yet"
+  let flagop = failwith "flagop not supported yet"
 
   let update_var = failwith "update_var not supported yet"
 
