@@ -1,6 +1,5 @@
 open Printf
 open Signatures
-open AgeFunction
 open AgeFunctionSet
 open RelSetMap
 
@@ -18,46 +17,46 @@ module SimpleRelSetAD = struct
   type t = {map : M.t; arity : int; max : int}
 
   (* partition helper *)
-  let rec add_to_setlist (setlist:VarSet.t list) (vset:VarSet.t) : VarSet.t list = 
+  let rec add_to_setlist (setlist:ValSet.t list) (vset:ValSet.t) : ValSet.t list = 
     match setlist with 
-      hd::tl -> if VarSet.exists (fun v -> VarSet.mem v hd) vset then 
-                add_to_setlist tl (VarSet.union vset hd) else
+      hd::tl -> if ValSet.exists (fun v -> ValSet.mem v hd) vset then 
+                add_to_setlist tl (ValSet.union vset hd) else
                 hd::add_to_setlist tl vset
     | []     -> [vset]
 
   let partition rsAD = 
     let tmp = List.fold_left (fun setlist vset -> add_to_setlist setlist vset) [] (M.keys rsAD.map)  in
-    List.fold_left (fun result vset -> VarSet.elements vset::result) [] tmp
+    List.fold_left (fun result vset -> ValSet.elements vset::result) [] tmp
 
   let init_with_max v2s max = {map = M.init_with_max v2s max; arity = 2; max = max}
 
   let get_values (rsAD:t) (v:var) : int list = 
-    let vset = VarSet.add v VarSet.empty in
+    let vset = ValSet.add v ValSet.empty in
     AFS.values (M.find vset rsAD.map) v
 
   let mem (rsAD:t) (part_state:(var * int) list) : bool = 
     M.for_all (fun vset afs -> not (AFS.contradicts afs part_state)) rsAD.map
     
   let forget_rel_info map (v:var) = 
-    M.filter (fun vset _ -> not (VarSet.mem v vset)) map
+    M.filter (fun vset _ -> not (ValSet.mem v vset)) map
 
   exception NotImplemented
   let is_var env a = raise NotImplemented
   
   let set_var (rsAD:t) (v:var) (age:int) = 
     let map = forget_rel_info rsAD.map v in
-    let vset = VarSet.add v VarSet.empty in
+    let vset = ValSet.add v ValSet.empty in
     {rsAD with map = M.add vset (AFS.singleton v age) map}
 
   let inc_var (rsAD:t) (v:var) =
-    {rsAD with map = M.mapi (fun vset afs -> if VarSet.mem v vset then AFS.inc_var afs v rsAD.max else afs) rsAD.map}
+    {rsAD with map = M.mapi (fun vset afs -> if ValSet.mem v vset then AFS.inc_var afs v rsAD.max else afs) rsAD.map}
   
   let print (fmt:Format.formatter) (rsAD:t) = M.print fmt rsAD.map
 
   let print_delta (rsAD1:t) (fmt:Format.formatter) (rsAD2:t) = M.print_delta rsAD1.map fmt rsAD2.map 
 
   let join (rsAD1:t) (rsAD2:t) : t = 
-    (* Determine all varSets which have different Age Function Sets. *)
+    (* Determine all ValSets which have different Age Function Sets. *)
     let diffs = M.differences rsAD1.map rsAD2.map in
     let new_map = List.fold_left (fun map (vset,afs1,afs2) -> 
       let joined_afs = AFS.join afs1 afs2 in
@@ -69,8 +68,8 @@ module SimpleRelSetAD = struct
        fun map (vset,afs1,afs2) -> List.fold_left 
          (
           fun map' (vset',afs1',afs2') -> 
-            let comb_vset = VarSet.union vset vset' in 
-            if M.mem comb_vset map' || VarSet.cardinal comb_vset > rsAD1.arity then 
+            let comb_vset = ValSet.union vset vset' in 
+            if M.mem comb_vset map' || ValSet.cardinal comb_vset > rsAD1.arity then 
               map' 
             else
              let comb_afs1 = AFS.combine afs1 afs1' in
@@ -89,35 +88,29 @@ module SimpleRelSetAD = struct
   let check_validity rsAD = if M.for_all (fun k set -> not (AFS.is_empty set)) rsAD.map then Nb rsAD else Bot 
 
   let comp (rsAD:t) (v1:var) (v2:var) : (t add_bottom)*(t add_bottom) = 
-    let v2_vals = AFS.values (M.find (VarSet.add v2 VarSet.empty) rsAD.map) v2 in 
+    let v2_vals = AFS.values (M.find (ValSet.add v2 ValSet.empty) rsAD.map) v2 in 
     let sm_v2 = List.hd (List.sort Pervasives.compare v2_vals) in
     let gt_v2 = List.hd (List.sort (fun x y -> Pervasives.compare y x) v2_vals) in
 
-    let subrelations (name:VarSet.t) : VarSet.t list = VarSet.fold (fun v l -> VarSet.remove v name::l) name [] in
-
-    (*let remove_ages_violating_subrelation (name_sub:VarSet.t)(ages_sub:AFS.t)(ages_rel:AFS.t) = 
-       AFS.filter (fun af -> let af = AF.project af (VarSet.elements name_sub) in 
-         not (AFS.is_empty (
-          AFS.filter (fun af' -> (AF.compare af af') = 0) ages_sub
-          ))) ages_rel in*)
+    let subrelations (name:ValSet.t) : ValSet.t list = ValSet.fold (fun v l -> ValSet.remove v name::l) name [] in
 
     (* Extends the relation by variable v and insures that all subrelations are fulfilled. *)
-    let extend_relation (name:VarSet.t) (v:var) (map:M.t) : AFS.t = 
+    let extend_relation (name:ValSet.t) (v:var) (map:M.t) : AFS.t = 
        let old_set = M.find name map in 
-       let v_set = M.find (VarSet.add v VarSet.empty) map in 
+       let v_set = M.find (ValSet.add v ValSet.empty) map in 
        let new_set = AFS.combine old_set v_set in
        (* Filter out ages violating subrelations *)
-       let new_set = List.fold_left (fun age_set name_sub -> AFS.filter age_set (M.find name_sub map)) new_set (subrelations (VarSet.add v name)) in 
+       let new_set = List.fold_left (fun age_set name_sub -> AFS.filter age_set (M.find name_sub map)) new_set (subrelations (ValSet.add v name)) in 
       new_set in
 
     (* Removes v from the relation. *)
     let shrink_relation (v:var) (ages:AFS.t) : AFS.t = 
-      let vars = VarSet.remove v (AFS.vset ages) in
-      AFS.project ages (VarSet.elements vars) in
+      let vars = ValSet.remove v (AFS.vset ages) in
+      AFS.project ages (ValSet.elements vars) in
 
-    let update_ages (vset:VarSet.t) map (compare:int->int->int) (limit:int): AFS.t  = 
+    let update_ages (vset:ValSet.t) map (compare:int->int->int) (limit:int): AFS.t  = 
       let old_ages = M.find vset map in 
-      match VarSet.mem v1 vset, VarSet.mem v2 vset with  
+      match ValSet.mem v1 vset, ValSet.mem v2 vset with  
           true , true  -> AFS.filter_comp old_ages v1 v2 compare (* compare v1 v2 = -1*)
         | true , false -> let ext_ages = extend_relation vset v2 rsAD.map in
               let ext_ages = AFS.filter_comp ext_ages v1 v2 compare in
@@ -137,11 +130,3 @@ d in relational sets" (*TODO*)
 
 
 end
-
-(* 
-   Speed comparison
-           Linesize 1024  2048  512   256   128            32
-   -----------------------------------------------------------------
-   MapAgeFunction:  192s   98s  188s  763s 
-   ListAgeFunction: 170s   99s  189s  741s 2519s->499s     8193s
-*)

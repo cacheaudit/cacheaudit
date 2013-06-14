@@ -1,62 +1,62 @@
 open Signatures
-open AgeFunction
+
 open AgeFunctionSet
 
 module AFS = AgeFunctionSet
 
-module VarSetMap = Map.Make(struct type t = VarSet.t let compare x y = let c = Pervasives.compare (VarSet.cardinal x) (VarSet.cardinal y) in if c = 0 then VarSet.compare x y else c end)
+module ValSetMap = Map.Make(struct type t = ValSet.t let compare x y = let c = Pervasives.compare (ValSet.cardinal x) (ValSet.cardinal y) in if c = 0 then ValSet.compare x y else c end)
 
 module type REL_SET_MAP = sig
   type t
 
   val init_with_max : (var -> string) -> int -> t
-  val keys : t -> VarSet.t list
-  val find : VarSet.t -> t -> AFS.t
-  val add: VarSet.t -> AFS.t -> t -> t
-  val filter : (VarSet.t -> AFS.t -> bool) -> t -> t
-  val mapi : (VarSet.t -> AFS.t -> AFS.t) -> t -> t
+  val keys : t -> ValSet.t list
+  val find : ValSet.t -> t -> AFS.t
+  val add: ValSet.t -> AFS.t -> t -> t
+  val filter : (ValSet.t -> AFS.t -> bool) -> t -> t
+  val mapi : (ValSet.t -> AFS.t -> AFS.t) -> t -> t
   val print : Format.formatter -> t -> unit
   val print_delta : t -> Format.formatter -> t -> unit
-  val differences : t -> t -> (VarSet.t * AFS.t * AFS.t) list
-  val mem : VarSet.t -> t -> bool
-  val for_all : (VarSet.t -> AFS.t -> bool) -> t -> bool
+  val differences : t -> t -> (ValSet.t * AFS.t * AFS.t) list
+  val mem : ValSet.t -> t -> bool
+  val for_all : (ValSet.t -> AFS.t -> bool) -> t -> bool
 end
 
 module RelSetMap : REL_SET_MAP = struct
-  module M = VarSetMap
+  module M = ValSetMap
   type map = AFS.t M.t
   type t = {max : int; map : map; v2s : var -> string}
 
   let init_with_max v2s max = 
     {max = max;map = M.empty; v2s=v2s}
 
-  let vset_to_string vset v2s  = let s = VarSet.fold (fun e s -> s ^ (v2s e) ^ ",") vset "" in
+  let vset_to_string vset v2s  = let s = ValSet.fold (fun e s -> s ^ (v2s e) ^ ",") vset "" in
      "(" ^ (String.sub s 0 (String.length s -1)) ^ ")" 
 
   (* Returns the set of keys that are in the map. *)
-  let keys rsMap : VarSet.t list = 
+  let keys rsMap : ValSet.t list = 
     M.fold (fun vset _ l -> vset::l) rsMap.map []
 
   let outside (v: var) (max:int) : AFS.t = AFS.singleton v max
 
   (* Returns a list of all subrelations contained in this relation. *)
-  let subrelations (vset:VarSet.t) : (VarSet.t * var) list = VarSet.fold (fun v l -> (VarSet.remove v vset,v)::l) vset []
+  let subrelations (vset:ValSet.t) : (ValSet.t * var) list = ValSet.fold (fun v l -> (ValSet.remove v vset,v)::l) vset []
 
-  (* Given a VarSet of size n, returns all subsets of size n-1. *)
-  let subsets vset = VarSet.fold (fun v l -> VarSet.remove v vset::l) vset [] 
+  (* Given a ValSet of size n, returns all subsets of size n-1. *)
+  let subsets vset = ValSet.fold (fun v l -> ValSet.remove v vset::l) vset [] 
 
-  (* Returns the AgeFunctionSet for the given VarSet. 
+  (* Returns the AgeFunctionSet for the given ValSet. 
      If it is not contained in the map, it is created by considering its respective subsets. *)
-  let rec find (vset:VarSet.t) (rsMap:t) : AFS.t = 
+  let rec find (vset:ValSet.t) (rsMap:t) : AFS.t = 
    let map = rsMap.map in 
    if (M.mem vset map) then
       M.find vset map
     else
       let all_subs = subrelations vset in 
       let subs_in_map = List.filter (fun (vset',v) -> M.mem vset' map) all_subs in
-      match VarSet.cardinal vset with
+      match ValSet.cardinal vset with
       (*TODO Generalize*)
-        1 -> outside (VarSet.choose vset) rsMap.max
+        1 -> outside (ValSet.choose vset) rsMap.max
       | 2 -> (
               match List.nth all_subs 0,List.nth all_subs 1 with 
               ((sub1,_),(sub2,_)) -> AFS.combine (find sub1 rsMap) (find sub2 rsMap)
@@ -64,18 +64,18 @@ module RelSetMap : REL_SET_MAP = struct
      | 3 -> if List.length subs_in_map >= 1 then 
              (
                match List.nth subs_in_map 0 with 
-               (sub,v) -> AFS.combine (find sub rsMap) (find (VarSet.add v VarSet.empty) rsMap) 
+               (sub,v) -> AFS.combine (find sub rsMap) (find (ValSet.add v ValSet.empty) rsMap) 
              )
             else
               (
                match List.nth all_subs 0 with 
-              (sub,v) -> AFS.combine (find sub rsMap) (find (VarSet.add v VarSet.empty) rsMap) 
+              (sub,v) -> AFS.combine (find sub rsMap) (find (ValSet.add v ValSet.empty) rsMap) 
              )
      | _ -> failwith ("get_afs: case not implemented yet" ^ (vset_to_string vset Int64.to_string))
 
 
   let is_redundant vset afs rsMap = 
-    if VarSet.cardinal vset = 2 then 
+    if ValSet.cardinal vset = 2 then 
       let afs' = List.fold_left (fun afs' vset' -> AFS.combine afs' (find vset' rsMap)) AFS.empty (subsets vset) in
       AFS.equal afs' afs
     else
@@ -95,11 +95,11 @@ module RelSetMap : REL_SET_MAP = struct
 
   let for_all f rsMap = M.for_all f rsMap.map
 
-  (* Returns all VarSets and the two corresponding AgeFunctionSets in which the maps differ. 
+  (* Returns all ValSets and the two corresponding AgeFunctionSets in which the maps differ. 
      join_keysets should be called before.
   *)
-  let differences rsMap1 rsMap2 : (VarSet.t * AFS.t * AFS.t) list = 
-    let compare x y = let c = Pervasives.compare (VarSet.cardinal x) (VarSet.cardinal y) in if c = 0 then VarSet.compare x y else c in
+  let differences rsMap1 rsMap2 : (ValSet.t * AFS.t * AFS.t) list = 
+    let compare x y = let c = Pervasives.compare (ValSet.cardinal x) (ValSet.cardinal y) in if c = 0 then ValSet.compare x y else c in
     let rec diffs bds1 bds2 = 
       match bds1,bds2 with
       | (vset1,afs1)::tl1,(vset2,afs2)::tl2 -> (match compare vset1 vset2 with
