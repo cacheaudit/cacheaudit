@@ -103,6 +103,9 @@ endif
 doc:
 	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d Documentation/ $(OCAMLINCLUDE) */*.mli
 
+test:	cachecow
+	cd Tests; ./run.sh;
+
 help:
 	@echo "usage:"
 	@echo "  - make         : Compile with ocamlc compiler without debug and without octagon library."
@@ -110,6 +113,7 @@ help:
 	@echo "  - make debug=1 : Compile with debug flags."
 	@echo "  - make oct=1   : Compile including the octagon abstract domain library."
 	@echo "  - make doc     : Compile documentation."
+	@echo "  - make test    : Run tests."
 	@echo "  - make help    : Show this dialog."
 
-.PHONY: all clean dep help
+.PHONY: all clean dep test help
