@@ -121,7 +121,7 @@ module Make (O:VALADOPT) = struct
 
 (* Mask values and shift them to the right *)
   let apply_mask mask shift x =
-    Int64.shift_right_logical (Int64.logand mask x) shift
+    Int64.shift_right (Int64.logand mask x) shift
 
   let mask_vals msk v = 
    let (cv_mask, cv_shift) = mask_to_intoff msk in

@@ -248,7 +248,7 @@ module Make (F : FlagAD.T) (TR:TraceAD.T) = struct
           (*let new_cache = match rw with Read -> TR.touch env.cache un 
                                       | Write -> env.cache in*)
           let n = Int64.logand un (Int64.lognot 3L) in
-          let address_mask = rem_to_mask (Int64.logand un 3L) in
+          let address_mask = rem_to_mask (Int64.logand (Int64.lognot un) 3L) in
           let (new_n, new_env) = match rw with
           | Read ->
               let env = {env with vals = e} in
