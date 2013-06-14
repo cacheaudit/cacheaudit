@@ -57,7 +57,6 @@ ML_FILES := \
 	iterator/ageFunctionSet.ml\
 	iterator/relSetMap.ml\
 	iterator/simpleRelSetAD.ml\
-	iterator/simpleProfilingValAD.ml\
 	iterator/traceAD.ml\
 	iterator/cacheAD.ml\
 	iterator/relCacheAD.ml\
