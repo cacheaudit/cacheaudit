@@ -1,3 +1,6 @@
+(** Module for creating and printing control flow graphs *)
+
+(** Type for basic blocks *)
 type basicblock = {
   start_addr : int;
   end_addr : int;
@@ -8,11 +11,20 @@ type basicblock = {
   mutable in_edges : basicblock list;
 }
 
+(** Type for control flow graphs *)
+type t=basicblock list
+
+(** Creates control flow graph from a given starting address in the binary executable (typically: [main]) *)
+val makecfg : int -> X86Headers.t -> t
+
+(** Prettyprinter for basic block addresses *)
 val pp_block_addr : Format.formatter -> int -> unit
+
+(** Prettyprinter for basic block headers *)
 val pp_block_header : Format.formatter -> basicblock -> unit
+
+(** Prettyprinter for basic block content *)
 val pp_block : Format.formatter -> basicblock -> unit
 
-
-val makecfg : int -> X86Headers.t -> basicblock list
-val printblock : basicblock -> unit
-val printcfg : basicblock list -> unit
+(** Prettyprinter for the entire control flow graph *)
+val printcfg : t -> unit

@@ -27,6 +27,8 @@ type basicblock =
       mutable out_edges : basicblock list;
       mutable in_edges: basicblock list
     }      
+type t = basicblock list
+
 
 let addr_ending_block   = -1
 let addr_starting_block = -2
