@@ -3,7 +3,7 @@ if [ ! -f ../../cachecow ]; then
     echo "Cachetool not compiled!";
     exit 1;
 fi
-#../../cachecow --analyze --noInstructionCache bubbleSort
+../../cachecow --analyze --noInstructionCache bubbleSort
 if [ ! -f log.txt ]; then
 	echo "Log.txt not found"
     exit 1;
