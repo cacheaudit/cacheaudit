@@ -10,7 +10,7 @@ module type S =
 
     include AD.S
   val init : (var->string) -> t
-  val new_var : t -> var -> var_t option -> t
+  val new_var : t -> var -> t
   val delete_var : t -> var -> t
  (** Log the current value of a variable to the log file. For automated testing *)
   val log_var : t -> var -> unit

@@ -4,7 +4,7 @@ open X86Types
 module type S = sig
   include AD.S
   val init : (var->string) -> t
-  val new_var : t -> var -> var_t option -> t
+  val new_var : t -> var -> t
   val delete_var : t -> var -> t
  (* val guard : t -> var_name -> guardop -> int64 -> t add_bottom *)
  (** Log the current value of a variable to the log file. For automated testing *)

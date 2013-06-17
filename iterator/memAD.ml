@@ -13,7 +13,7 @@ module type S =
   (* init is used to return an initial abstract state *)
   (* the first arguments returns the initial value at a given address if it *)
   (* is defined, None otherwize (meaning it's random *)
-  val init: (int64 -> int64 option) -> (X86Types.reg32 * int64 * int64) list -> 
+  val init: (int64 -> int64 option) -> (((int64 * int64 * int64) list)*((X86Types.reg32 * int64 * int64) list)) -> 
     cache_param -> t
 
   (* from a genop32 expression, returns a finite list of possible values,
@@ -37,13 +37,8 @@ end
 
 
 
-(* preset_addresses store initial values for specific addresses that have been specified by the user in the conf file *)
-module PresetMap = Map.Make(Int64)
-let preset_addresses = ref PresetMap.empty
-let logged_addresses = ref []
 
-let preset_address addr value = 
-  preset_addresses := PresetMap.add addr value !preset_addresses
+let logged_addresses = ref []
 
 let log_address addr =
   logged_addresses := !logged_addresses @ [addr]
@@ -106,13 +101,21 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
   (* initRegs : F.t -> F.t *)
   (** Adds variables and values for the registers in the value domain *)
   let initRegs v regList = 
-    let varsadded = List.fold_left (fun vt x -> let r,_,_ = x in F.new_var vt (reg_to_var r) None) v regList in
+    let varsadded = List.fold_left (fun vt x -> let r,_,_ = x in F.new_var vt (reg_to_var r)) v regList in
     List.fold_left (fun vt x -> let r,l,h = x in F.set_var vt (reg_to_var r) l h) varsadded regList
 
+  (** Sets the initial values for certain addresses in the value domain *)
+  let initVals v memList =
+    let addresses_added = List.fold_left (fun vt x -> let var,_,_ = x in F.new_var vt var) v memList in
+    List.fold_left (fun vt x -> let addr,l,h = x in F.set_var vt addr l h) addresses_added memList
+
+  let initMemory m memList =
+    List.fold_left (fun m x -> let addr,_,_ = x in MemSet.add addr m) m memList
+
  (** Return an element of type t with initialized registers *)
-  let init iv regList cache_params = {
-    vals = initRegs (F.init var_to_string) regList;
-    memory = MemSet.empty;
+  let init iv (memList,regList) cache_params = {
+    vals = initVals (initRegs (F.init var_to_string) regList) memList;
+    memory = initMemory MemSet.empty memList;
     initial_values = iv;
     traces = TR.init cache_params
   }
@@ -125,7 +128,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
   let merge_with f g x y = if x == y then x else
     let x_minus_y = MemSet.diff x.memory y.memory in
     let y_minus_x = MemSet.diff y.memory x.memory in
-    let create_vars = MemSet.fold (fun x v -> F.new_var v x None) in
+    let create_vars = MemSet.fold (fun x v -> F.new_var v x) in
     { x with vals = f (create_vars y_minus_x x.vals) 
                       (create_vars x_minus_y y.vals);
              memory = MemSet.union x.memory y.memory;
@@ -187,11 +190,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
     
     
   (** Create an unitialized variable; assume it is not already created. *) 
-  let create_var env n addr =
-    try
-      {env with vals = F.new_var env.vals n (Some (PresetMap.find addr !preset_addresses)); memory = MemSet.add n env.memory}
-    with
-      | Not_found -> {env with vals = F.new_var env.vals n None; memory = MemSet.add n env.memory}
+  let create_var env n addr = {env with vals = F.new_var env.vals n; memory = MemSet.add n env.memory}
 
   (* var_of_op : t -> op32 -> rw_t -> (cons_var, t) list *)
   (** @return the list of constants or variables corresponding to the constant, register or address passed *)

@@ -4,7 +4,7 @@ open X86Types
 module type S = sig
   include AD.S
   val init : (var->string) -> t
-  val new_var : t -> var -> var_t option -> t
+  val new_var : t -> var -> t
   val delete_var : t -> var -> t
  (* val guard : t -> var_name -> guardop -> int64 -> t add_bottom *)
  (** Log the current value of a variable to the log file. For automated testing *)
@@ -159,10 +159,7 @@ module Make (O:VALADOPT) = struct
 
   let init v2s = variable_naming:=v2s; VarMap.empty
 
-  let new_var m v initial = match initial with
-    | None -> VarMap.add v top m
-    | Some (Interval(l,h)) -> VarMap.add v (set_or_interval l h) m
-    | Some init -> VarMap.add v init m
+  let new_var m v = VarMap.add v top m
 
   let delete_var m v = VarMap.remove v m
 

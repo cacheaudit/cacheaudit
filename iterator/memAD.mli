@@ -4,11 +4,11 @@ open X86Types
 module type S =
   sig
     include AD.S
-  
+
   (* init is used to return an initial abstract state *)
   (* the first arguments returns the initial value at a given address if it *)
   (* is defined, None otherwize (meaning it's random *)
-  val init: (int64 -> int64 option) -> (X86Types.reg32 * int64 * int64) list -> 
+  val init: (int64 -> int64 option) -> (((int64 * int64 * int64) list)*((X86Types.reg32 * int64 * int64) list)) -> 
     cache_param -> t
 
   (* from a genop32 expression, returns a finite list of possible values,
@@ -34,8 +34,8 @@ module Make :
   functor (F : FlagAD.S) ->
     functor (TR : TraceAD.S) -> S
 
-(** Set default value for a memory location. It will be set the first time it is accessed *)
-val preset_address: int64 -> Signatures.var_t -> unit
+
 (** Add an address to the list of logged addresses that will appear in the log file.
- * Log file values follow the order in which this function is called *)
+ * Log file values follow the order in which this function is called 
+ * Whenever there is a call to print, all addresses are logged (usually twice) *)
 val log_address: int64 -> unit
