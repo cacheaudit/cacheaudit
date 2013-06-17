@@ -1,22 +1,23 @@
 PREPROCESSOR= camlp4o pa_macro.cmo
 
-ifneq ($(or $(oct),$(OCT)),)
-        PREPROCESSOR += -DINCLUDEOCT
-endif
-
 #OCT_INCLUDE= $(shell oct-config --mlflags | sed 's/_iag//')
 
 ifneq ($(or $(opt),$(OPT)),)
 	OCAMLC = ocamlopt.opt
-	OCT_INCLUDE= $(shell oct-config --mlflags --with-ocamlopt)
+	OCT_INCLUDE_OPT= $(shell oct-config --mlflags --with-ocamlopt)
 	OCAMLLIB= $(OCAMLLIB_STD:.cma=.cmxa)
 	CMO_FILES= $(ML_FILES:%.ml=%.cmx)
 	DEP_FLAGS= -native
 else
 	OCAMLC = ocamlc.opt
-	OCT_INCLUDE= $(shell oct-config --mlflags)
+	OCT_INCLUDE_OPT= $(shell oct-config --mlflags)
 	OCAMLLIB= $(OCAMLLIB_STD)
 	CMO_FILES= $(ML_FILES:%.ml=%.cmo)
+endif
+
+ifneq ($(or $(oct),$(OCT)),)
+	PREPROCESSOR += -DINCLUDEOCT
+	OCT_INCLUDE= OCT_INCLUDE_OPT
 endif
 
 OCAMLC += -dtypes -pp "${PREPROCESSOR}"
