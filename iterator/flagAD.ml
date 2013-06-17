@@ -6,7 +6,7 @@ module type S =
 
   include AD.S
   val init : (var->string) -> t
-  val new_var : t -> var -> var_t option -> t
+  val new_var : t -> var -> t
   val delete_var : t -> var -> t
  (** Log the current value of a variable to the log file. For automated testing *)
   val log_var : t -> var -> unit
@@ -165,7 +165,7 @@ module Make (V: ValAD.S) = struct
       ff=compwiden st1.ff st2.ff;}
 
 
-  let new_var st var initial = tmap (fun x -> V.new_var x var initial) st
+  let new_var st var = tmap (fun x -> V.new_var x var) st
 
   let delete_var st var = tmap (fun x -> V.delete_var x var) st
 

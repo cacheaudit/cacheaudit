@@ -13,7 +13,7 @@ let instruction_addr_base = ref (Int64.of_int 0)
 module type S =
   sig
     include AD.S
-    val init: X86Headers.t -> (X86Types.reg32 * int64 * int64) list -> cache_param -> cache_param option -> int64 -> t
+    val init: X86Headers.t -> (((int64 * int64 * int64) list)*((X86Types.reg32 * int64 * int64) list)) -> cache_param -> cache_param option -> int64 -> t
     val get_offset: t -> op32 -> (int,t) finite_set
     val test : t -> X86Types.condition -> (t add_bottom)*(t add_bottom)
     val call : t -> op32 -> int -> (int,t) finite_set 

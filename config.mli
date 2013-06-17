@@ -1,3 +1,5 @@
+open Signatures
+
 val left_pos : string -> int -> int option
 val right_pos : string -> int -> int option
 val trim : string -> string
@@ -11,7 +13,6 @@ type cache_params = {
   inst_assoc : int;
   inst_base_addr : int64;
 }
-val setInitialValue : int64 -> Int64.t -> Int64.t -> unit
 val config :
   string ->
-  int option * (X86Types.reg32 * Int64.t * Int64.t) list * cache_params
+  int option * (((int64 * int64 * int64) list)*((X86Types.reg32 * int64 * int64) list)) * cache_params

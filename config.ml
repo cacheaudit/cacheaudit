@@ -1,5 +1,5 @@
 open X86Types
-
+open Signatures
 
 (* help functions for trimming a string *)
 let left_pos s len =
@@ -51,7 +51,7 @@ type cache_params =
     inst_base_addr: int64;
 }
 
-let setInitialValue addr lower upper =
+let setInitialValue addr lower upper mem =
   let parse_interval_bound n =
     if Int64.compare n 0L = -1 then failwith "Negative numbers are not allowed"
     else if Int64.compare n 0xFFFFFFFFL = 1 then failwith "Numbers have to be in the 32bit range"
@@ -59,7 +59,7 @@ let setInitialValue addr lower upper =
   let lower = parse_interval_bound lower in
   let upper = parse_interval_bound upper in
   if Int64.compare lower upper = 1 then failwith "lower bound should be lower or equal than upper bound"
-  else MemAD.preset_address addr (Signatures.Interval(lower,upper))
+  else (addr,lower,upper) :: mem
 
 
 
@@ -84,24 +84,25 @@ let config filename =
     match lss with
     | [] -> (start,registers,cache)        
     | l::ls -> 
-    (let (st,regs,ca) = auxmatch ls (start,registers,cache)
+    (let (st,(mem,regs),ca) = auxmatch ls (start,registers,cache)
+    in let vals = (mem,regs)
     in match l with
-      | ("START",i,_) ->  (Some (Int64.to_int i), regs, ca)
-      | ("data_cache_s",i,_) -> (st,regs,{ca with data_cache_s = Int64.to_int i})
-      | ("data_line_s",i,_) -> (st,regs,{ca with data_line_s = Int64.to_int i})
-      | ("data_assoc",i,_) -> (st,regs,{ca with data_assoc = Int64.to_int i})
-      | ("inst_cache_s",i,_) -> (st,regs,{ca with inst_cache_s = Int64.to_int i})
-      | ("inst_line_s",i,_) -> (st,regs,{ca with inst_line_s = Int64.to_int i})
-      | ("inst_assoc",i,_) -> (st,regs,{ca with inst_assoc = Int64.to_int i})
-      | ("INST_BASE",i,_) -> (st,regs,{ca with inst_base_addr = i})
-      | ("LOG",i,_) -> MemAD.log_address i; (st,regs,ca)
-      | ("",0L,_)  -> (st,regs,ca)
+      | ("START",i,_) ->  (Some (Int64.to_int i), vals, ca)
+      | ("data_cache_s",i,_) -> (st,vals,{ca with data_cache_s = Int64.to_int i})
+      | ("data_line_s",i,_) -> (st,vals,{ca with data_line_s = Int64.to_int i})
+      | ("data_assoc",i,_) -> (st,vals,{ca with data_assoc = Int64.to_int i})
+      | ("inst_cache_s",i,_) -> (st,vals,{ca with inst_cache_s = Int64.to_int i})
+      | ("inst_line_s",i,_) -> (st,vals,{ca with inst_line_s = Int64.to_int i})
+      | ("inst_assoc",i,_) -> (st,vals,{ca with inst_assoc = Int64.to_int i})
+      | ("INST_BASE",i,_) -> (st,vals,{ca with inst_base_addr = i})
+      | ("LOG",i,_) -> MemAD.log_address i; (st,vals,ca)
+      | ("",0L,_)  -> (st,vals,ca)
       | (str, l, h) ->
                   try (
-                    (st, (X86Util.string_to_reg32 str, l, h) :: regs,ca)
+                    (st, (mem,(X86Util.string_to_reg32 str, l, h) :: regs),ca)
                   ) with Invalid_argument arg -> try (
-                    setInitialValue (Int64.of_string str) l h; (st, regs, ca)
+                    (st,(setInitialValue (Int64.of_string str) l h mem, regs), ca)
                   ) with Failure arg -> failwith (Printf.sprintf "Configuration not supported. %s is not a valid register or a memory location" arg)
             )
   in let empty_cparams = {data_cache_s = 0; data_line_s = 0; data_assoc = 0; inst_cache_s = 0; inst_line_s = 0; inst_assoc = 0; inst_base_addr = (Int64.of_int 0)}
-  in auxmatch scanned (None,[],empty_cparams)
+  in auxmatch scanned (None,([],[]),empty_cparams)
