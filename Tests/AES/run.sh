@@ -9,7 +9,7 @@ if [ ! -f log.txt ]; then
     exit 1;
 fi
 cat log.txt | sed 's/^...........//' > result.txt
-cmp correct.txt result.txt &> /dev/null
+cmp correct.txt result.txt
 result=$?
 rm -f result.txt log.txt
 if [ $result -eq 0 ]; then
