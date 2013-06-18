@@ -24,7 +24,7 @@ type memop = ADarith of X86Types.arith_op | ADmov | ADexchg
 type stackop = ADpop | ADpush
 
 type var = int64
-let pp_var fmt = function n -> Format.fprintf fmt "V%Lx" n
+(*let pp_var fmt = function n -> Format.fprintf fmt "V%Lx" n*)
 
 type cons_var = Cons of int64 | VarOp of var
 
