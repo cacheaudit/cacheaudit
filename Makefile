@@ -28,7 +28,7 @@ OCAMLDEP= ocamldep -pp "${PREPROCESSOR}" $(DEP_FLAGS)
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
 
-OCAMLINCLUDE:= -I x86_frontend -I iterator
+OCAMLINCLUDE:= -I x86_frontend -I iterator -I abstract_domains
 OCAMLLIB_STD= nums.cma str.cma
 
 ifneq ($(or $(debug),$(DEBUG)),)
@@ -48,23 +48,23 @@ ML_FILES := \
 	x86_frontend/x86Headers.ml \
 	iterator/cfg.ml\
         iterator/signatures.ml\
-        iterator/AD.mli\
-        iterator/stackAD.ml\
-	iterator/valAD.ml\
-	iterator/ageAD.ml\
-	iterator/flagAD.ml\
-	iterator/octAD.ml\
-	iterator/simpleOctAD.ml\
-	iterator/ageFunctionSet.ml\
+        abstract_domains/AD.mli\
+        abstract_domains/stackAD.ml\
+	abstract_domains/valAD.ml\
+	abstract_domains/ageAD.ml\
+	abstract_domains/flagAD.ml\
+	abstract_domains/octAD.ml\
+	abstract_domains/simpleOctAD.ml\
+	abstract_domains/ageFunctionSet.ml\
 	iterator/relSetMap.ml\
-	iterator/simpleRelSetAD.ml\
-	iterator/traceAD.ml\
-	iterator/cacheAD.ml\
-	iterator/relCacheAD.ml\
+	abstract_domains/simpleRelSetAD.ml\
+	abstract_domains/traceAD.ml\
+	abstract_domains/cacheAD.ml\
+	abstract_domains/relCacheAD.ml\
 	iterator/asynchronousAttacker.ml\
-	iterator/memAD.ml\
+	abstract_domains/memAD.ml\
 	iterator/iterator.ml\
-	iterator/architectureAD.ml\
+	abstract_domains/architectureAD.ml\
 	config.ml
 
 all: cachecow
@@ -94,14 +94,14 @@ clean:
 	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css output_non_rel.latte output_final_state output_rel.latte
 
 depend: 
-	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli > depend
+	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli > depend
 
 ifneq ($(MAKECMDGOALS),clean)
    -include depend
 endif
 
 doc:
-	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d Documentation/ $(OCAMLINCLUDE) */*.mli
+	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ $(OCAMLINCLUDE) */*.mli
 
 test:	cachecow
 	cd Tests; ./run.sh;
