@@ -50,7 +50,7 @@ ML_FILES := \
   iterator/abstractInstr.ml\
   abstract_domains/AD.ml\
   abstract_domains/stackAD.ml\
-	abstract_domains/numerci/valAD.ml\
+	abstract_domains/numeric/valAD.ml\
 	abstract_domains/ageAD.ml\
 	abstract_domains/flagAD.ml\
 	abstract_domains/octAD.ml\
@@ -94,7 +94,7 @@ clean:
 	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css */*.o output_non_rel.latte output_final_state output_rel.latte
 
 depend: 
-	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli > depend
+	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli abstract_domains/*/*.ml abstract_domains/*/*.mli > depend
 
 ifneq ($(MAKECMDGOALS),clean)
    -include depend
