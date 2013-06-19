@@ -115,8 +115,8 @@ val read_rm : (int -> 'a) -> bits -> 'a genop * bits
 (** Read a register-or-memory operand, given a way to convert integers to
    registers. *)
 
-val read_rm32 : bits -> genop32 * bits
-val read_rm8 : bits -> genop8 * bits
+val read_rm32 : bits -> op32 * bits
+val read_rm8 : bits -> op8 * bits
 (** Specialized versions for particular register sets *)
 
 val read_rm_with_spare : (int -> 'a) -> bits -> segment_reg option -> 'a genop * bits * int
@@ -124,5 +124,5 @@ val read_rm_with_spare : (int -> 'a) -> bits -> segment_reg option -> 'a genop *
    r/m byte.
  *)
 
-val read_rm32_with_spare : bits -> segment_reg option -> genop32 * bits * int
-val read_rm8_with_spare : bits -> segment_reg option -> genop8 * bits * int
+val read_rm32_with_spare : bits -> segment_reg option -> op32 * bits * int
+val read_rm8_with_spare : bits -> segment_reg option -> op8 * bits * int

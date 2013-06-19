@@ -12,17 +12,6 @@ let lift_combine f a1 a2 = match a1,a2 with
   Bot, x | x, Bot -> x
 | Nb x1, Nb x2 -> Nb(f x1 x2)
 
-type op32 = X86Types.genop32
-type op8 = X86Types.genop8
-
-type 'a flagop = ADcmp of 'a*'a
-            | ADtest of 'a*'a 
-            | ADfset of X86Types.flag*bool
-
-type memop = ADarith of X86Types.arith_op | ADmov | ADexchg
-
-type stackop = ADpop | ADpush
-
 type var = int64
 (*let pp_var fmt = function n -> Format.fprintf fmt "V%Lx" n*)
 
