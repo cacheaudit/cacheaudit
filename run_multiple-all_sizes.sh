@@ -20,8 +20,8 @@ do
     do
       for f in aes_nosched aes_nosched_preloading
       do
-        echo "./cachecow ../../trunk/CaseStudies/Crypto/AES/$f --analyze $str_command $dom_command --cache-size $csize > results/$f-$strategy-$domain-$csize"
-        ./cachecow ../../trunk/CaseStudies/Crypto/AES/$f --analyze $str_command $dom_command --cache-size $csize > results/$f-$strategy-$domain-$csize
+        echo "./cachecow ../../trunk/case_studies/Crypto/AES/$f --analyze $str_command $dom_command --cache-size $csize > results/$f-$strategy-$domain-$csize"
+        ./cachecow ../../trunk/case_studies/Crypto/AES/$f --analyze $str_command $dom_command --cache-size $csize > results/$f-$strategy-$domain-$csize
       done
     done
   done

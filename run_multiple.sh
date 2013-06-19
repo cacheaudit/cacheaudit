@@ -24,7 +24,7 @@ do
         do
           for f in aes_nosched aes_nosched_preloading 
           do
-            command="./cachecow ../../trunk/CaseStudies/Crypto/AES/$f --analyze $str_command $dom_command --cache-size $csize --assoc $assoc --line-size $line_s" 
+            command="./cachecow ../../trunk/case_studies/Crypto/AES/$f --analyze $str_command $dom_command --cache-size $csize --assoc $assoc --line-size $line_s" 
             where="results/$f-$strategy-$domain-$csize-$assoc-way"
             echo $command ">" $where
             $command > $where
