@@ -35,6 +35,7 @@ ifneq ($(or $(debug),$(DEBUG)),)
         OCAMLC += -g
 endif
 
+INTERFACE_FILES = abstract_domains/AD.ml
 
 ML_FILES := \
 	x86_frontend/asmUtil.ml \
@@ -48,7 +49,7 @@ ML_FILES := \
 	x86_frontend/x86Headers.ml \
 	iterator/cfg.ml\
         iterator/signatures.ml\
-        abstract_domains/AD.mli\
+        abstract_domains/AD.ml\
         abstract_domains/stackAD.ml\
 	abstract_domains/valAD.ml\
 	abstract_domains/ageAD.ml\
@@ -101,7 +102,7 @@ ifneq ($(MAKECMDGOALS),clean)
 endif
 
 doc:
-	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ $(OCAMLINCLUDE) */*.mli
+	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ $(OCAMLINCLUDE) */*.mli $(INTERFACE_FILES)
 
 test:	cachecow
 	cd tests; ./run.sh;
