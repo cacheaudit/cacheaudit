@@ -28,7 +28,7 @@ OCAMLDEP= ocamldep -pp "${PREPROCESSOR}" $(DEP_FLAGS)
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
 
-OCAMLINCLUDE:= -I x86_frontend -I iterator -I abstract_domains
+OCAMLINCLUDE:= -I x86_frontend -I iterator -I abstract_domains -I abstract_domains/cache -I abstract_domains/numeric
 OCAMLLIB_STD= nums.cma str.cma
 
 ifneq ($(or $(debug),$(DEBUG)),)
@@ -50,7 +50,7 @@ ML_FILES := \
   iterator/abstractInstr.ml\
   abstract_domains/AD.ml\
   abstract_domains/stackAD.ml\
-	abstract_domains/valAD.ml\
+	abstract_domains/numerci/valAD.ml\
 	abstract_domains/ageAD.ml\
 	abstract_domains/flagAD.ml\
 	abstract_domains/octAD.ml\
@@ -59,7 +59,7 @@ ML_FILES := \
 	iterator/relSetMap.ml\
 	abstract_domains/simpleRelSetAD.ml\
 	abstract_domains/traceAD.ml\
-	abstract_domains/cacheAD.ml\
+	abstract_domains/cache/cacheAD.ml\
 	abstract_domains/relCacheAD.ml\
 	iterator/asynchronousAttacker.ml\
 	abstract_domains/memAD.ml\
@@ -91,7 +91,7 @@ cachecow: $(CMO_FILES) cachecow.ml
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) $(OCT_INCLUDE) -o $@ $+
 
 clean: 
-	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css output_non_rel.latte output_final_state output_rel.latte
+	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css */*.o output_non_rel.latte output_final_state output_rel.latte
 
 depend: 
 	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli > depend
