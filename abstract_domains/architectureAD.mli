@@ -7,7 +7,7 @@ module type S =
     include AD.S
 
     val init: X86Headers.t -> (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> cache_param -> cache_param option -> int64 -> t
-  (* from a genop32 expression, returns a finite list of possible values,
+  (* from an op32 expression, returns a finite list of possible values,
      each value associated with an approximation of the corresponding memory 
      states leading to that particular value. In case no finite list can be
      determied, returns Top.
