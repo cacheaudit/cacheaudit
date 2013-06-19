@@ -124,8 +124,8 @@ let pp_genop pp_reg fmt = function
     Imm n -> pp_int64 fmt n
   | Reg r -> pp_reg fmt r
   | Address addr -> pp_address fmt addr
-let pp_genop32 = pp_genop pp_reg32
-let pp_genop8 = pp_genop pp_reg8
+let pp_op32 = pp_genop pp_reg32
+let pp_op8 = pp_genop pp_reg8
 
 let pp_genop_addr pp_reg fmt = function
     Imm n -> pp_addr fmt n
@@ -146,26 +146,26 @@ exception PrintExn of string
   
 let pp_instr fmt = function
     Arith (aop, dst, src) -> 
-    fprintf fmt "@[@ %a@ %a,@ %a@]" pp_arith_op aop pp_genop32 dst pp_genop32 src
-  | Arithb (aop, dst, src) -> fprintf fmt "@[%aB@ %a,@ %a@]" pp_arith_op aop pp_genop8 dst pp_genop8 src
+    fprintf fmt "@[@ %a@ %a,@ %a@]" pp_arith_op aop pp_op32 dst pp_op32 src
+  | Arithb (aop, dst, src) -> fprintf fmt "@[%aB@ %a,@ %a@]" pp_arith_op aop pp_op8 dst pp_op8 src
   | Call dst -> fprintf fmt "@[ CALL@ %a@]" pp_genop_addr32 dst
-  | Cmp (dst, src) -> fprintf fmt "@[@ CMP@ %a,@ %a@]" pp_genop32 dst pp_genop32 src
-  | Test (dst, src) -> fprintf fmt "@[@ TEST@ %a,@ %a@]" pp_genop32 dst pp_genop32 src
-  | Inc gop -> fprintf fmt "@[@ INC@ %a@]" pp_genop32 gop
-  | Dec gop -> fprintf fmt "@[@ DEC@ %a@]" pp_genop32 gop
+  | Cmp (dst, src) -> fprintf fmt "@[@ CMP@ %a,@ %a@]" pp_op32 dst pp_op32 src
+  | Test (dst, src) -> fprintf fmt "@[@ TEST@ %a,@ %a@]" pp_op32 dst pp_op32 src
+  | Inc gop -> fprintf fmt "@[@ INC@ %a@]" pp_op32 gop
+  | Dec gop -> fprintf fmt "@[@ DEC@ %a@]" pp_op32 gop
   | Jcc (cc, imm) -> fprintf fmt "@[@ J%a@ %a@]" pp_cc cc pp_addr imm
   | Jmp dst -> fprintf fmt "@[@ JMP@ %a@]" pp_genop_addr32 dst
   (* | Div src -> fprintf fmt "@[@ DIV@ %a@]" pp_genop_addr32 src *)
   | Lea (dst, src) -> fprintf fmt "@[@ LEA@ %a,@ %a@]" pp_reg32 dst pp_address src
   | Leave -> fprintf fmt "@[ LEAVE@]"
-  | Mov (dst, src) -> fprintf fmt "@[@ MOV@ %a,@ %a@]" pp_genop32 dst pp_genop32 src
-  | Movb (dst, src) -> fprintf fmt "@[ MOVB@ %a,@ %a@]" pp_genop8 dst pp_genop8 src
-  | Movzx (dst, src) -> fprintf fmt "@[ MOVZX@ %a,@ %a@]" pp_genop32 dst pp_genop8 src
+  | Mov (dst, src) -> fprintf fmt "@[@ MOV@ %a,@ %a@]" pp_op32 dst pp_op32 src
+  | Movb (dst, src) -> fprintf fmt "@[ MOVB@ %a,@ %a@]" pp_op8 dst pp_op8 src
+  | Movzx (dst, src) -> fprintf fmt "@[ MOVZX@ %a,@ %a@]" pp_op32 dst pp_op8 src
   | Exchange (r1, r2) -> fprintf fmt "@[ EXCHG@ %a,@ %a@]" pp_reg32 r1 pp_reg32 r2
-  | Pop gop -> fprintf fmt "@[ POP@ %a@]" pp_genop32 gop
-  | Push gop -> fprintf fmt "@[ PUSH@ %a@]" pp_genop32 gop
+  | Pop gop -> fprintf fmt "@[ POP@ %a@]" pp_op32 gop
+  | Push gop -> fprintf fmt "@[ PUSH@ %a@]" pp_op32 gop
   | Ret -> fprintf fmt "@[ RET@]"
-  | Shift (sop, dst, offset) -> fprintf fmt "@[@ %a@ %a,@ %a@]" pp_shift_op sop pp_genop32 dst pp_genop8 offset
+  | Shift (sop, dst, offset) -> fprintf fmt "@[@ %a@ %a,@ %a@]" pp_shift_op sop pp_op32 dst pp_op8 offset
   | Halt -> fprintf fmt "@[ HALT @]"
   | Skip -> fprintf fmt "@[ SKIP @]"
   | FlagSet (f, v) -> if v then fprintf fmt "@[@ Set %a@]" pp_flag f

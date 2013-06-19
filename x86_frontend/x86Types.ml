@@ -205,8 +205,8 @@ type 'a genop =
   | Reg of 'a          (** A register *)
   | Address of address (** A memory dereference *)
 
-type genop32 = reg32 genop
-type genop8 = reg8 genop
+type op32 = reg32 genop
+type op8 = reg8 genop
 (** Specializations to particular register sets *)
 
 (** {6 Operations} *)
@@ -235,26 +235,26 @@ type shift_op =
 (** The actual instructions.
    These follow the standard x86 instruction set. *)
 type instr =
-    Arith of arith_op * genop32 * genop32
-  | Arithb of arith_op * genop8 * genop8
-  | Call of genop32
-  | Cmp of genop32 * genop32 (* Obtained by substraction of the arguments *)
-  | Test of genop32 * genop32 (* tests the logical AND of the arguments *)
-  | Inc of genop32
-  | Dec of genop32
+    Arith of arith_op * op32 * op32
+  | Arithb of arith_op * op8 * op8
+  | Call of op32
+  | Cmp of op32 * op32 (* Obtained by substraction of the arguments *)
+  | Test of op32 * op32 (* tests the logical AND of the arguments *)
+  | Inc of op32
+  | Dec of op32
   | Jcc of cc * int64
-  | Jmp of genop32
+  | Jmp of op32
   | Lea of reg32 * address
-  (* | Div of genop32 *)
+  (* | Div of op32 *)
   | Leave
-  | Mov of genop32 * genop32
-  | Movb of genop8 * genop8
-  | Movzx of genop32 * genop8
+  | Mov of op32 * op32
+  | Movb of op8 * op8
+  | Movzx of op32 * op8
   | Exchange of reg32 * reg32
-  | Pop of genop32
-  | Push of genop32
+  | Pop of op32
+  | Push of op32
   | Ret
-  | Shift of shift_op * genop32 * genop8
+  | Shift of shift_op * op32 * op8
   | Halt
   | Skip
   | FlagSet of flag*bool (*sets the flag to the bool value *)

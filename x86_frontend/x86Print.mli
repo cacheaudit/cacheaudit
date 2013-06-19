@@ -57,8 +57,8 @@ val pp_scale : scale printer
 
 val pp_address : address printer
 val pp_genop : 'a printer -> 'a genop printer
-val pp_genop32 : genop32 printer
-val pp_genop8 : genop8 printer
+val pp_op32 : op32 printer
+val pp_op8 : op8 printer
 val pp_arith_op : arith_op printer
 
 val pp_instr : instr printer

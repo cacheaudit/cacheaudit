@@ -4,6 +4,7 @@ let time_effective_load = 0;
 
 open Signatures
 open X86Types
+open AbstractInstr
 
 
 module type S =

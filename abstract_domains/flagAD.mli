@@ -1,5 +1,6 @@
 open X86Types
 open Signatures
+open AbstractInstr
 
 (** Keeps track of flags. Currently restricted to combinations of
        CF and ZF) *)

@@ -1,5 +1,6 @@
 open Signatures
 open X86Types
+open AbstractInstr
 
 module type S = 
   sig

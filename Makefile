@@ -35,8 +35,6 @@ ifneq ($(or $(debug),$(DEBUG)),)
         OCAMLC += -g
 endif
 
-INTERFACE_FILES = abstract_domains/AD.ml
-
 ML_FILES := \
 	x86_frontend/asmUtil.ml \
 	x86_frontend/x86Util.ml \
@@ -48,9 +46,10 @@ ML_FILES := \
 	x86_frontend/macho.ml \
 	x86_frontend/x86Headers.ml \
 	iterator/cfg.ml\
-        iterator/signatures.ml\
-        abstract_domains/AD.ml\
-        abstract_domains/stackAD.ml\
+  iterator/signatures.ml\
+  iterator/abstractInstr.ml\
+  abstract_domains/AD.ml\
+  abstract_domains/stackAD.ml\
 	abstract_domains/valAD.ml\
 	abstract_domains/ageAD.ml\
 	abstract_domains/flagAD.ml\
@@ -100,6 +99,9 @@ depend:
 ifneq ($(MAKECMDGOALS),clean)
    -include depend
 endif
+
+#ml files without mli that should be in the doc
+INTERFACE_FILES = abstract_domains/AD.ml iterator/abstractInstr.ml
 
 doc:
 	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ $(OCAMLINCLUDE) */*.mli $(INTERFACE_FILES)
