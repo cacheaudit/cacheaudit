@@ -51,17 +51,17 @@ ML_FILES := \
   abstract_domains/AD.ml\
   abstract_domains/stackAD.ml\
 	abstract_domains/numeric/valAD.ml\
-	abstract_domains/ageAD.ml\
+	abstract_domains/cache/ageAD.ml\
 	abstract_domains/flagAD.ml\
-	abstract_domains/octAD.ml\
+	abstract_domains/numeric/octAD.ml\
 	abstract_domains/simpleOctAD.ml\
-	abstract_domains/ageFunctionSet.ml\
-	iterator/relSetMap.ml\
+	abstract_domains/cache/ageFunctionSet.ml\
+	abstract_domains/cache/relSetMap.ml\
 	abstract_domains/simpleRelSetAD.ml\
-	abstract_domains/traceAD.ml\
+	abstract_domains/cache/traceAD.ml\
 	abstract_domains/cache/cacheAD.ml\
-	abstract_domains/relCacheAD.ml\
-	iterator/asynchronousAttacker.ml\
+	abstract_domains/cache/relCacheAD.ml\
+	abstract_domains/cache/asynchronousAttacker.ml\
 	abstract_domains/memAD.ml\
 	iterator/iterator.ml\
 	abstract_domains/architectureAD.ml\
