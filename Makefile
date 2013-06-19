@@ -104,7 +104,7 @@ doc:
 	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ $(OCAMLINCLUDE) */*.mli
 
 test:	cachecow
-	cd Tests; ./run.sh;
+	cd tests; ./run.sh;
 
 help:
 	@echo "usage:"
