@@ -104,7 +104,7 @@ endif
 INTERFACE_FILES = abstract_domains/AD.ml iterator/abstractInstr.ml
 
 doc:
-	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ $(OCAMLINCLUDE) */*.mli $(INTERFACE_FILES)
+	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ $(OCAMLINCLUDE) */*.mli *.mli */*/*.mli $(INTERFACE_FILES)
 
 test:	cachecow
 	cd tests; ./run.sh;
