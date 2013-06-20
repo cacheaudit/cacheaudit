@@ -1,6 +1,7 @@
 open X86Types
 open Signatures
 open AbstractInstr
+open AD.DataStructures
 
 (** Keeps track of flags. Currently restricted to combinations of
        CF and ZF) *)
@@ -20,9 +21,9 @@ module type S =
   val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
   val is_var : t -> var -> bool
   val meet : t -> t -> t (*TODO: should be add_bottom *)
-  val test : t -> X86Types.condition -> (t add_bottom)*(t add_bottom)
+  val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val flagop : t -> cons_var flagop -> t
-  val shift : t -> X86Types.shift_op -> var -> cons_var -> mask -> t
+  val shift : t -> shift_op -> var -> cons_var -> mask -> t
   end
 
 

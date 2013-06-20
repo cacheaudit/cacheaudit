@@ -1,6 +1,7 @@
 (* TODO: I don't understand why we need a special cacheAD for relational domains? This is bad design...*)
 
 open Signatures
+open AD.DataStructures
 
 let verbose = ref false
 let precise_touch = ref true

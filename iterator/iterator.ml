@@ -16,6 +16,7 @@ let time_jmp = 1  (* time taken by a JMP instruction, in addition to the time ta
 open Cfg
 open Signatures
 open AbstractInstr
+open AD.DataStructures
 
 (* type for weak topological ordering, which can either be
    - Linear: inv can be treated and passed to the nex element

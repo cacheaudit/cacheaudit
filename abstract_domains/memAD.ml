@@ -5,7 +5,7 @@ let time_effective_load = 0;
 open Signatures
 open X86Types
 open AbstractInstr
-
+open AD.DataStructures
 
 module type S =
   sig
@@ -23,13 +23,13 @@ module type S =
      determied, returns Top.
   *)
   val get_offset: t -> op32 -> (int,t) finite_set
-  val test : t -> X86Types.condition -> (t add_bottom)*(t add_bottom)
+  val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val memop : t -> memop -> op32 -> op32 -> t
   val memopb : t -> memop -> op8 -> op8 -> t
-  val load_address : t -> X86Types.reg32 -> X86Types.address -> t
+  val load_address : t -> reg32 -> address -> t
   val movzx : t -> op32 -> op8 -> t
   val flagop : t -> op32 flagop -> t
-  val shift : t -> X86Types.shift_op -> op32 -> op8 -> t
+  val shift : t -> shift_op -> op32 -> op8 -> t
   (* Used by trace recording abstract domains. elapse env d signals that time should be increased by d *)
   val elapse : t -> int -> t
   val access_readonly : t -> int64 -> t

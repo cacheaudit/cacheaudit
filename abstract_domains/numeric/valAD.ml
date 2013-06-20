@@ -1,5 +1,6 @@
 open Signatures
 open X86Types
+open AD.DataStructures
 
 module type S = sig
   include AD.S
@@ -16,9 +17,9 @@ module type S = sig
     (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
   val is_var : t -> var -> bool
   val meet : t -> t -> t add_bottom (*TODO: should be add_bottom *)
-  val flagop : t -> X86Types.arith_op -> cons_var -> cons_var -> 
+  val flagop : t -> arith_op -> cons_var -> cons_var -> 
     (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
-  val shift : t -> X86Types.shift_op -> var -> cons_var -> mask -> 
+  val shift : t -> shift_op -> var -> cons_var -> mask -> 
     (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
 end
 

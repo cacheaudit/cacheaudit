@@ -1,17 +1,5 @@
 (** Signatures of module interfaces *)
 
-type ('a,'b) finite_set = Finite of ('a*'b) list | Top of 'b 
-
-type 'a add_top = Nt of 'a | Tp
-exception TopException
-
-type 'a add_bottom = Nb of 'a | Bot
-exception Bottom
-
-let lift_combine f a1 a2 = match a1,a2 with
-  Bot, x | x, Bot -> x
-| Nb x1, Nb x2 -> Nb(f x1 x2)
-
 type var = int64
 (*let pp_var fmt = function n -> Format.fprintf fmt "V%Lx" n*)
 
