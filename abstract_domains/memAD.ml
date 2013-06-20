@@ -166,7 +166,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
 
   exception Is_Top
   let unFinite = function
-    | Nt x -> ValMap.bindings x
+    | Nt x -> NumMap.bindings x
     | Tp -> raise Is_Top
 
 
@@ -402,7 +402,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
            * otherwise we return the values converted to int and its corresponding environment *)
           let vals = get_reg32 env r in
           match vals with
-            Nt x -> Finite (List.map (fun (v,e) -> (Int64.to_int v, {env with vals = e})) (ValMap.bindings x))
+            Nt x -> Finite (List.map (fun (v,e) -> (Int64.to_int v, {env with vals = e})) (NumMap.bindings x))
           | Tp -> Top env
         end 
     | Address addr ->
@@ -415,7 +415,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
             (* if address is in MemSet, we get the values from F *)
             let vals = F.get_var e n in
             match vals with
-              Nt x -> ValMap.bindings x
+              Nt x -> NumMap.bindings x
             | Tp -> raise Is_Top
           else 
             (* if address not in MemSet, we use the initilization function to get the value *)

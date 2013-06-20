@@ -1,18 +1,11 @@
 IFDEF INCLUDEOCT THEN
 open Printf
-open Signatures
+open NAD.DataStructures
 
 let verbose = false
 let bin_name = ref "output"
 let infinity = 0x100000000L
 let max_get_var_size = ref 256
-
-module OrdVar = struct
-  type t = var
-  let compare = Pervasives.compare
-end
-
-module VarMap = Map.Make(OrdVar)
 
 module type OCT =
 sig
@@ -363,7 +356,7 @@ module OctagonAD (Oct: OCT64): ValAD.T = struct
 
   let update_var = failwith "update_var not supported yet"
 
-  let get_var (octAD: t) (v: var) : (t ValMap.t) add_top = 
+  let get_var (octAD: t) (v: var) : (t NumMap.t) add_top = 
     if (VarMap.mem v octAD.map) then
       let pos : int = VarMap.find v octAD.map in
       let num1,num2 = Oct.get_bounds octAD.oct pos in  
@@ -371,7 +364,7 @@ module OctagonAD (Oct: OCT64): ValAD.T = struct
       let h = Oct.int64_of_num num2 in
       if (Int64.compare (Int64.sub h l) (Int64.of_int !max_get_var_size) = -1) then
         let dim = Oct.dim octAD.oct in
-        let myMap = ref ValMap.empty in
+        let myMap = ref NumMap.empty in
         let i = ref l in
         while (Int64.compare h !i = 1) do
           let int64_array : int64 array = Array.make (dim + 1) Int64.zero in
@@ -379,7 +372,7 @@ module OctagonAD (Oct: OCT64): ValAD.T = struct
           let vnum_array : Oct.vnum = Oct.vnum_of_int64 int64_array in 
           let tmp_oct = Oct.assign_var (Oct.universe (Oct.dim octAD.oct)) pos vnum_array in
           let meet = Oct.inter octAD.oct tmp_oct in
-          myMap := ValMap.add !i {octAD with oct = meet} !myMap;
+          myMap := NumMap.add !i {octAD with oct = meet} !myMap;
           i := Int64.add !i Int64.one
         done;
         Nt !myMap

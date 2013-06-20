@@ -143,11 +143,11 @@ module Make (O:VALADOPT) = struct
   let is_var m vn = VarMap.mem vn m
 
   let get_var m v = try (match VarMap.find v m with
-    | FSet l -> Nt (NumSet.fold (fun vl env -> ValMap.add vl (VarMap.add v (FSet (NumSet.singleton vl)) m) env) l ValMap.empty)
+    | FSet l -> Nt (NumSet.fold (fun vl env -> NumMap.add vl (VarMap.add v (FSet (NumSet.singleton vl)) m) env) l NumMap.empty)
     | Interval(l,h) -> if range_over (l,h) O.max_get_var_size then Tp
         else
-          let rec f l h = if l>h then ValMap.empty
-            else ValMap.add l (VarMap.add v (FSet (NumSet.singleton l)) m) 
+          let rec f l h = if l>h then NumMap.empty
+            else NumMap.add l (VarMap.add v (FSet (NumSet.singleton l)) m) 
                    (f (Int64.succ l) h) in
           Nt(f l h)
   ) with Not_found -> failwith  (Printf.sprintf "valAD.get_var: non-existent variable %Lx\n" v)
