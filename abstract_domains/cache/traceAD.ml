@@ -15,15 +15,6 @@ let duration_H, duration_M, duration_N = 3,20,1
 let max_times = 10000000
 
 
-module type S = sig
-  include AD.S
-  val init: CacheAD.cache_param -> t 
-  val touch : t -> int64 -> t
-  val elapse : t -> int -> t
-end
-
-
-
 
 
 module Make (CA : CacheAD.S) = struct
@@ -288,19 +279,8 @@ module Make (CA : CacheAD.S) = struct
     let times = add_time_status N times in
     {env with times = times; traces = traces}
 
-  let count_cache_states = CA.count_cache_states 
+  let count_cache_states env = CA.count_cache_states env.cache
 
 end
 
 
-module MakeNot (CA : CacheAD.S)= struct
-  type t = CA.t
-  let join = CA.join
-  let widen = CA.widen
-  let subseteq = CA.subseteq
-  let print = CA.print
-  let print_delta = CA.print_delta
-  let init = CA.init
-  let touch = CA.touch
-  let elapse = CA.elapse
-end

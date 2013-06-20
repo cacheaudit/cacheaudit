@@ -213,16 +213,15 @@ let _ =
           (module AsynchronousAttacker.OneTimeInterrupt(BaseCache) : CacheAD.S) in
       (* end of generate_cache definition *)
         
-      (* Generate the data cache AD*)
-      let module Cache = (val (generate_cache data_cache_analysis attacker):
-         CacheAD.S) in
-      (* Generate the trace AD *)
-      let trcs = if !do_traces then 
-      	(module TraceAD.Make(Cache): TraceAD.S)
-      else (module TraceAD.MakeNot(Cache): TraceAD.S) in
-      let module Traces = (val trcs: TraceAD.S) in
+      (* Generate the data cache AD, with traces or not *)
+      let state = generate_cache data_cache_analysis attacker in
+      let datacache = if !do_traces then
+	  (let module CState = (val state : CacheAD.S) in
+	   (module TraceAD.Make (CState) : CacheAD.S))
+	else state in
+      let module DataCache = (val datacache : CacheAD.S) in
       (* Generate the memory AD *)
-      let module Mem = MemAD.Make(FlagAD.Make(ValAD.Make(ValAD.ValADOptForMemory)))(Traces) in
+      let module Mem = MemAD.Make(FlagAD.Make(ValAD.Make(ValAD.ValADOptForMemory)))(DataCache) in
       (* Generate the stack AD *)
       let module Stack = StackAD.Make(Mem) in
       (* Generate the architecture AD *)

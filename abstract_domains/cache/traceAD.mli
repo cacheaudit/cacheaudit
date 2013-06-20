@@ -2,17 +2,5 @@
     where nodes store a Hit/Miss/Top-status of a cache access
  *)
 
-module type S = sig
-  include AD.S
-  val init: CacheAD.cache_param -> t 
-  
-  val touch : t -> int64 -> t
-  (* Used to keep track of time, if neccessary *)
-  val elapse : t -> int -> t
-end
-
-
 module Make :
-  functor (C : CacheAD.S) -> S
-module MakeNot :
-  functor (C : CacheAD.S) -> S
+  functor (C : CacheAD.S) -> CacheAD.S
