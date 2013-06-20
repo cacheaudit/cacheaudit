@@ -34,7 +34,7 @@ end
 
 module Make :
   functor (F : FlagAD.S) ->
-    functor (TR : TraceAD.S) -> S
+    functor (C : CacheAD.S) -> S
 
 
 (** Add an address to the list of logged addresses that will appear in the log file.
