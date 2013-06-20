@@ -33,6 +33,8 @@ module DataStructures = struct
    | LH -> (0x0000FF00L, 8)
    | LL -> (0x000000FFL, 0)
 
+  module NumSet = Set.Make(Int64)
+
 end
 
 open DataStructures
