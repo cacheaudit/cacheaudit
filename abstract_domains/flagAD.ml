@@ -23,7 +23,7 @@ module type S =
   end
 
 
-module Make (V: ValAD.S) = struct
+module Make (V: NAD.S) = struct
   
   (* Handles invariants corresponding to combinations of flags.
      For now only supports CF, ZF *)

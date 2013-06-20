@@ -26,5 +26,5 @@ module type S = sig
 end
 
 module Make :
-  functor (V : ValAD.S) -> S
+  functor (V : NAD.S) -> S
 
