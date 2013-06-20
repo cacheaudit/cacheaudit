@@ -1,5 +1,6 @@
 open Signatures
 open X86Types
+open AD.DataStructures
 
 module type S = sig
   include AD.S
