@@ -17,6 +17,6 @@ module type AGE_FUNCTION_SET =
     val subseteq : t -> t -> bool
     val toString : t -> string
     val values : t -> var -> int list
-    val vset : t -> Signatures.ValSet.t
+    val vset : t -> NumSet.t
   end
 module AgeFunctionSet : AGE_FUNCTION_SET

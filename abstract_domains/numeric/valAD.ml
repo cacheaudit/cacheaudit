@@ -18,7 +18,9 @@ let logFile = ref None
 
 module Make (O:VALADOPT) = struct
 (* A basic variable contains a 32 bits unsigned integer. *)
-  open X86Types
+
+  (* Type of the abstract elements representing one variable *)
+  type var_t = FSet of NumSet.t | Interval of int64*int64
 
   let min_elt = 0L
   let max_elt = 0xffffffffL
@@ -26,10 +28,10 @@ module Make (O:VALADOPT) = struct
   let top = Interval(min_elt, max_elt)
   let is_top l h = l=min_elt && h=max_elt
 
-  let rec interval_to_set l h = if l>h then ValSet.empty
-    else ValSet.add l (interval_to_set (Int64.succ l) h)
-  let set_to_interval s = Interval(ValSet.min_elt s, ValSet.max_elt s)
-  let zero = FSet(ValSet.singleton 0L)
+  let rec interval_to_set l h = if l>h then NumSet.empty
+    else NumSet.add l (interval_to_set (Int64.succ l) h)
+  let set_to_interval s = Interval(NumSet.min_elt s, NumSet.max_elt s)
+  let zero = FSet(NumSet.singleton 0L)
   let range_over (l,h) r =
     let range = Int64.sub h l in
     range > (Int64.of_int max_int) || Int64.to_int range > r 
@@ -41,17 +43,17 @@ module Make (O:VALADOPT) = struct
 
   let pp_var_vals fmt = function
   | FSet vals -> Format.fprintf fmt "@[{";
-      ValSet.iter (fun v -> Format.fprintf fmt "%Ld @," v) vals;
+      NumSet.iter (fun v -> Format.fprintf fmt "%Ld @," v) vals;
       Format.fprintf fmt "}@]"
   | Interval(l,h) -> if is_top l h then Format.fprintf fmt "Top"
                      else Format.fprintf fmt "@[[%Ld, %Ld]@]" l h
 
   let var_vals_equal x1 x2 = match x1,x2 with
-  | FSet s1, FSet s2 -> ValSet.equal s1 s2
+  | FSet s1, FSet s2 -> NumSet.equal s1 s2
   | Interval(l1,h1), Interval(l2,h2) -> l1=l2 && h1=h2
   | FSet s1, Interval(l2,h2) | Interval(l2,h2), FSet s1 ->
-      ValSet.min_elt s1 = l2 && ValSet.max_elt s1 = h2 && 
-      ValSet.equal s1 (interval_to_set l2 h2)
+      NumSet.min_elt s1 = l2 && NumSet.max_elt s1 = h2 && 
+      NumSet.equal s1 (interval_to_set l2 h2)
 
   let print_one_var fmt v vals  = Format.fprintf fmt "%s in %a@;"
     (!variable_naming v) pp_var_vals vals
@@ -62,7 +64,7 @@ module Make (O:VALADOPT) = struct
       | Some f -> f
     in let log_var_vals = function
       | FSet vals -> Printf.fprintf file "{";
-          ValSet.iter (fun v -> Printf.fprintf file "%Ld " v) vals;
+          NumSet.iter (fun v -> Printf.fprintf file "%Ld " v) vals;
           Printf.fprintf file "}"
       | Interval(l,h) -> if is_top l h then Printf.fprintf file "Top"
                          else Printf.fprintf file "[%Ld, %Ld]" l h
@@ -91,7 +93,7 @@ module Make (O:VALADOPT) = struct
       | 8 -> Int64.logand n 0xFFL
       | _ -> failwith "precision: wrong argument"
 
-  let set_map f set = ValSet.fold (fun x -> ValSet.add (f x)) set ValSet.empty
+  let set_map f set = NumSet.fold (fun x -> NumSet.add (f x)) set NumSet.empty
 
 (* Mask values and shift them to the right *)
   let apply_mask mask shift x =
@@ -140,11 +142,11 @@ module Make (O:VALADOPT) = struct
   let is_var m vn = VarMap.mem vn m
 
   let get_var m v = try (match VarMap.find v m with
-    | FSet l -> Nt (ValSet.fold (fun vl env -> ValMap.add vl (VarMap.add v (FSet (ValSet.singleton vl)) m) env) l ValMap.empty)
+    | FSet l -> Nt (NumSet.fold (fun vl env -> ValMap.add vl (VarMap.add v (FSet (NumSet.singleton vl)) m) env) l ValMap.empty)
     | Interval(l,h) -> if range_over (l,h) O.max_get_var_size then Tp
         else
           let rec f l h = if l>h then ValMap.empty
-            else ValMap.add l (VarMap.add v (FSet (ValSet.singleton l)) m) 
+            else ValMap.add l (VarMap.add v (FSet (NumSet.singleton l)) m) 
                    (f (Int64.succ l) h) in
           Nt(f l h)
   ) with Not_found -> failwith  (Printf.sprintf "valAD.get_var: non-existent variable %Lx\n" v)
@@ -152,17 +154,17 @@ module Make (O:VALADOPT) = struct
   let set_var m v l h = VarMap.add v (set_or_interval l h) m
 
   let get_vals c m = match c with
-    Cons cs -> FSet (ValSet.singleton (precision 32 cs))
+    Cons cs -> FSet (NumSet.singleton (precision 32 cs))
   | VarOp v -> try VarMap.find v m
                with Not_found -> failwith "valAD.get_vals: inexistent variable"
 
   let same_vars v cv = match cv with VarOp v2 -> v=v2 | Cons _ -> false
 
   let var_join x y = match x,y with
-  | FSet s1, FSet s2 -> let s = ValSet.union s1 s2 in
-      if ValSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
+  | FSet s1, FSet s2 -> let s = NumSet.union s1 s2 in
+      if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
   | Interval(l,h), FSet s | FSet s, Interval(l,h) -> 
-      Interval(min l (ValSet.min_elt s), max h (ValSet.max_elt s))
+      Interval(min l (NumSet.min_elt s), max h (NumSet.max_elt s))
   | Interval(l1,h1), Interval(l2,h2) -> Interval(min l1 l2, max h1 h2)
 
   let join (x:t) (y:t) =
@@ -174,11 +176,11 @@ module Make (O:VALADOPT) = struct
     VarMap.merge f x y
   
   let var_meet x y = match x,y with
-  | FSet s1, FSet s2 -> let s = ValSet.inter s1 s2 in
-      if ValSet.is_empty s then raise Bottom else FSet s
+  | FSet s1, FSet s2 -> let s = NumSet.inter s1 s2 in
+      if NumSet.is_empty s then raise Bottom else FSet s
   | Interval(l,h), FSet s | FSet s, Interval(l,h) -> 
-      let rs = ValSet.filter (fun x -> x>=l && x<=h) s in
-      if ValSet.is_empty rs then raise Bottom else FSet rs
+      let rs = NumSet.filter (fun x -> x>=l && x<=h) s in
+      if NumSet.is_empty rs then raise Bottom else FSet rs
   | Interval(l1,h1), Interval(l2,h2) ->
       let l = max l1 l2 in
       let h = min h1 h2 in
@@ -196,10 +198,10 @@ module Make (O:VALADOPT) = struct
     with Bottom -> Bot
 
   let var_widen x y = match x, y with
-  | FSet s1, FSet s2 -> let s = ValSet.union s1 s2 in
-      if ValSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
+  | FSet s1, FSet s2 -> let s = NumSet.union s1 s2 in
+      if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
   | Interval(l,h), FSet s | FSet s, Interval(l,h) ->
-      Interval(min l (ValSet.min_elt s), max h (ValSet.max_elt s))
+      Interval(min l (NumSet.min_elt s), max h (NumSet.max_elt s))
   | Interval(l1,h1), Interval(l2,h2) -> 
      let l = if l2<l1 then min_elt else l1 in
      let h = if h2>h1 then max_elt else h1 in
@@ -215,12 +217,12 @@ module Make (O:VALADOPT) = struct
     VarMap.merge f x y
 
   let var_subseteq x y = match x,y with
- | FSet s1, FSet s2 -> ValSet.subset s1 s2
- | FSet s, Interval(l,h) -> ValSet.min_elt s >= l && ValSet.max_elt s <= h
+ | FSet s1, FSet s2 -> NumSet.subset s1 s2
+ | FSet s, Interval(l,h) -> NumSet.min_elt s >= l && NumSet.max_elt s <= h
  | Interval(l,h), FSet s -> 
     let res = ref true in
     let i = ref l in
-    while(!res && !i<=h) do res:=ValSet.mem !i s; i:= Int64.succ !i done;
+    while(!res && !i<=h) do res:=NumSet.mem !i s; i:= Int64.succ !i done;
     !res
  | Interval(l1,h1), Interval(l2,h2) -> l1>=l2 && h1<=h2
 
@@ -252,9 +254,9 @@ module Make (O:VALADOPT) = struct
     | Addc | Subb -> Int64.add y cf
     | _ -> y
 
-  let make_set_from_list = List.fold_left (fun s x -> ValSet.add x s) ValSet.empty
+  let make_set_from_list = List.fold_left (fun s x -> NumSet.add x s) NumSet.empty
 
-  let go_to_interval s = if ValSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
+  let go_to_interval s = if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
 
   type position = TT | TF | FT | FF
 
@@ -352,9 +354,9 @@ module Make (O:VALADOPT) = struct
           let inter = interval_operation oper di si in
           let modulo = fun x -> Int64.sub x two32 in
           (* Intersection of the interval with differentes ranges *)
-          let meetZero = var_meet_ab inter (FSet (ValSet.singleton min_elt)) in
+          let meetZero = var_meet_ab inter (FSet (NumSet.singleton min_elt)) in
           let meetNormal = var_meet_ab inter (Interval (Int64.succ min_elt, max_elt)) in
-          let meet2_32 = var_meet_ab inter (FSet (ValSet.singleton two32)) in
+          let meet2_32 = var_meet_ab inter (FSet (NumSet.singleton two32)) in
           let meetOver = var_meet_ab inter (Interval (Int64.succ two32, Int64.sub (Int64.add two32 two32) 2L)) in
           (match flg,meetZero,meetNormal,meet2_32,meetOver with
           (* Can set CF & ZF only if result is 2^32 *)
@@ -373,7 +375,7 @@ module Make (O:VALADOPT) = struct
           let inter = interval_operation oper di si in
           let modulo = fun x -> Int64.add two32 x in
           (* Intersection of the interval with differentes ranges *)
-          let meetZero = var_meet_ab inter (FSet (ValSet.singleton min_elt)) in
+          let meetZero = var_meet_ab inter (FSet (NumSet.singleton min_elt)) in
           let meetNormal = var_meet_ab inter (Interval (Int64.succ min_elt, max_elt)) in
           let meetUnder = var_meet_ab inter (Interval (Int64.pred min_elt, Int64.sub 1L two32)) in
           (match flg,meetUnder,meetZero,meetNormal with
@@ -390,7 +392,7 @@ module Make (O:VALADOPT) = struct
     (* Bitwise operations can only set the zero flag *)
     | And -> 
         let nint = interval_and di si in
-        let meetZero = var_meet_ab nint (FSet (ValSet.singleton min_elt)) in
+        let meetZero = var_meet_ab nint (FSet (NumSet.singleton min_elt)) in
         let meetNormal = var_meet_ab nint (Interval (Int64.succ min_elt, max_elt)) in
         (match flg,meetZero,meetNormal with
         | FT,Nb z,_ -> z
@@ -398,7 +400,7 @@ module Make (O:VALADOPT) = struct
         | _,_,_ -> raise Bottom) 
     | Or -> 
         let nint = interval_or di si in
-        let meetZero = var_meet_ab nint (FSet (ValSet.singleton min_elt)) in
+        let meetZero = var_meet_ab nint (FSet (NumSet.singleton min_elt)) in
         let meetNormal = var_meet_ab nint (Interval (Int64.succ min_elt, max_elt)) in
         (match flg,meetZero,meetNormal with
         | FT,Nb z,_ -> z
@@ -408,7 +410,7 @@ module Make (O:VALADOPT) = struct
         (* a xor b = (a & not b) or (b & not a) *)
         let f a b = interval_and a (interval_not b) in
         let nint = interval_or (f di si) (f si di) in
-        let meetZero = var_meet_ab nint (FSet (ValSet.singleton min_elt)) in
+        let meetZero = var_meet_ab nint (FSet (NumSet.singleton min_elt)) in
         let meetNormal = var_meet_ab nint (Interval (Int64.succ min_elt, max_elt)) in
         (match flg,meetZero,meetNormal with
         | FT,Nb z,_ -> z
@@ -436,14 +438,14 @@ module Make (O:VALADOPT) = struct
               begin
                 match dst_vals, src_vals with
                 | FSet ds, FSet ss ->
-                    let doOp x = ValSet.fold 
+                    let doOp x = NumSet.fold 
                     (fun y r -> 
                       let result = oper x y in
-                      if test result then ValSet.add (precision 32 (result)) r else r
-                    ) ss ValSet.empty
+                      if test result then NumSet.add (precision 32 (result)) r else r
+                    ) ss NumSet.empty
                     in
-                    let finalSet = ValSet.fold (fun x s -> ValSet.fold ValSet.add (doOp x) s) ds ValSet.empty in
-                    if ValSet.is_empty finalSet 
+                    let finalSet = NumSet.fold (fun x s -> NumSet.fold NumSet.add (doOp x) s) ds NumSet.empty in
+                    if NumSet.is_empty finalSet 
                        then Bot
                        else Nb (VarMap.add dstvar (go_to_interval finalSet) m)
                 (* We convert sets into intervals in order to perform the operations;
@@ -489,9 +491,9 @@ module Make (O:VALADOPT) = struct
                     let varSet = set_map (fun x -> Int64.logand (Int64.lognot v_mask) x) ds in
                     (* Create a list of set combining all the posible values with the mask in place *)
                     let doOp x = set_map (fun y -> Int64.logor x y) varSet in
-                    let setList = ValSet.fold (fun x r -> doOp x :: r) cvSet [] in
+                    let setList = NumSet.fold (fun x r -> doOp x :: r) cvSet [] in
                     (* Unite all the sets *)
-                    let finalSet = List.fold_left ValSet.union ValSet.empty setList in
+                    let finalSet = List.fold_left NumSet.union NumSet.empty setList in
                     Nb (VarMap.add dstvar (go_to_interval finalSet) m)
                 | _, _ -> Nb (VarMap.add dstvar top m)
               end
@@ -556,8 +558,8 @@ module Make (O:VALADOPT) = struct
         (* Combines two sets of values and only keeps those combinations that satisfy test;
          * returns the tuples with the values that satisfy test *)
         let setComb d s test =
-          let doOp x = ValSet.fold (fun y r -> if test (op y x) then (y,x) :: r else r) d [] in
-          List.concat (ValSet.fold (fun x r -> (doOp x) :: r) s [])
+          let doOp x = NumSet.fold (fun y r -> if test (op y x) then (y,x) :: r else r) d [] in
+          List.concat (NumSet.fold (fun x r -> (doOp x) :: r) s [])
         in
         (* Create an environment given a test function *)
         let create_m test =
@@ -645,19 +647,19 @@ module Make (O:VALADOPT) = struct
     let create_m test = 
       match vals, offsets with
       | FSet d, FSet o ->
-          let doOp x = ValSet.fold 
+          let doOp x = NumSet.fold 
           (fun y s -> 
             let result = operator x y in
             if test sop result x (Int64.to_int y)
-              then ValSet.add (precision 32 result) s
+              then NumSet.add (precision 32 result) s
               else s)
-          o ValSet.empty in
-          let finalSet = ValSet.fold (fun x s -> ValSet.fold ValSet.add (doOp x) s) d ValSet.empty in
-          if ValSet.is_empty finalSet
+          o NumSet.empty in
+          let finalSet = NumSet.fold (fun x s -> NumSet.fold NumSet.add (doOp x) s) d NumSet.empty in
+          if NumSet.is_empty finalSet
             then Bot
             else Nb (VarMap.add dst (go_to_interval finalSet) m)
       | Interval(l,h), FSet o -> (* This doesn't work with rotate; return Top if rotate *)
-          let bound f b e = ValSet.fold (fun x r -> f (operator b x) r) o e in
+          let bound f b e = NumSet.fold (fun x r -> f (operator b x) r) o e in
           let lb, ub = bound min l max_elt, bound max h min_elt in
           (* TODO : flag test *)
           begin

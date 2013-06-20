@@ -25,7 +25,7 @@ module type AGE_FUNCTION = sig
   (* Returns a string representation of the AgeFunction. *)
   val toString : t -> string
   (* Returns the set of variables for which there exists a mapping. *)
-  val vars : t -> ValSet.t
+  val vars : t -> NumSet.t
 end
 
 module AgeFunction : AGE_FUNCTION = struct
