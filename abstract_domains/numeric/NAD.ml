@@ -1,5 +1,4 @@
 (** The base type of numerci abstract domains used in CacheAudit *)
-open Signatures
 open X86Types
 open AD.DataStructures
 
@@ -25,7 +24,7 @@ module DataStructures = struct
    | 1L -> HL
    | 2L -> LH
    | 3L -> LL
-   | _ -> failwith "Signatures.rem_to_mask: incorrect offset"
+   | _ -> failwith "rem_to_mask: incorrect offset"
 
   let mask_to_intoff = function
      HH -> (0xFF000000L, 24)

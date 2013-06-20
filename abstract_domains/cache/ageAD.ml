@@ -1,4 +1,3 @@
-open Signatures
 open AD.DataStructures
 open NAD.DataStructures
 

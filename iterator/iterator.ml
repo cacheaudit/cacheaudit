@@ -14,7 +14,6 @@ let time_jmp = 1  (* time taken by a JMP instruction, in addition to the time ta
 (* time for a JCC is time_jmp + time for the test *)
 
 open Cfg
-open Signatures
 open AbstractInstr
 open AD.DataStructures
 

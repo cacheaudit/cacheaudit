@@ -1,6 +1,5 @@
 IFDEF INCLUDEOCT THEN
 open Printf
-open Signatures
 
 let verbose = false
 let bin_name = ref "output"
