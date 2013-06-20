@@ -54,10 +54,10 @@ ML_FILES := \
 	abstract_domains/cache/ageAD.ml\
 	abstract_domains/flagAD.ml\
 	abstract_domains/numeric/octAD.ml\
-	abstract_domains/simpleOctAD.ml\
+	abstract_domains/cache/simpleOctAD.ml\
 	abstract_domains/cache/ageFunctionSet.ml\
 	abstract_domains/cache/relSetMap.ml\
-	abstract_domains/simpleRelSetAD.ml\
+	abstract_domains/cache/simpleRelSetAD.ml\
 	abstract_domains/cache/traceAD.ml\
 	abstract_domains/cache/cacheAD.ml\
 	abstract_domains/cache/relCacheAD.ml\
