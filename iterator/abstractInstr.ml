@@ -8,3 +8,5 @@ type memop = ADarith of X86Types.arith_op | ADmov | ADexchg
 
 type stackop = ADpop | ADpush
 
+type varop = Op of X86Types.arith_op | Move
+
