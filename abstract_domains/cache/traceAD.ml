@@ -1,5 +1,4 @@
 open Big_int
-open Signatures
 open AD.DataStructures
 
 module IntSet = Set.Make( 
@@ -18,7 +17,7 @@ let max_times = 10000000
 
 module type S = sig
   include AD.S
-  val init: cache_param -> t 
+  val init: CacheAD.cache_param -> t 
   val touch : t -> int64 -> t
   val elapse : t -> int -> t
 end

@@ -12,7 +12,7 @@ let data_assoc = ref 0
 let inst_cache_s = ref 0
 let inst_line_s = ref 0
 let inst_assoc = ref 0
-let data_cache_strategy = ref Signatures.LRU
+let data_cache_strategy = ref CacheAD.LRU
 let inst_cache_strategy_opt = ref None
 
 let instruction_base_addr = ref (Int64.of_int 0)
@@ -82,13 +82,13 @@ let speclist = [
     ("--oct", Arg.Unit (fun () -> data_cache_analysis := OctAges), "use the octagon abstract domain for the cache.") ;
     ("--interval-cache", Arg.Unit (fun () -> data_cache_analysis := IntAges), "use the interval abstract domain for the cache.") ;
     ("--rset", Arg.Unit (fun () -> data_cache_analysis := RelAges), "use the relational set abstract domain for the cache.") ;
-    ("--fifo", Arg.Unit (fun () -> data_cache_strategy := Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
-    ("--plru", Arg.Unit (fun () -> data_cache_strategy := Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
+    ("--fifo", Arg.Unit (fun () -> data_cache_strategy := CacheAD.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
+    ("--plru", Arg.Unit (fun () -> data_cache_strategy := CacheAD.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
     ("--inst-oct", Arg.Unit (fun () -> inst_cache_analysis_opt := Some OctAges), "use the octagon abstract domain for the cache.") ;
     ("--inst-interval-cache", Arg.Unit (fun () -> inst_cache_analysis_opt := Some IntAges), "use the interval abstract domain for the cache.") ;
     ("--inst-rset", Arg.Unit (fun () -> inst_cache_analysis_opt := Some RelAges), "use the relational set abstract domain for the cache.") ;
-    ("--inst-fifo", Arg.Unit (fun () -> inst_cache_strategy_opt := Some Signatures.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
-    ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some Signatures.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
+    ("--inst-fifo", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
+    ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
      ("--cache-size", (Arg.Int (fun n -> data_cache_s := n)),
      "override the size of the cache (in bytes) from the configuration file");
     ("--line-size", (Arg.Int (fun n -> data_line_s := n)),

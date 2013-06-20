@@ -3,6 +3,7 @@
 open Signatures
 open AD.DataStructures
 open NAD.DataStructures
+open CacheAD
 
 let verbose = ref false
 let precise_touch = ref true
