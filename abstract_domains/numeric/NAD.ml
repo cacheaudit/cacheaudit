@@ -34,6 +34,7 @@ module DataStructures = struct
    | LL -> (0x000000FFL, 0)
 
   module NumSet = Set.Make(Int64)
+  module NumMap = Map.Make(Int64)
 
 end
 
@@ -48,7 +49,7 @@ module type S = sig
 
  (** Log the current value of a variable to the log file. For automated testing *)
   val log_var : var -> t -> unit
-  val get_var : t -> var -> (t ValMap.t) add_top
+  val get_var : t -> var -> (t NumMap.t) add_top
 
  (** set_var env x l h sets the value of x to be in the interval [l,h] *)
   val set_var : t -> var -> int64 -> int64 -> t

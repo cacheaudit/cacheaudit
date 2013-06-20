@@ -63,7 +63,7 @@ possible, so it approximates Bottom *)
         | Nb nyenv -> V.join yenv nyenv
     in {env with val_ad = new_valad}
       
-  let get_keys map = let keys,_ = List.split (ValMap.bindings map)
+  let get_keys map = let keys,_ = List.split (NumMap.bindings map)
                      in keys
                      
                  
@@ -104,12 +104,12 @@ possible, so it approximates Bottom *)
     match V.get_var env.val_ad x with
       Tp -> env
     | Nt vm -> 
-      let v1,_ = ValMap.min_binding vm in
+      let v1,_ = NumMap.min_binding vm in
       let val_ad1 = let nv1 = perm64 v1 in V.set_var env.val_ad x nv1 nv1 in 
       {env with val_ad = 
-           ValMap.fold (fun c _ val_ad -> let nc = perm64 c in
+           NumMap.fold (fun c _ val_ad -> let nc = perm64 c in
                         V.join val_ad (V.set_var val_ad x nc nc))
-                     (ValMap.remove v1 vm) val_ad1
+                     (NumMap.remove v1 vm) val_ad1
       }
   
   let print_delta env1 fmt env2 = V.print_delta env1.val_ad fmt env2.val_ad
@@ -124,12 +124,12 @@ possible, so it approximates Bottom *)
     let res = (V.get_var env.val_ad v) in
     match res with 
     | Tp -> Tp
-    | Nt a -> Nt (ValMap.map (fun vad -> {env with val_ad = vad}) a)
+    | Nt a -> Nt (NumMap.map (fun vad -> {env with val_ad = vad}) a)
 
   let is_var env a = V.is_var env.val_ad a
   
   let get_values env v = let l = match V.get_var env.val_ad v with 
-     Tp -> []  | Nt x -> ValMap.bindings x in 
+     Tp -> []  | Nt x -> NumMap.bindings x in 
      List.map (fun (k,v) -> Int64.to_int k) l
 end
 

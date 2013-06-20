@@ -13,7 +13,7 @@ module type S =
   val delete_var : t -> var -> t
  (** Log the current value of a variable to the log file. For automated testing *)
   val log_var : t -> var -> unit
-  val get_var : t -> var -> (t ValMap.t) add_top
+  val get_var : t -> var -> (t NumMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
   val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
   val is_var : t -> var -> bool
@@ -186,13 +186,13 @@ module Make (V: NAD.S) = struct
     let lift pos venv = match venv with
       Bot -> Bot
     | Nb Tp -> Nb Tp
-    | Nb(Nt vmap) -> Nb(Nt(ValMap.map (one_flag pos) vmap)) in
+    | Nb(Nt vmap) -> Nb(Nt(NumMap.map (one_flag pos) vmap)) in
     let merge fenv venv pos = match fenv, venv with
       _, Bot -> fenv
     | Bot, _ -> lift pos venv
     | Nb Tp, _ | _, Nb Tp -> Nb Tp
     | Nb(Nt fenv), Nb(Nt venv) -> 
-        Nb(Nt(ValMap.merge (fun _ fe ve -> match fe, ve with
+        Nb(Nt(NumMap.merge (fun _ fe ve -> match fe, ve with
           Some st, Some v -> Some(set_pos st pos v)
         | Some st, None -> Some st
         | None, Some v -> Some(one_flag pos v) 
@@ -206,10 +206,10 @@ module Make (V: NAD.S) = struct
     assert(not(is_bottom st));
     let bot = {tt=Bot;tf=Bot;ft=Bot;ff=Bot} in
     let extract comp = match comp with 
-      | Bot ->  ValMap.empty
+      | Bot ->  NumMap.empty
       | Nb env -> (match (V.get_var env var) with
 	      | Tp  -> failwith "flagAD: get_var can't handle top"
-	      | Nt x -> assert(not(ValMap.is_empty x));x)
+	      | Nt x -> assert(not(NumMap.is_empty x));x)
     in
     (* Merge components 1 and 2 *)
     let merger12 _ a b = match (a,b) with
@@ -231,9 +231,9 @@ module Make (V: NAD.S) = struct
       | (Some x, None) -> Some x
       | (None, Some y) -> Some {bot with tt = Nb y}
       | (None, None) -> None  
-    in Nt (ValMap.merge merger34 
-    (ValMap.merge merger23
-       (ValMap.merge merger12 (extract st.tt) (extract st.tf))
+    in Nt (NumMap.merge merger34 
+    (NumMap.merge merger23
+       (NumMap.merge merger12 (extract st.tt) (extract st.tf))
        (extract st.ft))
     (extract st.tt))
 *)

@@ -163,7 +163,7 @@ module Make (SV: AgeAD.S) = struct
   (* Gives the block address *)
   let get_block_addr cache addr = Int64.div addr (Int64.of_int cache.line_size)
 
-  let get_keys map = let keys,_ = List.split (ValMap.bindings map)
+  let get_keys map = let keys,_ = List.split (NAD.DataStructures.NumMap.bindings map)
                      in List.map Int64.to_int keys
                     (*TODO simplify this in Simple Values *)
 
