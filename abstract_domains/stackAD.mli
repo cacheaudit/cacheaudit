@@ -1,4 +1,3 @@
-open Signatures
 open X86Types
 open AbstractInstr
 open AD.DataStructures
@@ -10,7 +9,7 @@ module type S =
     val init :
       X86Headers.t ->
         (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> 
-          cache_param -> t
+          CacheAD.cache_param -> t
     val get_offset : t -> op32 -> (int, t) finite_set
     val test : t -> condition -> t add_bottom * t add_bottom
     val call : t -> op32 -> int -> (int, t) finite_set

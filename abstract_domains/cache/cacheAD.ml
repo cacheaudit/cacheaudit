@@ -1,6 +1,7 @@
-open Signatures
-open X86Types
 open AD.DataStructures
+
+type cache_strategy = LRU | PLRU | FIFO (* PLRU stands for tree-based pseudo LRU *)
+type cache_param = int * int * int * cache_strategy (* total size, line size, associativity. TODO use a record *)
 
 module type S = sig
   include AD.S
@@ -18,8 +19,6 @@ module type S = sig
   val elapse : t -> int -> t
   val count_cache_states : t -> Big_int.big_int
 end
-
-
 
 
 open Big_int 

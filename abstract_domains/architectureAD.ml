@@ -1,4 +1,3 @@
-open Signatures
 open X86Types
 open AbstractInstr
 open AD.DataStructures
@@ -13,7 +12,7 @@ let instruction_addr_base = ref (Int64.of_int 0)
 module type S =
   sig
     include AD.S
-    val init: X86Headers.t -> (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> cache_param -> cache_param option -> int64 -> t
+    val init: X86Headers.t -> (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> CacheAD.cache_param -> CacheAD.cache_param option -> int64 -> t
     val get_offset: t -> op32 -> (int,t) finite_set
     val test : t -> condition -> (t add_bottom)*(t add_bottom)
     val call : t -> op32 -> int -> (int,t) finite_set 

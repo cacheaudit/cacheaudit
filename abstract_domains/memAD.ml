@@ -2,7 +2,6 @@ let time_instr = 1 (* number of cycles of one instriction, to which we add the t
 let time_test = 1 (* number of cycles for a test *)
 let time_effective_load = 0; 
 
-open Signatures
 open X86Types
 open AbstractInstr
 open AD.DataStructures
@@ -16,7 +15,7 @@ module type S =
   (* the first arguments returns the initial value at a given address if it *)
   (* is defined, None otherwize (meaning it's random *)
   val init: (int64 -> int64 option) -> (((int64 * int64 * int64) list)*((X86Types.reg32 * int64 * int64) list)) -> 
-    cache_param -> t
+    CacheAD.cache_param -> t
 
   (* from a genop32 expression, returns a finite list of possible values,
      each value associated with an approximation of the corresponding memory 
