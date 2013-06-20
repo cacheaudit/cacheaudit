@@ -1,5 +1,6 @@
 open Signatures
 open AD.DataStructures
+open NAD.DataStructures
 
 module type S = sig
   include AD.S

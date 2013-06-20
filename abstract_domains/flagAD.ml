@@ -2,6 +2,7 @@ open X86Types
 open Signatures
 open AbstractInstr
 open AD.DataStructures
+open NAD.DataStructures
 
 module type S = 
   sig

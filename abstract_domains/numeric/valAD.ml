@@ -1,27 +1,7 @@
 open Signatures
 open X86Types
 open AD.DataStructures
-
-module type S = sig
-  include AD.S
-  val init : (var->string) -> t
-  val new_var : t -> var -> t
-  val delete_var : t -> var -> t
- (* val guard : t -> var_name -> guardop -> int64 -> t add_bottom *)
- (** Log the current value of a variable to the log file. For automated testing *)
-  val log_var : var -> t -> unit
-  val get_var : t -> var -> (t ValMap.t) add_top
- (* set_var env x l h sets the value of x to be in the interval [l,h] *)
-  val set_var : t -> var -> int64 -> int64 -> t
-  val update_var : t -> var -> mask -> cons_var -> mask -> varop -> 
-    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
-  val is_var : t -> var -> bool
-  val meet : t -> t -> t add_bottom (*TODO: should be add_bottom *)
-  val flagop : t -> arith_op -> cons_var -> cons_var -> 
-    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
-  val shift : t -> shift_op -> var -> cons_var -> mask -> 
-    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
-end
+open NAD.DataStructures
 
 (* We use a module for the options so that we can have different instances in the same analysis *)
 module type VALADOPT = sig
@@ -34,14 +14,7 @@ module ValADOptForMemory = struct
   let max_set_size = 32
 end
 
-module OrdVar = struct
-  type t = var
-  let compare = Pervasives.compare
-end
-
 let logFile = ref None
-
-module VarMap = Map.Make(OrdVar)
 
 module Make (O:VALADOPT) = struct
 (* A basic variable contains a 32 bits unsigned integer. *)
