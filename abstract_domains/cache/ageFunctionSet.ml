@@ -1,4 +1,3 @@
-open Signatures
 open NAD.DataStructures
 
 module VarSet = Set.Make(Int64) (*Set.Make(struct type t = var let compare = Pervasives.compare end)*)

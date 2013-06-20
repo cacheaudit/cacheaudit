@@ -1,5 +1,3 @@
-open Signatures
-
 val left_pos : string -> int -> int option
 val right_pos : string -> int -> int option
 val trim : string -> string

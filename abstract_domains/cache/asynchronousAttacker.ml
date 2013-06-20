@@ -1,4 +1,3 @@
-open Signatures
 open Big_int
 open AD.DataStructures
   

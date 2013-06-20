@@ -1,7 +1,6 @@
 open AsmUtil
 open X86Headers
 open Config
-open Signatures
 
 let bin_name = ref ""
 let start_addr = ref(-1 )

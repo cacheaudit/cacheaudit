@@ -279,7 +279,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
     | _, _ -> ed
 
   (* memop : t -> memop -> op32 -> op32 -> t *)
-    (** Does the memory operation given by [Signatures.memop] on the enviroment.
+    (** Does the memory operation given by [AbstractInstr.memop] on the enviroment.
      This operation can be a move, an arithmetic operation or an exchange.
      Transmits the fact that time passes to the cache domain
      @return a new enviroment or raises a Bottom

@@ -1,6 +1,5 @@
 (* TODO: I don't understand why we need a special cacheAD for relational domains? This is bad design...*)
 
-open Signatures
 open AD.DataStructures
 open NAD.DataStructures
 open CacheAD

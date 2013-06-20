@@ -1,5 +1,4 @@
 open Printf
-open Signatures
 open AgeFunctionSet
 open RelSetMap
 open AD.DataStructures

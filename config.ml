@@ -1,5 +1,4 @@
 open X86Types
-open Signatures
 
 (* help functions for trimming a string *)
 let left_pos s len =
