@@ -2,6 +2,7 @@
 
 open Signatures
 open AD.DataStructures
+open NAD.DataStructures
 
 let verbose = ref false
 let precise_touch = ref true

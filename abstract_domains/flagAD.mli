@@ -2,6 +2,7 @@ open X86Types
 open Signatures
 open AbstractInstr
 open AD.DataStructures
+open NAD.DataStructures
 
 (** Keeps track of flags. Currently restricted to combinations of
        CF and ZF) *)

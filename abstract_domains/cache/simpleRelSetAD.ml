@@ -3,6 +3,7 @@ open Signatures
 open AgeFunctionSet
 open RelSetMap
 open AD.DataStructures
+open NAD.DataStructures
 
 let debug = ref false
 
