@@ -57,7 +57,7 @@ possible, so it approximates Bottom *)
       match young with
       | Bot -> env.val_ad
       | Nb yenv ->
-        let yenv = flatten (V.update_var yenv v NoMask (Cons 1L) NoMask (Op X86Types.Add)) in
+        let yenv = flatten (V.update_var yenv v NoMask (Cons 1L) NoMask (AbstractInstr.Op X86Types.Add)) in
         match nyoung with
         | Bot -> yenv
         | Nb nyenv -> V.join yenv nyenv
@@ -74,7 +74,7 @@ possible, so it approximates Bottom *)
         let val_ad = if not (V.is_var env.val_ad v) then 
                     V.new_var env.val_ad v
                   else env.val_ad
-        in let val_ad = flatten(V.update_var val_ad v NoMask (Cons(Int64.of_int a)) NoMask Move) in
+        in let val_ad = flatten(V.update_var val_ad v NoMask (Cons(Int64.of_int a)) NoMask AbstractInstr.Move) in
         {env with val_ad = val_ad}
   
   

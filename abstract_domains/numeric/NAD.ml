@@ -52,7 +52,7 @@ module type S = sig
 
  (** set_var env x l h sets the value of x to be in the interval [l,h] *)
   val set_var : t -> var -> int64 -> int64 -> t
-  val update_var : t -> var -> mask -> cons_var -> mask -> varop ->
+  val update_var : t -> var -> mask -> cons_var -> mask -> AbstractInstr.varop ->
     (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom) (*TODO tjis interface should be changed so that e.g. we have the flags in argument and return a tree *)
   val is_var : t -> var -> bool
   val meet : t -> t -> t add_bottom 
