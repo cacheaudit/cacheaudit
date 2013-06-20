@@ -15,7 +15,7 @@ module type S = sig
 end
 
 
-module Make (V: ValAD.S) = struct
+module Make (V: NAD.S) = struct
   
   type t = 
   {

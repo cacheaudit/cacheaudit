@@ -28,4 +28,4 @@ module type S =
 
 
 module Make :
-  functor (V : ValAD.S) -> S
+  functor (V : NAD.S) -> S
