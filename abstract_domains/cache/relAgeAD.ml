@@ -7,7 +7,7 @@ open Logger
 
 module type S = AgeAD.S
 
-module SimpleRelSetAD = struct
+module RelAgeAD = struct
   module M = RelSetMap
   type t = {
     map : M.t;
