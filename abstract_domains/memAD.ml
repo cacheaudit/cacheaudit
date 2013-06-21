@@ -30,9 +30,8 @@ module type S =
   val movzx : t -> op32 -> op8 -> t
   val flagop : t -> op32 flagop -> t
   val shift : t -> shift_op -> op32 -> op8 -> t
-  (* Used by trace recording abstract domains. elapse env d signals that time should be increased by d *)
-  val elapse : t -> int -> t
   val touch : t -> int64 -> t
+  val elapse : t -> int -> t
 end
   
 
