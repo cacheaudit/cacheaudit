@@ -160,7 +160,6 @@ module Make(A:ArchitectureAD.S) = struct
   let op32_one = ((X86Types.Imm Int64.one):op32)
 
   let read_and_interpret_instruction inv (addr, inst) = 
-    (* TODO: call to record instruction read *)
     let newInv = A.read_instruction inv addr in
     (* interpret_instruction interpret the effect of all non jump instructions over
     * an incoming non-bottom environment *)
