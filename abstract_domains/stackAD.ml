@@ -21,8 +21,8 @@ module type S =
     val flagop : t -> op32 flagop -> t
     val stackop : t -> stackop -> op32 -> t
     val shift : t -> shift_op -> op32 -> op8 -> t
+    val touch : t -> int64 -> t
     val elapse : t -> int -> t
-    val access_readonly : t -> int64 -> t
   end
 
 
@@ -95,7 +95,7 @@ module Make (M: MemAD.S) = struct
   (* keep track of time *)
   let elapse = M.elapse
 
-  let access_readonly = M.access_readonly 
+  let touch = M.touch 
 end 
 
 

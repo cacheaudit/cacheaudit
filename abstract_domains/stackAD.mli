@@ -21,8 +21,14 @@ module type S =
     val flagop : t -> op32 flagop -> t
     val stackop : t -> stackop -> op32 -> t
     val shift : t -> shift_op -> op32 -> op8 -> t
+
+
+    (** [touch] is used to signal to the cache that a memory location has been accessed *)  
+    val touch : t -> int64 -> t
+      
+    (** [elapse] is used to signal from the iterator to the cache the
+	time consumed by an instruction *)
     val elapse : t -> int -> t
-    val access_readonly : t -> int64 -> t
   end
 
 

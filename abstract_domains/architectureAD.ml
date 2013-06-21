@@ -24,8 +24,8 @@ module type S =
     val flagop : t -> op32 flagop -> t
     val stackop : t -> stackop -> op32 -> t
     val shift : t -> shift_op -> op32 -> op8 -> t
-    val elapse : t -> int -> t
     val read_instruction: t -> int -> t
+    val elapse : t -> int -> t
   end
 
 
@@ -138,7 +138,7 @@ module MakeShared (ST: StackAD.S) = struct
     Printf.printf "\n\n\n\n#######################\n\n";
     ST.print_delta env1 form env2
     
-  let read_instruction env addr = ST.access_readonly env (Int64.add (Int64.of_int addr) !instruction_addr_base)
+  let read_instruction env addr = ST.touch env (Int64.add (Int64.of_int addr) !instruction_addr_base)
 
 end
 

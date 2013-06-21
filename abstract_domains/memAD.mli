@@ -6,8 +6,8 @@ module type S =
   sig
     include AD.S
 
-  (* init is used to return an initial abstract state *)
-  (* the first arguments returns the initial value at a given address if it *)
+  (** init is used to create an initial abstract state.
+      The first arguments returns the initial value at a given address if it *)
   (* is defined, None otherwize (meaning it's random *)
   val init: (int64 -> int64 option) -> 
     (((int64 * int64 * int64) list)*((X86Types.reg32 * int64 * int64) list)) -> 
@@ -26,12 +26,16 @@ module type S =
   val movzx : t -> op32 -> op8 -> t
   val flagop : t -> op32 flagop -> t
   val shift : t -> shift_op -> op32 -> op8 -> t
-  (* Used by trace recording abstract domains. elapse env d signals that time should be increased by d *)
+
+  (** [elapse] is used to signal from the iterator to the cache the
+      time consumed by an instruction *)
   val elapse : t -> int -> t
-  val access_readonly : t -> int64 -> t
+
+  (** [touch] is used to signal to the cache that a memory location has been accessed *)  
+  val touch : t -> int64 -> t
 end
   
-
+(** Creates a memory abstract domain from a flag and cache abstract domains *)
 module Make :
   functor (F : FlagAD.S) ->
     functor (C : CacheAD.S) -> S
