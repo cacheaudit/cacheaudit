@@ -22,19 +22,19 @@ module Make (V: NAD.S) = struct
   
   type t = {
     value: V.t;
-    maxval : int; (*all values bigger than maxval are assumed to be maxval *)
+    max_age : int; (*all values bigger than max_age are assumed to be max_age *)
     pfn : var -> int;
   }
     
   
-  let init maxval pfn v2s = {
+  let init max_age pfn v2s = {
     value = V.init v2s; 
-    maxval = maxval;
+    max_age = max_age;
     pfn = pfn;
   }
 
   let join e1 e2 = 
-    assert (e1.maxval = e2.maxval);
+    assert (e1.max_age = e2.max_age);
     {e1 with value = (V.join e1.value e2.value)}
   
   let flatten (d1,d2,d3,d4) =
@@ -57,8 +57,8 @@ possible, so it approximates Bottom *)
   let vguard venv x c = vcomp venv (VarOp x) (Cons(Int64.of_int c))
 
   let inc_var env v = 
-    let young,nyoung,_ = vguard env.value v env.maxval in
-(* we assume the cases bigger than maxval are irrelevent and we never increase values above maxval *)
+    let young,nyoung,_ = vguard env.value v env.max_age in
+(* we assume the cases bigger than max_age are irrelevent and we never increase values above max_age *)
     let new_valad = 
       match young with
       | Bot -> env.value
@@ -76,7 +76,7 @@ possible, so it approximates Bottom *)
   let is_var env a = V.is_var env.value a
 
   let set_var env v a = 
-      if a > env.maxval then
+      if a > env.max_age then
         failwith "simpleValAD: set_var cannot set to values greater than the maximal value"
       else
         let value = if not (is_var env v) then 
@@ -123,10 +123,10 @@ possible, so it approximates Bottom *)
   let print_delta env1 fmt env2 = V.print_delta env1.value fmt env2.value
   let print fmt env = V.print fmt env.value
   let subseteq env1 env2= 
-    assert (env1.maxval = env2.maxval);
+    assert (env1.max_age = env2.max_age);
     (V.subseteq env1.value env2.value)
   let widen env1 env2 = 
-    assert (env1.maxval = env2.maxval);
+    assert (env1.max_age = env2.max_age);
     {env1 with value = (V.widen env1.value env2.value)}
 
   (* let get_var env v =                                               *)
@@ -148,7 +148,7 @@ possible, so it approximates Bottom *)
   (* with respect to the ages defined in cache.ages. *)
   let is_valid_cstate env addr_set cache_state  = 
     let rec pos addr l i = match l with 
-       [] -> env.maxval
+       [] -> env.max_age
     | hd::tl -> if hd = addr then i else pos addr tl (i+1) in
     NumSet.for_all (fun addr -> 
       List.mem (pos addr cache_state 0)(get_values env addr)) addr_set 
@@ -174,7 +174,7 @@ possible, so it approximates Bottom *)
     IntMap.fold (fun _ addr_set (nums,bl_nums) ->
       let num_tpls,num_bl =
         let rec loop i (num,num_blurred) =
-          if i > env.maxval then (num,num_blurred)
+          if i > env.max_age then (num,num_blurred)
           else
             let this_num = 
               num_tuples env i addr_set in 

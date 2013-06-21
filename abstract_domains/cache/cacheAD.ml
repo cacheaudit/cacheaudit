@@ -2,7 +2,7 @@ open AD.DataStructures
 open NAD.DataStructures
 open Logger
 
-type cache_strategy = LRU | PLRU | FIFO (* PLRU stands for tree-based pseudo LRU *)
+type cache_strategy = LRU | FIFO | PLRU (* PLRU stands for tree-based pseudo LRU *)
 type cache_param = int * int * int * cache_strategy (* total size, line size, associativity. TODO use a record *)
 
 
