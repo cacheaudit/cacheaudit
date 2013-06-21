@@ -28,6 +28,8 @@ type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
 let data_cache_analysis = ref SetAges
 let inst_cache_analysis_opt = ref None
 
+let temp_log_level = ref ""
+
 let cache_size = ref 0
 let line_size = ref 0
 let associativity = ref 0
@@ -88,7 +90,7 @@ let speclist = [
     ("--inst-rset", Arg.Unit (fun () -> inst_cache_analysis_opt := Some RelAges), "use the relational set abstract domain for the cache.") ;
     ("--inst-fifo", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
     ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
-     ("--cache-size", (Arg.Int (fun n -> data_cache_s := n)),
+    ("--cache-size", (Arg.Int (fun n -> data_cache_s := n)),
      "override the size of the cache (in bytes) from the configuration file");
     ("--line-size", (Arg.Int (fun n -> data_line_s := n)),
      "override the size of the cache lines (in bytes) from the configuration file");
@@ -100,19 +102,15 @@ let speclist = [
      "override the size of the instruction cache lines (in bytes) from the configuration file");
     ("--inst-assoc", (Arg.Int (fun n -> inst_assoc := n)),
      "override the instruction cache associativity (in bytes) from the configuration file");
-     ("--cache-size", (Arg.Int (fun n -> cache_size := n)),
-     "override the size of the cache (in bytes) from the configuration file");
-    ("--line-size", (Arg.Int (fun n -> line_size := n)),
-     "override the size of the cache lines (in bytes) from the configuration file");
-    ("--assoc", (Arg.Int (fun n -> associativity := n)),
-     "override the associativity (in bytes) from the configuration file");
     ("--instrAttacker", Arg.Int (fun d -> analyze:=true; attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).");
     ("--oneInstrInterrupt", Arg.Unit (fun () -> analyze := true; attacker:=OneInstrInterrupt),"attacker that can interrupt only once per round, based on the number of instructions");
     ("--oneTimedInterrupt", Arg.Unit (fun () -> analyze:=true; attacker:=OneTimedInterrupt),"attacker that can interrupt only once per round, based on time");
     ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), "Shared cache for data and instructions");
     ("--noInstructionCache", Arg.Unit (fun () -> architecture := NoInstructionCache),"Data cache only");
     ("--noTraces", Arg.Unit (fun () -> do_traces := false),"Disable tracking of traces (and time)");
-  ] 
+    ("--log",Arg.Tuple [Arg.Set_string temp_log_level; Arg.String (fun ad -> Logger.log_ad !temp_log_level ad)], "Modify the output of one AD. --log [ quiet|normal|debug ] SomeAD");
+    ("--log-level",Arg.String (fun level -> Logger.set_global level), "Set the general log level. Options are quiet, normal and debug. Default is normal.");
+  ]
 
 let _ =
   Arg.parse speclist anon_fun usage;

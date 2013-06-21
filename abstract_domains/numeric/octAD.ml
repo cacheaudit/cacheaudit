@@ -1,8 +1,8 @@
 IFDEF INCLUDEOCT THEN
 open Printf
 open NAD.DataStructures
+open Logger
 
-let verbose = false
 let bin_name = ref "output"
 let infinity = 0x100000000L
 let max_get_var_size = ref 256
@@ -201,7 +201,7 @@ module OctagonAD (Oct: OCT64): ValAD.T = struct
 
   (* Assigns a variable v the interval [l, h]. *)
   let set_var (octAD: t) (v: var) (l: int64) (h: int64): t = 
-    if(verbose) then printf "Setting %s variable %Lx to [%Lx, %Lx].\n" (print_known octAD v) v l h;
+    if get_log_level OctLL = Debug then printf "Setting %s variable %Lx to [%Lx, %Lx].\n" (print_known octAD v) v l h;
     let l = if (Int64.compare l octAD.max = 1) then octAD.max else l in
     let h = if (Int64.compare h octAD.max = 1) then octAD.max else h in
     let new_octAD = if not (VarMap.mem v octAD.map) then
@@ -234,7 +234,7 @@ module OctagonAD (Oct: OCT64): ValAD.T = struct
   let switch_positions  (octAD: t) (v1: var) (v2: var) : t = 
     let pos1 = try VarMap.find v1 octAD.map with Not_found -> non_ex_var "switch_positions" v1 in
     let pos2 = try VarMap.find v2 octAD.map  with Not_found -> non_ex_var "switch_positions" v2 in
-    if(verbose) then printf "Shifting the common variable %Lx from position %d to %d.\n" v1 pos1 pos2;
+    if get_log_level OctLL = Debug then printf "Shifting the common variable %Lx from position %d to %d.\n" v1 pos1 pos2;
     (* Switch positions in Octagon *)
     let perm = Array.init (VarMap.cardinal octAD.map) (fun i -> i) in
     let switch a i j = let tmp = Array.get a i in Array.set a i (Array.get a j);Array.set a j tmp in
@@ -275,7 +275,7 @@ module OctagonAD (Oct: OCT64): ValAD.T = struct
    let add_missing_variables (octAD1: t) (octAD2: t) : t = 
      let missing_in_octAD1 = VarMap.filter (fun v pos -> not (VarMap.mem v octAD1.map)) octAD2.map in 
      let new_octAD = ref octAD1 in 
-     VarMap.iter (fun v pos -> if(verbose) then printf "Adding missing variable %Lx to %Lx.\n" v (Int64.add !new_octAD.max (Int64.of_int 1)) ;
+     VarMap.iter (fun v pos -> if get_log_level OctLL = Debug then printf "Adding missing variable %Lx to %Lx.\n" v (Int64.add !new_octAD.max (Int64.of_int 1)) ;
                                new_octAD := set_var !new_octAD v (!new_octAD.max) (!new_octAD.max) 
                  ) missing_in_octAD1;
      !new_octAD
@@ -305,8 +305,10 @@ module OctagonAD (Oct: OCT64): ValAD.T = struct
 
   (* Prints the difference between two octagons. *)
   let print_delta (octAD1: t) (f: Format.formatter) (octAD2: t) : unit = 
-    let (fixed_octAD1, fixed_octAD2) = merge_domains octAD1 octAD2 in
-    Oct.foctdiffprinter (fun i -> fixed_octAD1.v2s (var_at i fixed_octAD1.map)) f fixed_octAD1.oct fixed_octAD2.oct
+    match get_log_level OctLL with
+      | Quiet -> ()
+      | _ -> let (fixed_octAD1, fixed_octAD2) = merge_domains octAD1 octAD2 in
+             Oct.foctdiffprinter (fun i -> fixed_octAD1.v2s (var_at i fixed_octAD1.map)) f fixed_octAD1.oct fixed_octAD2.oct
 
   (* Prints a string representation of the octagon. *)
   let print (f: Format.formatter) (octAD: t) : unit = 

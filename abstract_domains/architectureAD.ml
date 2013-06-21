@@ -1,6 +1,7 @@
 open X86Types
 open AbstractInstr
 open AD.DataStructures
+open Logger
 
 
 (* Architecture abstract domain. Right now it allows two different caches for instructions and data *)
@@ -82,19 +83,17 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
   let stackop env sop op1 = subs_e env (ST.stackop env.call_ad sop op1) 
   let call env op n = subs_finite_set env (ST.call env.call_ad op n)
   let return env = subs_finite_set env (ST.return env.call_ad)
-  let print form env = 
-    Printf.printf "\n\n\n\n#######################\n\n\n------ Data Cache -----\n\n";
-    ST.print form env.call_ad;
-    Printf.printf "\n\n\n-- Instruction Cache --\n";
-    IC.print form env.inst_ad;
-    Printf.printf "\n-----------------------\n\n"
+  let print form env = (*match get_log_level ArchitectureLL with
+    | Quiet -> ST.print form env.call_ad; IC.print form env.inst_ad
+    | _ -> *)
+    Format.fprintf form "@;@;@;------ Data Cache -----@;%a@;@;@;-- Instruction Cache --@;%a@;-----------------------@;@;"
+    ST.print env.call_ad IC.print env.inst_ad
 
-  let print_delta env1 form env2 = 
-    Printf.printf "\n\n\n\n#######################\n\n\n------ Data Cache -----\n\n";
-    ST.print_delta env1.call_ad form env2.call_ad;
-    Printf.printf "\n\n\n-- Instruction Cache --\n\n";
-    IC.print_delta env1.inst_ad form env2.inst_ad;
-    Printf.printf "\n-----------------------\n\n"
+  let print_delta env1 form env2 = match get_log_level ArchitectureLL with
+    | Quiet -> ST.print_delta env1.call_ad form env2.call_ad; IC.print_delta env1.inst_ad form env2.inst_ad
+    | _ -> 
+    Format.fprintf form "@;@;@;------ Data Cache -----@;%a@;@;@;-- Instruction Cache --@;%a@;-----------------------@;@;"
+    (ST.print_delta env1.call_ad) env2.call_ad (IC.print_delta env1.inst_ad) env2.inst_ad
 
   let elapse env t = {
     call_ad = ST.elapse env.call_ad t;
@@ -130,13 +129,9 @@ module MakeShared (ST: StackAD.S) = struct
   let call = ST.call
   let return = ST.return
   let elapse = ST.elapse
-  let print form env = 
-    Printf.printf "\n\n\n\n#######################\n\n";
-    ST.print form env
+  let print form env = ST.print form env
     
-  let print_delta env1 form env2 = 
-    Printf.printf "\n\n\n\n#######################\n\n";
-    ST.print_delta env1 form env2
+  let print_delta env1 form env2 = ST.print_delta env1 form env2
     
   let read_instruction env addr = ST.touch env (Int64.add (Int64.of_int addr) !instruction_addr_base)
 
