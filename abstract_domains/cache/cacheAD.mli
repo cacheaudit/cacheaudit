@@ -1,6 +1,11 @@
+(** Abstract domain that keeps track of CPU cache configurations *)
+
 open AD.DataStructures
 
-type cache_strategy = LRU | PLRU | FIFO (** PLRU stands for tree-based pseudo LRU *)
+type cache_strategy = 
+  | LRU  (** least-recently used *)
+  | FIFO (** first in, first out *)
+  | PLRU (** tree-based pseudo LRU *)
 type cache_param = int * int * int * cache_strategy (** total size, line size, associativity.*)(* TODO use a record *)
 
 module type S = sig
@@ -22,5 +27,5 @@ end
 
 
 (** Creates cache domain from given value domain *)
-module Make : functor (SV : AgeAD.S) -> S
+module Make : functor (A : AgeAD.S) -> S
 

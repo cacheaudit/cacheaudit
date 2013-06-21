@@ -57,7 +57,7 @@ let read_assembly bits =
       let addr = get_byte b in
       let i,nb = X86Parse.read_instr b in
       match i with
-	  X86Types.Ret -> [(addr,i)]
+    X86Types.Ret -> [(addr,i)]
       | _ -> (addr, i)::read_instr_list nb
     else []
   in read_instr_list (goto bits !start_addr)
@@ -136,7 +136,7 @@ let _ =
       with Sys_error _ ->
         Printf.printf "Configuration file %s.conf not found\nUsing default values\n" !bin_name;
         ([],List.map (fun (a,b) -> a,b,b) [(X86Types.EAX, 1L); (X86Types.ECX, 0xbffff224L); (X86Types.EDX, 0xbffff1b4L); (X86Types.EBX, 0x2d3ff4L); 
-				       (X86Types.ESP, 0xbffff18cL); (X86Types.EBP, 0L); (X86Types.ESI, 0L); (X86Types.EDI, 0L)])
+               (X86Types.ESP, 0xbffff18cL); (X86Types.EBP, 0L); (X86Types.ESI, 0L); (X86Types.EDI, 0L)])
     end
   in
   let bits, mem =
@@ -182,11 +182,10 @@ let _ =
       let generate_cache cache_analysis attacker =
         let cad = match !cache_analysis with
           | OctAges -> IFDEF INCLUDEOCT THEN 
-	    (module CacheAD.Make (SimpleOctAD.OctAD) : CacheAD.S) 
+      (module CacheAD.Make (SimpleOctAD.OctAD) : CacheAD.S) 
             ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
           | RelAges ->
-            (module CacheAD.Make
-		(RelAgeAD.RelAgeAD) : CacheAD.S)
+            (module CacheAD.Make (RelAgeAD.RelAgeAD) : CacheAD.S)
           | (SetAges | IntAges) -> 
             (* Generate the age abstract domain *)
             let age = 
@@ -199,8 +198,8 @@ let _ =
             let module Age = (val age: AgeAD.S) in
             (module CacheAD.Make (Age) : CacheAD.S) 
         in
-    	  (* Make distinction whether asynchronious attacker is used  *)
-    	let module BaseCache = (val cad: CacheAD.S) in
+        (* Make distinction whether asynchronious attacker is used  *)
+      let module BaseCache = (val cad: CacheAD.S) in
         match !attacker with
         | Final -> cad
         | Instructions d -> AsynchronousAttacker.min_frequency := d;
@@ -214,9 +213,9 @@ let _ =
       (* Generate the data cache AD, with traces or not *)
       let state = generate_cache data_cache_analysis attacker in
       let datacache = if !do_traces then
-	  (let module CState = (val state : CacheAD.S) in
-	   (module TraceAD.Make (CState) : CacheAD.S))
-	else state in
+    (let module CState = (val state : CacheAD.S) in
+     (module TraceAD.Make (CState) : CacheAD.S))
+  else state in
       let module DataCache = (val datacache : CacheAD.S) in
       (* Generate the memory AD *)
       let module Mem = MemAD.Make(FlagAD.Make(ValAD.Make(ValAD.ValADOptForMemory)))(DataCache) in
