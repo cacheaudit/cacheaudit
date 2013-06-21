@@ -28,7 +28,7 @@ OCAMLDEP= ocamldep -pp "${PREPROCESSOR}" $(DEP_FLAGS)
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
 
-OCAMLINCLUDE:= -I x86_frontend -I iterator -I abstract_domains -I abstract_domains/cache -I abstract_domains/numeric
+OCAMLINCLUDE:= -I . -I x86_frontend -I iterator -I abstract_domains -I abstract_domains/cache -I abstract_domains/numeric
 OCAMLLIB_STD= nums.cma str.cma
 
 ifneq ($(or $(debug),$(DEBUG)),)
@@ -36,6 +36,7 @@ ifneq ($(or $(debug),$(DEBUG)),)
 endif
 
 ML_FILES := \
+	logger.ml\
 	x86_frontend/asmUtil.ml \
 	x86_frontend/x86Util.ml \
 	x86_frontend/x86Types.ml \
@@ -94,7 +95,7 @@ clean:
 	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css */*.o output_non_rel.latte output_final_state output_rel.latte
 
 depend: 
-	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli abstract_domains/*/*.ml abstract_domains/*/*.mli > depend
+	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli abstract_domains/*/*.ml abstract_domains/*/*.mli *.ml *.mli> depend
 
 ifneq ($(MAKECMDGOALS),clean)
    -include depend

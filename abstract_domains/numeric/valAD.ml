@@ -2,6 +2,7 @@ open X86Types
 open AbstractInstr
 open AD.DataStructures
 open NAD.DataStructures
+open Logger
 
 (* We use a module for the options so that we can have different instances in the same analysis *)
 module type VALADOPT = sig
@@ -72,19 +73,22 @@ module Make (O:VALADOPT) = struct
     log_var_vals (VarMap.find v env);
     Printf.fprintf file "\n"
 
-  let print fmt env = 
+  let print fmt env =match get_log_level ValLL with
+    | Quiet -> ()
+    | _ ->
     Format.fprintf fmt "@[";
     VarMap.iter (print_one_var fmt) env;
     Format.fprintf fmt "@]"
 
   (* We just print differing and new variables *)
-  let print_delta env1 fmt env2 = 
-    Format.fprintf fmt "@[";
-    VarMap.iter (fun v vals -> try 
-      let old_vals = VarMap.find v env1  in
-      if not(var_vals_equal old_vals vals) then  print_one_var fmt v vals
-      with Not_found -> print_one_var fmt v vals) env2;
-    Format.fprintf fmt "@]"
+  let print_delta env1 fmt env2 = match get_log_level ValLL with
+    | Quiet -> ()
+    | _ -> Format.fprintf fmt "@[";
+           VarMap.iter (fun v vals -> try 
+             let old_vals = VarMap.find v env1  in
+             if not(var_vals_equal old_vals vals) then  print_one_var fmt v vals
+             with Not_found -> print_one_var fmt v vals) env2;
+           Format.fprintf fmt "@]"
 
   (* precision : int64 -> int64, returns the 32 least significant bits of a number *)
   let precision by n = 

@@ -1,7 +1,5 @@
 (* An iterator for analysis of executables *)
 
-let verbose = ref false
-let trace = ref true
 (*number of times loops are unrolled before fp computation begins *)
 let unroll_count = ref 300
 (* if set to false, then we don't unroll the outer loops *)
@@ -13,9 +11,14 @@ let time_skip = 1 (* time taken by a skip *)
 let time_jmp = 1  (* time taken by a JMP instruction, in addition to the time taken to read the address. *)
 (* time for a JCC is time_jmp + time for the test *)
 
+(* Number of instructions interpreted. For quiet logging *)
+let instructions_interpreted = ref 0
+let trace = ref false
+
 open Cfg
 open AbstractInstr
 open AD.DataStructures
+open Logger
 
 (* type for weak topological ordering, which can either be
    - Linear: inv can be treated and passed to the nex element
@@ -42,7 +45,7 @@ end)
 (* A modified Tarjan algorithm to find a good weak topological ordering for 
    a graph *)
 let head_until x l = 
-  if !verbose then Format.printf "Entering head_until with a list of size %d\n" (List.length l);
+  if get_log_level IteratorLL = Debug then Format.printf "Entering head_until with a list of size %d\n" (List.length l);
   let rec rev_head_until acc x = function
     [] -> failwith "Head_until called with a list not containing the element\n"
   | y::l -> if x==y then acc else rev_head_until (y::acc) x l
@@ -66,7 +69,7 @@ type 'a tarjan = {
    seen is the list of all non treated and seen blocks, in reverse order
         of appearance *)
 let rec visit counter num seen b wto =
-  if !verbose then Format.printf "Visit %d" counter;
+  if get_log_level IteratorLL = Debug then Format.printf "Visit %d" counter;
   (* First recursively visit the children *)
   (* loop is there to detect if b is in a loop *)
   let state, loop = List.fold_left (fun (s,l) cb -> 
@@ -88,13 +91,13 @@ let rec visit counter num seen b wto =
      component, we can treat the block, otherwise we just return the
      state *)
   if counter = state.head then (
-    if !verbose then Format.printf "Block number %d is the head of its SCC\n" counter;
+    if get_log_level IteratorLL = Debug then Format.printf "Block number %d is the head of its SCC\n" counter;
     let tags = BlockMap.add b Visited state.tags in 
     (* the head of block will be added to the wto *)
     if loop then (
-      if !verbose then Format.printf "Loop treatment \n";
+      if get_log_level IteratorLL = Debug then Format.printf "Loop treatment \n";
       let blocks_in_loop = head_until b state.seen in (*all elements except the head*)
-      if !verbose then Format.printf "head_until passed \n";
+      if get_log_level IteratorLL = Debug then Format.printf "head_until passed \n";
       let ctags = List.fold_left (fun tg bl -> BlockMap.add bl NotSeen tg) 
                   tags blocks_in_loop in
       let new_state = component state.counter ctags seen b in
@@ -115,7 +118,7 @@ let rec visit counter num seen b wto =
 
 (* the final wto of component does not contain the block it is called with *)
 and component counter num seen b =
-  if !verbose then Format.printf "component of block number %d \n" counter;
+  if get_log_level IteratorLL = Debug then Format.printf "component of block number %d \n" counter;
   List.fold_left (fun s cb ->
       match BlockMap.find cb s.tags with
         NotSeen -> visit s.counter s.tags s.seen cb s.wto
@@ -165,10 +168,12 @@ module Make(A:ArchitectureAD.S) = struct
     * an incoming non-bottom environment *)
     (* may raise Bottom *)
     let rec interpret_instruction inv (addr, inst) = try (
-      let ftrace inv2 = if !trace then 
-          Format.printf "@[<v 2>%a %a @, %a@]@."
-          pp_block_addr addr X86Print.pp_instr inst (A.print_delta inv) inv2;
-          inv2 in
+      let ftrace inv2 = match get_log_level IteratorLL with
+        | Quiet -> instructions_interpreted := !instructions_interpreted + 1;
+                   Format.printf "\r %6d instructions interpreted%! %a" !instructions_interpreted (A.print_delta inv) inv2; inv2
+        | _ -> Format.printf "@[<v 2>%a %a @, %a@]@.@;@;#######################@;@;@;@;"
+               pp_block_addr addr X86Print.pp_instr inst (A.print_delta inv) inv2;
+               inv2 in
       match inst with
         Arith(op, x, y) -> ftrace (
           match op with
@@ -204,7 +209,7 @@ module Make(A:ArchitectureAD.S) = struct
       | Pop x -> ftrace (A.stackop inv ADpop x)
       | Push x -> ftrace (A.stackop inv ADpush x)
       | Shift(op,x,y) -> ftrace (A.shift inv op x y)
-      | Halt -> if !trace then 
+      | Halt -> if get_log_level IteratorLL <> Quiet then 
               Format.printf "Just before Halt, we have %a\n" A.print inv;
               raise Bottom
       | Skip -> ftrace (A.elapse inv time_skip)
@@ -295,8 +300,8 @@ module Make(A:ArchitectureAD.S) = struct
     if List.mem b pb then env else BlockMap.remove b env
 
   let iterate concr_mem start_values cfg data_cache_params inst_cache_params inst_base_addr =
-    if !verbose then trace:= true;
-    if !verbose then Format.printf "CFG of %d blocks \n" (List.length cfg);
+    if get_log_level IteratorLL <> Quiet then trace:= true;
+    if get_log_level IteratorLL = Debug then Format.printf "CFG of %d blocks \n" (List.length cfg);
     let start_block = List.hd cfg in
     let final_blocks = List.filter (fun b -> b.out_edges = []) cfg in
     (* init_env and env below map blocks to their incoming non-empty abstract
@@ -305,7 +310,7 @@ module Make(A:ArchitectureAD.S) = struct
     if !trace then Format.printf "@[Initially, %a@]@." print init_env;
     let wto = tarjan cfg in
     let wto = if !unroll_outer_loop then wto else dont_unroll_outer wto in
-    if !verbose then Format.printf "Order of iteration computed \n";
+    if get_log_level IteratorLL = Debug then Format.printf "Order of iteration computed \n";
     (* TODO: Explain the role of pb *)
     let rec next_i pb env = function 
       | EmptyWto -> env

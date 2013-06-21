@@ -6,6 +6,7 @@ open X86Types
 open AbstractInstr
 open AD.DataStructures
 open NAD.DataStructures
+open Logger
 
 module type S =
   sig
@@ -71,13 +72,15 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
 
   let print_delta mem1 fmt mem2 = 
     Format.fprintf fmt "@[";
-    let added_vars = MemSet.diff mem2.memory mem1.memory
-    and removed_vars = MemSet.diff mem1.memory mem2.memory in
-    if not(MemSet.is_empty added_vars) then
-      Format.fprintf fmt "Added variables %a@," pp_vars added_vars;
-    if not(MemSet.is_empty removed_vars) then
-      Format.fprintf fmt "Removed variables %a@," pp_vars removed_vars;
-    Format.fprintf fmt "%a @; %a@]"
+    if get_log_level MemLL = Debug then begin
+      let added_vars = MemSet.diff mem2.memory mem1.memory
+      and removed_vars = MemSet.diff mem1.memory mem2.memory in
+      if not(MemSet.is_empty added_vars) then
+        Format.fprintf fmt "Added variables %a@," pp_vars added_vars;
+      if not(MemSet.is_empty added_vars) then
+        Format.fprintf fmt "Removed variables %a@," pp_vars removed_vars;
+    end;
+    Format.fprintf fmt "%a @, %a@]"
       (F.print_delta mem1.vals) mem2.vals
       (C.print_delta mem1.cache) mem2.cache
       

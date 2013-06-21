@@ -1,4 +1,5 @@
 open AD.DataStructures
+open Logger
 
 type cache_strategy = LRU | PLRU | FIFO (* PLRU stands for tree-based pseudo LRU *)
 type cache_param = int * int * int * cache_strategy (* total size, line size, associativity. TODO use a record *)
@@ -23,7 +24,6 @@ end
 
 open Big_int 
 
-let verbose = ref false
 let precise_touch = ref true
 
 type adversay = Blurred | SharedSpace
@@ -279,10 +279,10 @@ module Make (SV: AgeAD.S) = struct
   let touch cache orig_addr =
     let env = 
 
-    if !verbose then Printf.printf "\nWriting cache %Lx" orig_addr;
+    if get_log_level CacheLL = Debug then Printf.printf "\nWriting cache %Lx" orig_addr;
     (* we cache the block address *)
     let addr = get_block_addr cache orig_addr in
-    if !verbose then Printf.printf " in block %Lx\n" addr;
+    if get_log_level CacheLL = Debug then Printf.printf " in block %Lx\n" addr;
     let set_addr = get_set_addr cache addr in
     let cset = CacheMap.find set_addr cache.cache_sets in
     if AddrSet.mem addr cache.handled_addrs then begin
@@ -365,23 +365,24 @@ module Make (SV: AgeAD.S) = struct
      ) c1.cache_sets)
 
 
-  let print_delta c1 fmt c2 =
-    Format.fprintf fmt "@[";
-    let added_blocks = AddrSet.diff c2.handled_addrs c1.handled_addrs
-    and removed_blocks = AddrSet.diff c1.handled_addrs c2.handled_addrs in
-    if not (AddrSet.is_empty added_blocks) then Format.fprintf fmt
-      "Blocks added to the cache: %a@;" print_addr_set added_blocks;
-    if not (AddrSet.is_empty removed_blocks) then Format.fprintf fmt
-      "Blocks removed from the cache: %a@;" print_addr_set removed_blocks;
-    if c1.ages != c2.ages then begin
-      (* this is shallow equals - does it make sense? *)
-      Format.fprintf fmt "@[<2> Old ages are %a@]@."
-        (SV.print_delta c2.ages) c1.ages;
-(*       print fmt c1; *)
-      Format.fprintf fmt "@[<2> New ages are %a@]@."
-        (SV.print_delta c1.ages) c2.ages;
-    end;
-    Format.fprintf fmt "@]"
+  let print_delta c1 fmt c2 = match get_log_level CacheLL with
+    | Quiet -> SV.print_delta c2.ages fmt c1.ages
+    | _-> (*Format.fprintf fmt "@[";*)
+          let added_blocks = AddrSet.diff c2.handled_addrs c1.handled_addrs
+          and removed_blocks = AddrSet.diff c1.handled_addrs c2.handled_addrs in
+          if not (AddrSet.is_empty added_blocks) then Format.fprintf fmt
+            "Blocks added to the cache: %a@;" print_addr_set added_blocks;
+          if not (AddrSet.is_empty removed_blocks) then Format.fprintf fmt
+            "Blocks removed from the cache: %a@;" print_addr_set removed_blocks;
+          if c1.ages != c2.ages then begin
+            (* this is shallow equals - does it make sense? *)
+            Format.fprintf fmt "@[Old ages are %a@]"
+              (SV.print_delta c2.ages) c1.ages;
+            (* print fmt c1; *)
+            Format.fprintf fmt "@[New ages are %a@]"
+              (SV.print_delta c1.ages) c2.ages;
+          end
+          (*Format.fprintf fmt "@]"*)
 
   let is_var cache addr = SV.is_var cache.ages (get_block_addr cache addr)
 
