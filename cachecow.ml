@@ -186,7 +186,7 @@ let _ =
             ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
           | RelAges ->
             (module CacheAD.Make
-		(SimpleRelSetAD.SimpleRelSetAD) : CacheAD.S)
+		(RelAgeAD.RelAgeAD) : CacheAD.S)
           | (SetAges | IntAges) -> 
             (* Generate the age abstract domain *)
             let age = 
