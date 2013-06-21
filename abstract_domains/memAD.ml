@@ -32,7 +32,7 @@ module type S =
   val shift : t -> shift_op -> op32 -> op8 -> t
   (* Used by trace recording abstract domains. elapse env d signals that time should be increased by d *)
   val elapse : t -> int -> t
-  val access_readonly : t -> int64 -> t
+  val touch : t -> int64 -> t
 end
   
 
@@ -273,7 +273,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   (** @return the enviroment that corresponds to a memory access *)
   let decide_env d s ed es = 
     match d,s with
-    | Address _, Address _ -> failwith "Memory-to-memory operation not supported" (* works but records only one cache access *)
+    | Address _, Address _ -> failwith "Memory-to-memory operation not supported" (* would currently record only one cache access *)
     | Address _, _ -> ed
     | _, Address _ -> es
     | _, _ -> ed
@@ -434,7 +434,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   (* we pass the elapsed time to the cache domain, the only one keeping track of it so far *)
   let elapse env d = {env with cache = C.elapse env.cache d}
 
-  let access_readonly env addr = {env with cache = C.touch env.cache addr}
+  let touch env addr = {env with cache = C.touch env.cache addr}
         
 end 
 
