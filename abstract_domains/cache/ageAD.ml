@@ -1,9 +1,10 @@
+open Big_int
 open AD.DataStructures
 open NAD.DataStructures
 
 module type S = sig
   include AD.S
-  val init_with_max : (var->string) -> int -> t
+  val init : int -> (var -> int) -> (var->string) -> t
   val inc_var : t -> var -> t
   val set_var : t -> var -> int -> t
   val comp : t -> var -> var -> (t add_bottom)*(t add_bottom)
@@ -11,24 +12,30 @@ module type S = sig
   val exact_val : t -> var -> int -> (t add_bottom)
   val permute : t -> (int -> int) -> var -> t
   val get_values : t -> var -> int list
-  val is_var : t -> var -> bool
+  (* val is_var : t -> var -> bool *)
+  val delete_var : t -> var -> t
+  val count_cstates: t -> big_int * big_int
 end
 
 
 module Make (V: NAD.S) = struct
   
-  type t = 
-  {
-    val_ad: V.t;
-    maxval : int (*all values bigger than maxval are assumed to be maxval *)
+  type t = {
+    value: V.t;
+    maxval : int; (*all values bigger than maxval are assumed to be maxval *)
+    pfn : var -> int;
   }
     
   
-  let init_with_max v2s maxval = {val_ad = V.init v2s; maxval = maxval}
+  let init maxval pfn v2s = {
+    value = V.init v2s; 
+    maxval = maxval;
+    pfn = pfn;
+  }
 
   let join e1 e2 = 
     assert (e1.maxval = e2.maxval);
-    {e1 with val_ad = (V.join e1.val_ad e2.val_ad)}
+    {e1 with value = (V.join e1.value e2.value)}
   
   let flatten (d1,d2,d3,d4) =
     let result = List.fold_left (lift_combine V.join) Bot [d1;d2;d3;d4] in
@@ -50,31 +57,33 @@ possible, so it approximates Bottom *)
   let vguard venv x c = vcomp venv (VarOp x) (Cons(Int64.of_int c))
 
   let inc_var env v = 
-    let young,nyoung,_ = vguard env.val_ad v env.maxval in
+    let young,nyoung,_ = vguard env.value v env.maxval in
 (* we assume the cases bigger than maxval are irrelevent and we never increase values above maxval *)
     let new_valad = 
       match young with
-      | Bot -> env.val_ad
+      | Bot -> env.value
       | Nb yenv ->
         let yenv = flatten (V.update_var yenv v NoMask (Cons 1L) NoMask (AbstractInstr.Op X86Types.Add)) in
         match nyoung with
         | Bot -> yenv
         | Nb nyenv -> V.join yenv nyenv
-    in {env with val_ad = new_valad}
+    in {env with value = new_valad}
       
-  let get_keys map = let keys,_ = List.split (NumMap.bindings map)
-                     in keys
+  (* let get_keys map = let keys,_ = List.split (NumMap.bindings map) *)
+  (*                    in keys                                       *)
                      
                  
+  let is_var env a = V.is_var env.value a
+
   let set_var env v a = 
       if a > env.maxval then
         failwith "simpleValAD: set_var cannot set to values greater than the maximal value"
       else
-        let val_ad = if not (V.is_var env.val_ad v) then 
-                    V.new_var env.val_ad v
-                  else env.val_ad
-        in let val_ad = flatten(V.update_var val_ad v NoMask (Cons(Int64.of_int a)) NoMask AbstractInstr.Move) in
-        {env with val_ad = val_ad}
+        let value = if not (is_var env v) then 
+                    V.new_var env.value v
+                  else env.value
+        in let value = flatten(V.update_var value v NoMask (Cons(Int64.of_int a)) NoMask AbstractInstr.Move) in
+        {env with value = value}
   
   
   let list_max l = List.fold_left (fun m x -> if x > m then x else m ) 0L l
@@ -82,53 +91,100 @@ possible, so it approximates Bottom *)
   (* updates an env according to the value env *)
   let vNewEnv env = function
     Bot -> Bot
-  | Nb venv -> Nb{env with val_ad = venv}
+  | Nb venv -> Nb{env with value = venv}
 
   (* the first result is approximates the cases when x1 < x2 and
      the second one when x1 > x2 *)
   let comp env x1 x2 = 
-    let smaller, eq, bigger = vcomp env.val_ad (VarOp x1) (VarOp x2) in
+    let smaller, eq, bigger = vcomp env.value (VarOp x1) (VarOp x2) in
     vNewEnv env smaller, vNewEnv env bigger
 
   let comp_with_val env x v =
-    let smaller, eq, bigger = vguard env.val_ad x v in
+    let smaller, eq, bigger = vguard env.value x v in
     vNewEnv env smaller, lift_combine join (vNewEnv env eq) (vNewEnv env bigger)
 
   let exact_val env x c =
-    let smaller, eq, bigger = vguard env.val_ad x c in vNewEnv env eq
+    let smaller, eq, bigger = vguard env.value x c in vNewEnv env eq
 
   (* apply the permutation perm to the age of variable x *)
   let permute env perm x = 
     let perm64 a = Int64.of_int (perm (Int64.to_int a)) in
-    match V.get_var env.val_ad x with
+    match V.get_var env.value x with
       Tp -> env
     | Nt vm -> 
       let v1,_ = NumMap.min_binding vm in
-      let val_ad1 = let nv1 = perm64 v1 in V.set_var env.val_ad x nv1 nv1 in 
-      {env with val_ad = 
-           NumMap.fold (fun c _ val_ad -> let nc = perm64 c in
-                        V.join val_ad (V.set_var val_ad x nc nc))
-                     (NumMap.remove v1 vm) val_ad1
+      let value1 = let nv1 = perm64 v1 in V.set_var env.value x nv1 nv1 in 
+      {env with value = 
+           NumMap.fold (fun c _ value -> let nc = perm64 c in
+                        V.join value (V.set_var value x nc nc))
+                     (NumMap.remove v1 vm) value1
       }
   
-  let print_delta env1 fmt env2 = V.print_delta env1.val_ad fmt env2.val_ad
-  let print fmt env = V.print fmt env.val_ad
+  let print_delta env1 fmt env2 = V.print_delta env1.value fmt env2.value
+  let print fmt env = V.print fmt env.value
   let subseteq env1 env2= 
     assert (env1.maxval = env2.maxval);
-    (V.subseteq env1.val_ad env2.val_ad)
+    (V.subseteq env1.value env2.value)
   let widen env1 env2 = 
     assert (env1.maxval = env2.maxval);
-    {env1 with val_ad = (V.widen env1.val_ad env2.val_ad)}
-  let get_var env v = 
-    let res = (V.get_var env.val_ad v) in
-    match res with 
-    | Tp -> Tp
-    | Nt a -> Nt (NumMap.map (fun vad -> {env with val_ad = vad}) a)
+    {env1 with value = (V.widen env1.value env2.value)}
 
-  let is_var env a = V.is_var env.val_ad a
+  (* let get_var env v =                                               *)
+  (*   let res = (V.get_var env.value v) in                            *)
+  (*   match res with                                                  *)
+  (*   | Tp -> Tp                                                      *)
+  (*   | Nt a -> Nt (NumMap.map (fun vad -> {env with value = vad}) a) *)
   
-  let get_values env v = let l = match V.get_var env.val_ad v with 
-     Tp -> []  | Nt x -> NumMap.bindings x in 
+  let get_values env v = let l = match V.get_var env.value v with
+     Tp -> []  | Nt x -> NumMap.bindings x in
      List.map (fun (k,v) -> Int64.to_int k) l
+  
+  let delete_var env v = {env with value = V.delete_var env.value v}
+    
+  
+  (*** Counting valid states ***)
+  
+  (* Checks if the given cache state is valid *)
+  (* with respect to the ages defined in cache.ages. *)
+  let is_valid_cstate env addr_set cache_state  = 
+    let rec pos addr l i = match l with 
+       [] -> env.maxval
+    | hd::tl -> if hd = addr then i else pos addr tl (i+1) in
+    NumSet.for_all (fun addr -> 
+      List.mem (pos addr cache_state 0)(get_values env addr)) addr_set 
+  
+  (* Count the number of n-permutations of the address set addr_set *)
+  let num_tuples env n addr_set = 
+    if NumSet.cardinal addr_set >= n then begin
+      let rec loop n elements tuple s = 
+        if n = 0 then begin
+          if is_valid_cstate env addr_set tuple then Int64.add s 1L else s
+        end else
+          NumSet.fold (fun addr s -> 
+            loop (n-1) (NumSet.remove addr elements) (addr::tuple) s) 
+            elements s in 
+        loop n addr_set [] 0L
+    end else 0L
+    
+  (* Computes two lists list where each item i is the number of possible *)
+  (* cache states of cache set i for a shared-memory *)
+  (* and the disjoint-memory (blurred) adversary *)
+  let cache_states_per_set env =
+    let cache_sets = Utils.partition (V.var_names env.value) env.pfn in
+    IntMap.fold (fun _ addr_set (nums,bl_nums) ->
+      let num_tpls,num_bl =
+        let rec loop i (num,num_blurred) =
+          if i > env.maxval then (num,num_blurred)
+          else
+            let this_num = 
+              num_tuples env i addr_set in 
+            let this_bl = if this_num > 0L then 1L else 0L in
+            loop (i+1) (Int64.add num this_num, Int64.add num_blurred this_bl)
+         in loop 0 (0L,0L) in
+      (num_tpls::nums,num_bl::bl_nums)) cache_sets ([],[])
+      
+  let count_cstates env = 
+    let nums_cstates,bl_nums_cstates = cache_states_per_set env in
+      (Utils.prod nums_cstates,Utils.prod bl_nums_cstates)
 end
 

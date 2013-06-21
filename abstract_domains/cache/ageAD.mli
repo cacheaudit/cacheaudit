@@ -1,10 +1,14 @@
+open Big_int
 open AD.DataStructures
 open NAD.DataStructures
 
 module type S = sig
   include AD.S
-  (* Initialize with a maximal value *)
-  val init_with_max : (var->string) -> int -> t
+  (** [init maxval pfn v2s] Initialize with a maximal value [maxval]. 
+       [pfn] is a partitioning function of the variables according to their 
+       name and is used for counting 
+       [v2s] is a function which converts variable names to strings *)
+  val init : int -> (var -> int) -> (var->string) -> t
   (* Increment variable, does not increase above the max value *)
   val inc_var : t -> var -> t
   (* Set variable to a value;
@@ -22,7 +26,9 @@ module type S = sig
   (* applies a permutation to the values of the variable *)
   val permute : t -> (int -> int) -> var -> t
   val get_values : t -> var -> int list
-  val is_var : t -> var -> bool
+  (* val is_var : t -> var -> bool *)
+  val delete_var : t -> var -> t
+  val count_cstates: t -> big_int * big_int
 end
 
 module Make :

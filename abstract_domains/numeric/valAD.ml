@@ -39,6 +39,11 @@ module Make (O:VALADOPT) = struct
 
   type t = var_t VarMap.t
 
+  let var_names env = 
+    let keys,_ = List.split (VarMap.bindings env) in 
+    List.fold_left (fun set elt -> NumSet.add elt set) NumSet.empty keys
+
+  
 (* TODO put this into the type t *)
   let variable_naming = ref(fun x -> "")
 

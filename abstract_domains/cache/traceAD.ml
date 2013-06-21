@@ -1,6 +1,7 @@
 open Big_int
 open AD.DataStructures
 
+
 module IntSet = Set.Make( 
   struct
     let compare = Pervasives.compare
@@ -210,7 +211,7 @@ module Make (CA : CacheAD.S) = struct
     let node = env.traces in
     Format.fprintf fmt "\n# traces: %s, %f bits\n" 
       (string_of_big_int node.Trie.num_traces) 
-      (log10 (float_of_big_int node.Trie.num_traces) /. (log10 2.));
+      (Utils.log2 node.Trie.num_traces);
     match env.times with 
     | Tp -> Format.fprintf fmt "\n# times: too imprecise to tell"
     | Nt tms ->
@@ -279,8 +280,7 @@ module Make (CA : CacheAD.S) = struct
     let times = add_time_status N times in
     {env with times = times; traces = traces}
 
-  let count_cache_states env = CA.count_cache_states env.cache
+  let count_cache_states env = CA.count_cache_states env.cache 
 
 end
-
 
