@@ -52,6 +52,7 @@ ML_FILES := \
   abstract_domains/stackAD.ml\
 	abstract_domains/numeric/NAD.ml\
 	abstract_domains/numeric/valAD.ml\
+	abstract_domains/utils.ml\
 	abstract_domains/cache/ageAD.ml\
 	abstract_domains/flagAD.ml\
 	abstract_domains/numeric/octAD.ml\
@@ -61,7 +62,6 @@ ML_FILES := \
 	abstract_domains/cache/simpleRelSetAD.ml\
 	abstract_domains/cache/traceAD.ml\
 	abstract_domains/cache/cacheAD.ml\
-	abstract_domains/cache/relCacheAD.ml\
 	abstract_domains/cache/asynchronousAttacker.ml\
 	abstract_domains/memAD.ml\
 	iterator/iterator.ml\

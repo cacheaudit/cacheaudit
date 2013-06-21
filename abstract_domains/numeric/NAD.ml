@@ -38,6 +38,8 @@ module DataStructures = struct
 
   module NumSet = Set.Make(Int64)
   module NumMap = Map.Make(Int64)
+  module IntSet = Set.Make(struct type t = int let compare = compare end)
+  module IntMap = Map.Make(struct type t = int let compare = compare end)
   module VarMap = Map.Make(struct type t=var let compare = compare end)
 
 end
@@ -65,5 +67,6 @@ module type S = sig
     (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
   val shift : t -> shift_op -> var -> cons_var -> mask ->
     (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
+  val var_names : t -> NumSet.t
 end
 
