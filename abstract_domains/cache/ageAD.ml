@@ -7,13 +7,12 @@ module type S = sig
   val init : int -> (var -> int) -> (var->string) -> t
   val inc_var : t -> var -> t
   val set_var : t -> var -> int -> t
-  val comp : t -> var -> var -> (t add_bottom)*(t add_bottom)
-  val comp_with_val : t -> var -> int -> (t add_bottom)*(t add_bottom)
-  val exact_val : t -> var -> int -> (t add_bottom)
+  val delete_var : t -> var -> t
   val permute : t -> (int -> int) -> var -> t
   val get_values : t -> var -> int list
-  (* val is_var : t -> var -> bool *)
-  val delete_var : t -> var -> t
+  val exact_val : t -> var -> int -> (t add_bottom)
+  val comp : t -> var -> var -> (t add_bottom)*(t add_bottom)
+  val comp_with_val : t -> var -> int -> (t add_bottom)*(t add_bottom)
   val count_cstates: t -> big_int * big_int
 end
 
@@ -96,7 +95,7 @@ possible, so it approximates Bottom *)
   (* the first result is approximates the cases when x1 < x2 and
      the second one when x1 > x2 *)
   let comp env x1 x2 = 
-    let smaller, eq, bigger = vcomp env.value (VarOp x1) (VarOp x2) in
+    let smaller, _, bigger = vcomp env.value (VarOp x1) (VarOp x2) in
     vNewEnv env smaller, vNewEnv env bigger
 
   let comp_with_val env x v =

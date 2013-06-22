@@ -65,62 +65,6 @@ module Make (A: AgeAD.S) = struct
   let print_addr_set fmt = NumSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
 
 
-
-
-  (* (* Count the number of n-permutations of the address set addr_set *)            *)
-  (* let num_tuples is_valid n addr_set =                                            *)
-  (*   if NumSet.cardinal addr_set >= n then begin                                  *)
-  (*     let rec loop n elements tuple s =                                           *)
-  (*       if n = 0 then begin                                                       *)
-  (*         if is_valid tuple then s+1 else s                                       *)
-  (*       end else                                                                  *)
-  (*         NumSet.fold (fun addr s ->                                             *)
-  (*           loop (n-1) (NumSet.remove addr elements) (addr::tuple) s)            *)
-  (*           elements s in                                                         *)
-  (*       loop n addr_set [] 0                                                      *)
-  (*   end else 0                                                                    *)
-    
-  (* (* Checks if the given cache state is valid *)                                  *)
-  (* (* with respect to the ages defined in cache.ages. *)                           *)
-  (* let is_valid_cstate cache addr_set cache_state  =                               *)
-  (*   let rec pos addr l i = match l with                                           *)
-  (*      [] -> cache.associativity                                                  *)
-  (*   | hd::tl -> if hd = addr then i else pos addr tl (i+1) in                     *)
-  (*   NumSet.for_all (fun addr ->                                                  *)
-  (*     List.mem (pos addr cache_state 0)(A.get_values cache.ages addr)) addr_set  *)
-  
-  (* (* Computes two lists list where each item i is the number of possible *) *)
-  (* (* cache states of cache set i for a shared-memory *)                     *)
-  (* (* and the disjoint-memory (blurred) adversary *)                         *)
-  (* let cache_states_per_set (cache:t) =                                      *)
-  (*   IntMap.fold (fun _ addr_set (nums,bl_nums) ->                         *)
-  (*     let num_tpls,num_bl =                                                 *)
-  (*       let rec loop i (num,num_blurred) =                                  *)
-  (*         if i > cache.associativity then (num,num_blurred)                 *)
-  (*         else                                                              *)
-  (*           let this_num =                                                  *)
-  (*             A.num_tuples cache.ages i addr_set in                        *)
-  (*           let this_bl = if this_num > 0 then 1 else 0 in                  *)
-  (*           loop (i+1) ((num + this_num),num_blurred + this_bl)             *)
-  (*        in loop 0 (0,0) in                                                 *)
-  (*     (num_tpls::nums,num_bl::bl_nums)) cache.cache_sets ([],[])            *)
-
-  (* product of a list of int's *)
-  (* let prod l = List.fold_left (fun sol set_sol ->       *)
-  (*     Int64.mul sol (Int64.of_int set_sol)) Int64.one l *)
-  
-  (* let log_sum l =                                    *)
-  (*   let s = List.fold_left (fun sol set_sol ->       *)
-  (*     log10 (float_of_int set_sol) +. sol) 0.0 l in  *)
-  (*   s /. (log10 2.0)                                 *)
-  
-  (* let log2 x = (log10 (Int64.to_float x) /. (log10 2.)) *)
-
-  (* let count_cstates cache =                                                                  *)
-  (*   let nums_cstates,bl_nums_cstates = A.cache_states_per_set cache.ages cache.cache_sets in *)
-  (*     (big_int_of_int64 (prod (List.map Int64.of_int bl_nums_cstates)),                      *)
-  (*     big_int_of_int64 (prod (List.map Int64.of_int nums_cstates)))                          *)
-
   let count_cache_states env = 
     let num_cstates,bl_num_cstates = A.count_cstates env.ages in
     match !adversary with
