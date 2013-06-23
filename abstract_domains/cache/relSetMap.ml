@@ -1,7 +1,7 @@
 open NAD.DataStructures
-open AgeFunctionSet
+open RelAgeFnSet
 
-module AFS = AgeFunctionSet
+module AFS = RelAgeFnSet
 
 module NumSetMap = Map.Make(struct type t = NumSet.t let compare x y = let c = Pervasives.compare (NumSet.cardinal x) (NumSet.cardinal y) in if c = 0 then NumSet.compare x y else c end)
 

@@ -1,8 +1,10 @@
+(** A module needed by [RelAgeAD] *)
+
 open NAD.DataStructures
 
 module AFS :
   sig
-    type t = AgeFunctionSet.AgeFunctionSet.t
+    type t = RelAgeFnSet.RelAgeFnSet.t
     val combine : t -> t -> t
     val contradicts : t -> (var * int) list -> bool
     val empty : t

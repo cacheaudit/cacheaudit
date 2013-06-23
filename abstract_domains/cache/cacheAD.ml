@@ -2,9 +2,16 @@ open AD.DataStructures
 open NAD.DataStructures
 open Logger
 
-type cache_strategy = LRU | FIFO | PLRU (* PLRU stands for tree-based pseudo LRU *)
-type cache_param = int * int * int * cache_strategy (* total size, line size, associativity. TODO use a record *)
-
+type cache_strategy = 
+  | LRU  (** least-recently used *)
+  | FIFO (** first in, first out *)
+  | PLRU (** tree-based pseudo LRU *)
+type cache_param = { 
+  cs: int; 
+  ls: int; 
+  ass: int; 
+  str: cache_strategy;
+ } 
 
 module type S = sig
   include AD.S
@@ -100,8 +107,10 @@ module Make (A: AgeAD.S) = struct
   let get_set_addr env addr =
     calc_set_addr env.num_sets addr
     
-  let init (cs,ls,ass,strategy) =
-    let ns = cs / ls / ass in
+  let init cache_param =
+    let (cs,ls,ass,strategy) = (cache_param.cs, cache_param.ls,
+      cache_param.ass,cache_param.str) in
+    let ns = cs / ls / ass in (* number of sets *)
     let rec init_csets csets i = match i with
     | 0 -> csets
     | n -> init_csets (IntMap.add (n - 1) NumSet.empty csets) (n - 1) in

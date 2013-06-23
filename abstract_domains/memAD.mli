@@ -2,7 +2,7 @@ open X86Types
 open AbstractInstr
 open AD.DataStructures
 
-(** Abstract domain that maps machine operations to operations on integer variables *)
+(** Memory abstract domain: maps machine operations to operations on integer variables *)
 
 module type S =
 sig

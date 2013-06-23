@@ -57,7 +57,7 @@ ML_FILES := \
 	abstract_domains/flagAD.ml\
 	abstract_domains/numeric/octAD.ml\
 	abstract_domains/cache/simpleOctAD.ml\
-	abstract_domains/cache/ageFunctionSet.ml\
+	abstract_domains/cache/relAgeFnSet.ml\
 	abstract_domains/cache/relSetMap.ml\
 	abstract_domains/cache/relAgeAD.ml\
 	abstract_domains/cache/traceAD.ml\
@@ -105,7 +105,9 @@ endif
 INTERFACE_FILES = abstract_domains/AD.ml iterator/abstractInstr.ml abstract_domains/numeric/NAD.ml
 
 doc:
-	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ $(OCAMLINCLUDE) */*.mli *.mli */*/*.mli $(INTERFACE_FILES)
+	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ \
+	$(OCAMLINCLUDE) -t "CacheAudit: Static Analysis of Cache Side-Channels" \
+	*.mli iterator/*.mli $(INTERFACE_FILES) abstract_domains/*.mli abstract_domains/numeric/*.mli abstract_domains/cache/*.mli x86_frontend/*.mli
 
 test:	cachecow
 	cd tests; ./run.sh;
