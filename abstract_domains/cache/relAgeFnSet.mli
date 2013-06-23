@@ -1,3 +1,4 @@
+(** A module needed by [RelAgeAD] *)
 open NAD.DataStructures
 
 module type AGE_FUNCTION_SET =
@@ -19,4 +20,4 @@ module type AGE_FUNCTION_SET =
     val values : t -> var -> int list
     val vset : t -> NumSet.t
   end
-module AgeFunctionSet : AGE_FUNCTION_SET
+module RelAgeFnSet : AGE_FUNCTION_SET

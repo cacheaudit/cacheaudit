@@ -3,7 +3,7 @@ open AbstractInstr
 open AD.DataStructures
 open NAD.DataStructures
 
-(** Abstract domain that keeps track of the relationship of flags and
+(** Flag abstract domain: keeps track of the relationship of flags and
     variable values. Currently restricted to combinations of CF and
     ZF) *)
 

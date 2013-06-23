@@ -2,7 +2,7 @@ open X86Types
 open AbstractInstr
 open AD.DataStructures
 
-(** Abstract domain that keeps track of stack operations, 
+(** Stack abstract domain: keeps track of stack operations, 
     such as push and pop operations and function calls.  *)
 
 module type S = 

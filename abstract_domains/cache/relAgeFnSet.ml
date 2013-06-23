@@ -116,7 +116,7 @@ module type AGE_FUNCTION_SET = sig
   val vset : t -> VarSet.t
 end
 
-module AgeFunctionSet : AGE_FUNCTION_SET = struct
+module RelAgeFnSet : AGE_FUNCTION_SET = struct
   module S = Set.Make(struct type t = AF.t let compare = AF.compare end)
   type t = {set : S.t; vars : VarSet.t}
 

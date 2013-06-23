@@ -162,11 +162,13 @@ let _ =
     ) in
   if !print_ass then print_assembly (read_assembly bits);
   (*  if !print_ass then debug bits;*)
-  let data_cache_params = (!data_cache_s,!data_line_s,!data_assoc,!data_cache_strategy) in
+  let data_cache_params = {CacheAD.cs = !data_cache_s; CacheAD.ls = !data_line_s;
+    CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy} in
   let inst_cache_strategy = match !inst_cache_strategy_opt with
     | Some v -> ref v 
     | None -> data_cache_strategy in
-  let inst_cache_params = (!inst_cache_s,!inst_line_s,!inst_assoc,!inst_cache_strategy) in
+  let inst_cache_params = {CacheAD.cs = !inst_cache_s; CacheAD.ls = !inst_line_s;
+    CacheAD.ass = !inst_assoc; CacheAD.str = !inst_cache_strategy} in
   let inst_cache_analysis = match !inst_cache_analysis_opt with
     | Some v -> ref v
     | None -> data_cache_analysis in

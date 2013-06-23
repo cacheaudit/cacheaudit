@@ -1,4 +1,4 @@
-(** Abstract domain that keeps track of the "ages" of variables 
+(** Age abstract domain: keeps track of the "ages" of variables 
 representing lines of memory
 
  - the ages of the variables range between 0 and [max_age], where [max_age] 
@@ -12,7 +12,7 @@ open Big_int
 open AD.DataStructures
 open NAD.DataStructures
 
-(** The signature of the age abstract domain *)
+(** The signature of the Age abstract domain *)
 module type S = sig
   include AD.S
   

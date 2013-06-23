@@ -2,7 +2,7 @@ open X86Types
 open AbstractInstr
 open AD.DataStructures
 
-(** Abstract domain that keeps track of the global state (currently:
+(** Architecture abstract domain: keeps track of the global state (currently:
     logical memory and caches), for use with an iterator *)
 
 module type S =
