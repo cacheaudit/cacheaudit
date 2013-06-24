@@ -108,8 +108,8 @@ let speclist = [
     ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), "Shared cache for data and instructions");
     ("--noInstructionCache", Arg.Unit (fun () -> architecture := NoInstructionCache),"Data cache only");
     ("--noTraces", Arg.Unit (fun () -> do_traces := false),"Disable tracking of traces (and time)");
-    ("--log",Arg.Tuple [Arg.Set_string temp_log_level; Arg.String (fun ad -> Logger.log_ad !temp_log_level ad)], "Modify the output of one AD. --log [ quiet|normal|debug ] SomeAD");
-    ("--log-level",Arg.String (fun level -> Logger.set_global level), "Set the general log level. Options are quiet, normal and debug. Default is normal.");
+    ("--log",Arg.Tuple [Arg.Set_string temp_log_level; Arg.String (fun ad -> Logger.set_ad_ll !temp_log_level ad)], "Modify the output of one AD. --log [ quiet|normal|debug ] SomeAD");
+    ("--log-level",Arg.String (fun level -> Logger.set_global_ll level), "Set the general log level. Options are quiet, normal and debug. Default is normal.");
   ]
 
 let _ =
