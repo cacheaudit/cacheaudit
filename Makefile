@@ -92,7 +92,7 @@ cachecow: $(CMO_FILES) cachecow.ml
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) $(OCT_INCLUDE) -o $@ $+
 
 clean: 
-	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css */*.o output_non_rel.latte output_final_state output_rel.latte
+	rm -f depend cachecow */*/*.cmo */*/*.cmx */*/*.cmi */*/*~ */*/*.annot */*.cmo */*.cmx */*.cmi */*~ */*.annot *.cmo *.cmx *.cmi *~ *.annot */*.html */*.css */*.o output_non_rel.latte output_final_state output_rel.latte
 
 depend: 
 	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli abstract_domains/*/*.ml abstract_domains/*/*.mli *.ml *.mli> depend
