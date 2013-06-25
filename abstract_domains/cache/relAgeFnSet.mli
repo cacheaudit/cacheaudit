@@ -1,5 +1,5 @@
 (** A module needed by [RelAgeAD] *)
-open NAD.DataStructures
+open NumAD.DS
 
 module type AGE_FUNCTION_SET =
   sig

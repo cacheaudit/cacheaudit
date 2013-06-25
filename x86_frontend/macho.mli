@@ -1,4 +1,4 @@
-(* ELF executable parsing *)
+(** Parsing of MACH-O executables *)
 
 exception NonMachOFile
 

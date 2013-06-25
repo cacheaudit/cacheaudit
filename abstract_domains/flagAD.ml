@@ -1,7 +1,7 @@
 open X86Types
 open AbstractInstr
-open AD.DataStructures
-open NAD.DataStructures
+open AD.DS
+open NumAD.DS
 open Logger
 
 module type S = 
@@ -24,7 +24,7 @@ module type S =
   end
 
 
-module Make (V: NAD.S) = struct
+module Make (V: NumAD.S) = struct
   
   (* Handles invariants corresponding to combinations of flags.
      For now only supports CF, ZF *)

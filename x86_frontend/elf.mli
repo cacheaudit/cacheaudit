@@ -1,4 +1,4 @@
-(* ELF executable parsing *)
+(** Parsing of ELF executables *)
 
 exception NonElfFile
 

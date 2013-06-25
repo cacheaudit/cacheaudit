@@ -9,8 +9,8 @@ representing lines of memory
  - it can count the number of valid cache configurations *)
 
 open Big_int
-open AD.DataStructures
-open NAD.DataStructures
+open AD.DS
+open NumAD.DS
 
 (** The signature of the Age abstract domain *)
 module type S = sig
@@ -67,5 +67,5 @@ end
 
 (** Functor creating the age abstract domain given a value abstract domain *)
 module Make :
-  functor (V : NAD.S) -> S
+  functor (V : NumAD.S) -> S
 

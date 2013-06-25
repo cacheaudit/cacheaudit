@@ -147,9 +147,9 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
         failwith "No variable with that position"
 
   let non_ex_var (fn: string) (v: var) = 
-    failwith (Printf.sprintf "octagonAD.%s: non-existent variable %Lx.\n" fn v)
+    failwith (Printf.sprintf "octagoNumAD.%s: non-existent variable %Lx.\n" fn v)
 
-  (* Switch the positions of two variables in a octagonAD. *)
+  (* Switch the positions of two variables in a octagoNumAD. *)
   let switch_positions  (octAD: t) (v1: var) (v2: var) : t = 
     let pos1 = try VarMap.find v1 octAD.map with Not_found -> non_ex_var "switch_positions" v1 in
     let pos2 = try VarMap.find v2 octAD.map  with Not_found -> non_ex_var "switch_positions" v2 in
@@ -344,7 +344,7 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
     List.iter (fun a -> Buffer.add_string buffer (string_of_array a)) constraints;
     write_file filename (Buffer.contents buffer) 
 
-  (* Saves an octagonAD in a format that is compatible with LattE integrale. *)
+  (* Saves an octagoNumAD in a format that is compatible with LattE integrale. *)
   let print_to_LattE (octAD: t) (filename: string) : unit = 
     print_to_file octAD (filename ^ "_final_state");
     let file_content = read_file (filename ^ "_final_state") in
@@ -373,7 +373,7 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
             | Sum (x,y) -> Oct.MXMY (x,y,lb), Oct.PXPY (x,y,ub)
             | Dif (x,y) -> Oct.MXPY (x,y,lb), Oct.PXMY (x,y,ub)
           )
-       | _ -> failwith "unexpected Case in octagonAD.toLatte"
+       | _ -> failwith "unexpected Case in octagoNumAD.toLatte"
       in
       let a1 = constr_array constr1 size in
       let a2 = constr_array constr2 size in

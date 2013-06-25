@@ -1,9 +1,9 @@
 (** The base type of the numeric abstract domains used in CacheAudit *)
 open X86Types
-open AD.DataStructures
+open AD.DS
 
 (** Module containing data structures common to numeric abstract domains *)
-module DataStructures = struct
+module DS = struct
 
   (** Type of variables *)
   type var = Int64.t
@@ -44,7 +44,7 @@ module DataStructures = struct
 
 end
 
-open DataStructures
+open DS
 
 module type S = sig 
   include AD.S

@@ -1,4 +1,4 @@
-(* Analysis of headers for executable files
+(** Analysis of headers for executable files.
    So far, only ELF is supported       
  *)
 

@@ -1,8 +1,8 @@
 open Printf
 open RelAgeFnSet
 open RelSetMap
-open AD.DataStructures
-open NAD.DataStructures
+open AD.DS
+open NumAD.DS
 open Logger
 
 module type S = AgeAD.S

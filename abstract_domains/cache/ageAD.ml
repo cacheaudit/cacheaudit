@@ -1,6 +1,6 @@
 open Big_int
-open AD.DataStructures
-open NAD.DataStructures
+open AD.DS
+open NumAD.DS
 
 module type S = sig
   include AD.S
@@ -17,7 +17,7 @@ module type S = sig
 end
 
 
-module Make (V: NAD.S) = struct
+module Make (V: NumAD.S) = struct
   
   type t = {
     value: V.t;
