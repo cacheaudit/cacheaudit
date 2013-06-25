@@ -79,14 +79,17 @@ module Make (A: AgeAD.S) = struct
     | SharedSpace -> bl_num_cstates
 
   let print fmt env =
-    Format.fprintf fmt "@[";
-    IntMap.iter (fun i all_elts ->
-        if not (NumSet.is_empty all_elts) then begin
-          Format.fprintf fmt "@[ Set %4d: " i;
-          NumSet.iter (fun elt -> Format.fprintf fmt "%Lx @," elt) all_elts;
-          Format.fprintf fmt "@]"
-        end
-      ) env.cache_sets;
+    if get_log_level CacheLL <> Quiet then begin 
+      Format.fprintf fmt "@[<v 2>";
+      IntMap.iter (fun i all_elts ->
+          if not (NumSet.is_empty all_elts) then begin
+            Format.fprintf fmt "@;@[ Set %4d: " i;
+            NumSet.iter (fun elt -> Format.fprintf fmt "%Lx @," elt) all_elts;
+            Format.fprintf fmt "@]"
+          end
+        ) env.cache_sets;
+    end
+    else ();
     Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" A.print env.ages;
     if env.strategy = PLRU then 
       Format.fprintf fmt "Counting on PLRU is incorrect\n";
@@ -328,8 +331,7 @@ module Make (A: AgeAD.S) = struct
 
 
   let print_delta c1 fmt c2 = match get_log_level CacheLL with
-    | Quiet -> A.print_delta c2.ages fmt c1.ages
-    | _-> (*Format.fprintf fmt "@[";*)
+    | Debug->
           let added_blocks = NumSet.diff c2.handled_addrs c1.handled_addrs
           and removed_blocks = NumSet.diff c1.handled_addrs c2.handled_addrs in
           if not (NumSet.is_empty added_blocks) then Format.fprintf fmt
@@ -338,13 +340,14 @@ module Make (A: AgeAD.S) = struct
             "Blocks removed from the cache: %a@;" print_addr_set removed_blocks;
           if c1.ages != c2.ages then begin
             (* this is shallow equals - does it make sense? *)
-            Format.fprintf fmt "@[Old ages are %a@]"
+            Format.fprintf fmt "@;@[<v 0>@[Old ages are %a@]"
               (A.print_delta c2.ages) c1.ages;
             (* print fmt c1; *)
-            Format.fprintf fmt "@[New ages are %a@]"
+            Format.fprintf fmt "@;@[New ages are %a@]@]"
               (A.print_delta c1.ages) c2.ages;
           end
-          (*Format.fprintf fmt "@]"*)
+    | _ -> A.print_delta c2.ages fmt c1.ages
+
 
   (* let is_var cache addr = A.is_var cache.ages (get_block_addr cache addr) *)
 

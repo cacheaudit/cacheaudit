@@ -171,7 +171,9 @@ module Make(A:ArchitectureAD.S) = struct
       let ftrace inv2 = match get_log_level IteratorLL with
         | Quiet -> instructions_interpreted := !instructions_interpreted + 1;
                    Format.printf "\r %6d instructions interpreted%! %a" !instructions_interpreted (A.print_delta inv) inv2; inv2
-        | _ -> Format.printf "@[<v 2>%a %a @, %a@]@.@;@;#######################@;@;@;@;"
+        | Normal -> Format.printf "@[<v 2>%a %a @, %a@]@."
+               pp_block_addr addr X86Print.pp_instr inst (A.print_delta inv) inv2; inv2
+        | Debug -> Format.printf "@[<v 0>@[<v 2>%a %a @, %a@]@;@;#######################@;@;@;@;@]@."
                pp_block_addr addr X86Print.pp_instr inst (A.print_delta inv) inv2;
                inv2 in
       match inst with
