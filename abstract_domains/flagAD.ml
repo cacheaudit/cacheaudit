@@ -46,20 +46,20 @@ module Make (V: NAD.S) = struct
   let print_delta_flag cf zf st1 fmt st2 = match st1,st2 with
     | Bot, Bot -> ()
     | Bot, Nb env -> begin match get_log_level FlagLL with
-      | Quiet -> V.print fmt env
-      | _ -> Format.fprintf fmt "@[New case: CF %B, ZF %B: @,%a@]"
+      | Debug -> Format.fprintf fmt "@[New case: CF %B, ZF %B: @,%a@]"
              cf zf V.print env 
+      | _ -> ()
       end
     | Nb env, Bot -> begin match get_log_level FlagLL with
-      | Quiet -> ()
-      | _ -> Format.fprintf fmt "@[The case CF %B, ZF %B is no longer possible@]"
+      | Debug -> Format.fprintf fmt "@[The case CF %B, ZF %B is no longer possible@]"
              cf zf 
+      | _ -> ()
       end
     | Nb env1, Nb env2 -> begin match get_log_level FlagLL with
-      | Quiet -> Format.fprintf fmt "@[%a@]" (V.print_delta env1) env2
-      | _ -> if env1 != env2 then
+      | Debug -> if env1 != env2 then
              Format.fprintf fmt "@[Case CF %B, ZF %B: @,%a@]" cf zf
              (V.print_delta env1) env2
+      | _ -> Format.fprintf fmt "@[%a@]" (V.print_delta env1) env2
       end
 
   let print fmt st =

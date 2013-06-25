@@ -67,8 +67,11 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
         F.print mem.vals C.print mem.cache
     else
       log_vars mem;
-      Format.fprintf fmt "List of variable memory locations: @[%a@\n%a@, %a@]"
-      pp_vars mem.memory F.print mem.vals C.print mem.cache
+      if get_log_level MemLL <> Quiet then
+        Format.fprintf fmt "@;List of variable memory locations:@;  @[%a@;%a@, %a@]"
+        pp_vars mem.memory F.print mem.vals C.print mem.cache
+      else 
+        C.print fmt mem.cache
 
   let print_delta mem1 fmt mem2 = 
     Format.fprintf fmt "@[";

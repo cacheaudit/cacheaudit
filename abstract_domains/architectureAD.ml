@@ -86,14 +86,14 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
   let print form env = (*match get_log_level ArchitectureLL with
     | Quiet -> ST.print form env.call_ad; IC.print form env.inst_ad
     | _ -> *)
-    Format.fprintf form "@;@;@;------ Data Cache -----@;%a@;@;@;-- Instruction Cache --@;%a@;-----------------------@;@;"
+    Format.fprintf form "@[<v 0>@;@;@;------ Data Cache -----@;@;%a@;@;@;-- Instruction Cache --@;@;%a@;@;-----------------------@;@;@;@]"
     ST.print env.call_ad IC.print env.inst_ad
 
   let print_delta env1 form env2 = match get_log_level ArchitectureLL with
-    | Quiet -> ST.print_delta env1.call_ad form env2.call_ad; IC.print_delta env1.inst_ad form env2.inst_ad
-    | _ -> 
-    Format.fprintf form "@;@;@;------ Data Cache -----@;%a@;@;@;-- Instruction Cache --@;%a@;-----------------------@;@;"
+    | Debug -> 
+    Format.fprintf form "@[<v 0>@;@;@;------ Data Cache changes -----@;@;%a@;@;@;-- Instruction Cache changes --@;@;%a@;@;-----------------------@;@;@;@]"
     (ST.print_delta env1.call_ad) env2.call_ad (IC.print_delta env1.inst_ad) env2.inst_ad
+    | _ -> ST.print_delta env1.call_ad form env2.call_ad; IC.print_delta env1.inst_ad form env2.inst_ad
 
   let elapse env t = {
     call_ad = ST.elapse env.call_ad t;

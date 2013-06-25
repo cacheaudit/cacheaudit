@@ -61,7 +61,7 @@ module Make (O:VALADOPT) = struct
       NumSet.min_elt s1 = l2 && NumSet.max_elt s1 = h2 && 
       NumSet.equal s1 (interval_to_set l2 h2)
 
-  let print_one_var fmt v vals  = Format.fprintf fmt "%s in %a@;"
+  let print_one_var fmt v vals  = Format.fprintf fmt "@[%s in %a@]@;"
     (!variable_naming v) pp_var_vals vals
 
   let log_var v env= 
@@ -78,22 +78,19 @@ module Make (O:VALADOPT) = struct
     log_var_vals (VarMap.find v env);
     Printf.fprintf file "\n"
 
-  let print fmt env =match get_log_level ValLL with
-    | Quiet -> ()
-    | _ ->
-    Format.fprintf fmt "@[";
+  let print fmt env = Format.fprintf fmt "@[<hov 0>";
     VarMap.iter (print_one_var fmt) env;
     Format.fprintf fmt "@]"
 
   (* We just print differing and new variables *)
   let print_delta env1 fmt env2 = match get_log_level ValLL with
-    | Quiet -> ()
-    | _ -> Format.fprintf fmt "@[";
+    | Debug -> Format.fprintf fmt "@[";
            VarMap.iter (fun v vals -> try 
              let old_vals = VarMap.find v env1  in
              if not(var_vals_equal old_vals vals) then  print_one_var fmt v vals
              with Not_found -> print_one_var fmt v vals) env2;
            Format.fprintf fmt "@]"
+    | _ -> ()
 
   (* precision : int64 -> int64, returns the 32 least significant bits of a number *)
   let precision by n = 
