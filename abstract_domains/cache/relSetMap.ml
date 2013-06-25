@@ -41,9 +41,6 @@ module RelSetMap : REL_SET_MAP = struct
   (* Returns a list of all subrelations contained in this relation. *)
   let subrelations (vset:NumSet.t) : (NumSet.t * var) list = NumSet.fold (fun v l -> (NumSet.remove v vset,v)::l) vset []
 
-  (* Given a NumSet of size n, returns all subsets of size n-1. *)
-  let subsets vset = NumSet.fold (fun v l -> NumSet.remove v vset::l) vset [] 
-
   (* Returns the AgeFunctionSet for the given NumSet. 
      If it is not contained in the map, it is created by considering its respective subsets. *)
   let rec find (vset:NumSet.t) (rsMap:t) : AFS.t = 
@@ -54,31 +51,22 @@ module RelSetMap : REL_SET_MAP = struct
       let all_subs = subrelations vset in 
       let subs_in_map = List.filter (fun (vset',v) -> M.mem vset' map) all_subs in
       match NumSet.cardinal vset with
-      (*TODO Generalize*)
         1 -> outside (NumSet.choose vset) rsMap.max
       | 2 -> (
               match List.nth all_subs 0,List.nth all_subs 1 with 
               ((sub1,_),(sub2,_)) -> AFS.combine (find sub1 rsMap) (find sub2 rsMap)
              )
-     | 3 -> if List.length subs_in_map >= 1 then 
-             (
-               match List.nth subs_in_map 0 with 
-               (sub,v) -> AFS.combine (find sub rsMap) (find (NumSet.add v NumSet.empty) rsMap) 
-             )
-            else
-              (
-               match List.nth all_subs 0 with 
-              (sub,v) -> AFS.combine (find sub rsMap) (find (NumSet.add v NumSet.empty) rsMap) 
-             )
-     | _ -> failwith ("get_afs: case not implemented yet" ^ (vset_to_string vset Int64.to_string))
+     | _ -> failwith "Unexpected Case in relAgeAD.find."
 
+  (* Given a NumSet of size n, returns all subsets of size n-1. *)
+  let subsets vset = NumSet.fold (fun v l -> NumSet.remove v vset::l) vset [] 
 
   let is_redundant vset afs rsMap = 
     if NumSet.cardinal vset = 2 then 
       let afs' = List.fold_left (fun afs' vset' -> AFS.combine afs' (find vset' rsMap)) AFS.empty (subsets vset) in
       AFS.equal afs' afs
     else
-      false  (* TODO outside -> redundant *)
+      false
 
   let add vset afs rsMap = 
     if is_redundant vset afs rsMap then 
