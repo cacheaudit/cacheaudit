@@ -53,8 +53,8 @@ module type S = sig
   val comp_with_val : t -> var -> int -> (t add_bottom)*(t add_bottom)
   (** [comp env x a] filters the domain according to whether variable [x] 
      takes values smaller than [a] or not.
-     The first result is the cases where [x] < [a] and the second one 
-     [x] >= [a]. *)
+     The first result contains the values where [x] < [a], and the second one 
+     the values where [x] >= [a]. *)
   
   (** {6 Counting} *)
 

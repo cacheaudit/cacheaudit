@@ -1,3 +1,5 @@
+(** A module needed by [RelAgeAD] *)
+
 open NumAD.DS
 open RelAgeFnSet
 
@@ -49,7 +51,7 @@ module RelSetMap : REL_SET_MAP = struct
       M.find vset map
     else
       let all_subs = subrelations vset in 
-      let subs_in_map = List.filter (fun (vset',v) -> M.mem vset' map) all_subs in
+      (* let subs_in_map = List.filter (fun (vset',v) -> M.mem vset' map) all_subs in *)
       match NumSet.cardinal vset with
         1 -> outside (NumSet.choose vset) rsMap.max
       | 2 -> (
