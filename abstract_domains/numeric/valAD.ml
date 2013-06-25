@@ -1,7 +1,7 @@
 open X86Types
 open AbstractInstr
-open AD.DataStructures
-open NAD.DataStructures
+open AD.DS
+open NumAD.DS
 open Logger
 
 (* We use a module for the options so that we can have different instances in the same analysis *)

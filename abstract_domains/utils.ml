@@ -1,5 +1,5 @@
 open Big_int
-open NAD.DataStructures
+open NumAD.DS
 
 let log2 x = log10 (float_of_big_int x) /. (log10 2.)
 

@@ -50,7 +50,7 @@ ML_FILES := \
   iterator/abstractInstr.ml\
   abstract_domains/AD.ml\
   abstract_domains/stackAD.ml\
-	abstract_domains/numeric/NAD.ml\
+	abstract_domains/numeric/numAD.ml\
 	abstract_domains/numeric/valAD.ml\
 	abstract_domains/utils.ml\
 	abstract_domains/cache/ageAD.ml\
@@ -102,7 +102,7 @@ ifneq ($(MAKECMDGOALS),clean)
 endif
 
 #ml files without mli that should be in the doc
-INTERFACE_FILES = abstract_domains/AD.ml iterator/abstractInstr.ml abstract_domains/numeric/NAD.ml
+INTERFACE_FILES = abstract_domains/AD.ml iterator/abstractInstr.ml abstract_domains/numeric/numAD.ml
 
 doc:
 	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ \

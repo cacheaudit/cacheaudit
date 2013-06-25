@@ -4,8 +4,8 @@ let time_effective_load = 0;
 
 open X86Types
 open AbstractInstr
-open AD.DataStructures
-open NAD.DataStructures
+open AD.DS
+open NumAD.DS
 open Logger
 
 (** List of initial values for registers. Register * lower bound * upper bound *)

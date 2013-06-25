@@ -1,6 +1,6 @@
 open X86Types
 open AbstractInstr
-open AD.DataStructures
+open AD.DS
 
 (** Stack abstract domain: keeps track of stack operations, 
     such as push and pop operations and function calls.  *)

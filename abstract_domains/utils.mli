@@ -1,7 +1,7 @@
 (** Some shared functions *)
 
 open Big_int
-open NAD.DataStructures
+open NumAD.DS
 
 (** Computes the logarithm to base 2 of a Bigint number,
 the result is a floating-point number *)

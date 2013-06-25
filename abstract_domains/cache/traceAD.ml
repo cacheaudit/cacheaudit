@@ -1,5 +1,5 @@
 open Big_int
-open AD.DataStructures
+open AD.DS
 
 
 module IntSet = Set.Make( 

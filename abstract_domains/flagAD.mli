@@ -1,7 +1,7 @@
 open X86Types
 open AbstractInstr
-open AD.DataStructures
-open NAD.DataStructures
+open AD.DS
+open NumAD.DS
 
 (** Flag abstract domain: keeps track of the relationship of flags and
     variable values. Currently restricted to combinations of CF and
@@ -27,4 +27,4 @@ sig
 
 (** Creates a flag abstract domain from a numeric abstract domain *)
 module Make :
-  functor (V : NAD.S) -> S
+  functor (V : NumAD.S) -> S

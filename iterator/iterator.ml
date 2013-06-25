@@ -17,7 +17,7 @@ let trace = ref false
 
 open Cfg
 open AbstractInstr
-open AD.DataStructures
+open AD.DS
 open Logger
 
 (* type for weak topological ordering, which can either be

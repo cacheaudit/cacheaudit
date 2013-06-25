@@ -1,6 +1,6 @@
 (** Cache abstract domain: keeps track of CPU cache configurations *)
 
-open AD.DataStructures
+open AD.DS
 
 type cache_strategy = 
   | LRU  (** least-recently used *)

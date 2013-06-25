@@ -1,4 +1,4 @@
-open NAD.DataStructures
+open NumAD.DS
 
 module VarSet = Set.Make(Int64) (*Set.Make(struct type t = var let compare = Pervasives.compare end)*)
 

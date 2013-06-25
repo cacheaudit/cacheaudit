@@ -1,4 +1,4 @@
-open NAD.DataStructures
+open NumAD.DS
 open RelAgeFnSet
 
 module AFS = RelAgeFnSet

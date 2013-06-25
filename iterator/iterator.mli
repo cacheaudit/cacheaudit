@@ -1,3 +1,5 @@
+(** An iterator module for analysis of executables *)
+
 val unroll_count : int ref
 val unroll_outer_loop : bool ref
 

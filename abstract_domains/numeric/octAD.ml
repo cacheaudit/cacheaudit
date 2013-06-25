@@ -1,6 +1,6 @@
 IFDEF INCLUDEOCT THEN
 open Printf
-open NAD.DataStructures
+open NumAD.DS
 open Logger
 
 let bin_name = ref "output"
@@ -191,7 +191,7 @@ module Oct64 (Oct:OCT) : OCT64 = struct
       | Some x -> Int64.of_int (- x)
 end
 
-module OctagonAD (Oct: OCT64): ValAD.T = struct
+module OctagoNumAD (Oct: OCT64): ValAD.T = struct
   (* oct = The Octagon; map = Mapping from variables to their position in the octagon *)
   type t = {oct : Oct.oct; map : int VarMap.t; max : int64; v2s : var -> string}
 
@@ -228,9 +228,9 @@ module OctagonAD (Oct: OCT64): ValAD.T = struct
         failwith "No variable with that position"
 
   let non_ex_var (fn: string) (v: var) = 
-    failwith (Printf.sprintf "octagonAD.%s: non-existent variable %Lx.\n" fn v)
+    failwith (Printf.sprintf "octagoNumAD.%s: non-existent variable %Lx.\n" fn v)
 
-  (* Switch the positions of two variables in a octagonAD. *)
+  (* Switch the positions of two variables in a octagoNumAD. *)
   let switch_positions  (octAD: t) (v1: var) (v2: var) : t = 
     let pos1 = try VarMap.find v1 octAD.map with Not_found -> non_ex_var "switch_positions" v1 in
     let pos2 = try VarMap.find v2 octAD.map  with Not_found -> non_ex_var "switch_positions" v2 in

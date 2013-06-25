@@ -1,5 +1,5 @@
-open AD.DataStructures
-open NAD.DataStructures
+open AD.DS
+open NumAD.DS
 open Logger
 
 type cache_strategy = 

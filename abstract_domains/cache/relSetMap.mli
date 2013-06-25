@@ -1,6 +1,6 @@
 (** A module needed by [RelAgeAD] *)
 
-open NAD.DataStructures
+open NumAD.DS
 
 module AFS :
   sig

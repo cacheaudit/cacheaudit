@@ -10,4 +10,4 @@ module ValADOptForMemory : sig
   val max_set_size : int 
 end
 
-module Make : functor (O : VALADOPT) -> NAD.S
+module Make : functor (O : VALADOPT) -> NumAD.S
