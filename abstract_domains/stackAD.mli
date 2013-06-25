@@ -9,12 +9,8 @@ module type S =
 sig
   include AD.S
     
-    (** Creates a StackAD with the following parameters 
-	{b TODO: Explain parameters. Can we use a record type for better readability?} *)
-  val init :
-    X86Headers.t ->
-    (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> 
-    CacheAD.cache_param -> t
+    (** Creates a StackAD with the following parameters *)
+  val init : X86Headers.t -> MemAD.mem_param -> CacheAD.cache_param -> t
 
   (** For an op32 expression, returns a finite list of possible
       values, each value associated with an approximation of the

@@ -6,10 +6,7 @@ module type S =
   sig
     include AD.S
 
-    val init :
-      X86Headers.t ->
-        (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> 
-          CacheAD.cache_param -> t
+    val init : X86Headers.t -> MemAD.mem_param -> CacheAD.cache_param -> t
     val get_offset : t -> op32 -> (int, t) finite_set
     val test : t -> condition -> t add_bottom * t add_bottom
     val call : t -> op32 -> int -> (int, t) finite_set
@@ -33,11 +30,11 @@ module Make (M: MemAD.S) = struct
   type t = M.t
 
    (* Stackbase addresses hardwired, taken from interpreter *)
-  let init mem cache_params = M.init (fun addr -> 
+  let init mem mem_params cache_params = M.init (fun addr -> 
     if addr=Int64.zero then failwith "0 address raises seg fault \n"
     else try Some(X86Headers.lookup mem addr) with 
         (*We then assume it is not initialzed*)
-      X86Headers.InvalidVirtualAddress -> None) cache_params (*TDO check that it falls in the stack *)
+      X86Headers.InvalidVirtualAddress -> None) mem_params cache_params (*TDO check that it falls in the stack *)
   let join = M.join 
   let widen = M.widen 
   let subseteq = M.subseteq 
