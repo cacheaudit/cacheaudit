@@ -48,7 +48,7 @@ module Make (CA : CacheAD.S) = struct
     = Set.Make(Trie)
 
   type t = {
-    traces : Trie.t;
+    traces : Trie.t add_top;
     cache : CA.t;
     times: IntSet.t add_top;
   }
@@ -123,7 +123,7 @@ module Make (CA : CacheAD.S) = struct
     node
     
   let init cache_param =
-    { traces = root; cache = CA.init cache_param; times = Nt (IntSet.singleton 0)} 
+    { traces = Nt root; cache = CA.init cache_param; times = Nt (IntSet.singleton 0)} 
         
   let get_single_parent = function
     | Single p -> p
@@ -141,29 +141,35 @@ module Make (CA : CacheAD.S) = struct
   
 
   (* Add a new child to a node *)
-  let add node value = 
-    let new_node = create_node (Single node) (Some value) in
-    let new_node = find_or_add new_node in
-    new_node
+  let add trace value = 
+    match trace with
+    | Tp -> Tp
+    | Nt node ->
+      let new_node = create_node (Single node) (Some value) in
+      let new_node = find_or_add new_node in
+      Nt new_node
   
   let add_dummy parents =
     let new_node = create_node parents None in
     find_or_add new_node
   
-  let join_traces node1 node2 = 
+  let join_traces trace1 trace2 =
+    match trace1,trace2 with
+    | (Tp,_) | (_,Tp) -> Tp
+    | Nt node1, Nt node2 -> 
       (* Same trie *)
-      if node1.Trie.node_UID = node2.Trie.node_UID then node1
+      if node1.Trie.node_UID = node2.Trie.node_UID then Nt node1
       (* Same parents *)
       else if node1.Trie.parent_UIDs = node2.Trie.parent_UIDs then begin
         (* assertion: if parents and values were equal, should have same UID *)
         assert (node1.Trie.value <> node2.Trie.value);
         if node1.Trie.value <> (Some N) && node2.Trie.value <> (Some N) then begin
-          update_value node1 (Some HM) 
+          Nt (update_value node1 (Some HM)) 
         end else failwith "TraceAD: Joining 'N' not implemented" end
       else
         let parents = Couple (node1,node2) in 
         (* A dummy node whose parents are the nodes we are joining *)
-        add_dummy parents
+        Nt (add_dummy parents)
 
   let join_times times1 times2 = 
     match times1,times2 with
@@ -180,21 +186,30 @@ module Make (CA : CacheAD.S) = struct
         
   let widen env1 env2 = 
     let cache = CA.widen env1.cache env2.cache in
+    (* join_times goes to top at some point *)
     let times = join_times env1.times env2.times in
-    let traces = join_traces env1.traces env2.traces in
+    let traces = match env1.traces, env2.traces with
+      | Nt node1, Nt node2 -> 
+        if node1.Trie.node_UID = node2.Trie.node_UID then Nt node1
+        else Tp 
+    | _,_ -> Tp in
     {cache = cache; traces = traces; times = times}
   
-  let rec subseteq_traces node1 node2 =
-    if node1.Trie.node_UID = node2.Trie.node_UID then true
-    else if (node1.Trie.value = node2.Trie.value) || 
-      (node2.Trie.value = Some HM && node2.Trie.value <> None) then
-      match node1.Trie.parents,node2.Trie.parents with
-      | Root,Root -> true
-      | Single p1,Single p2 -> subseteq_traces p1 p2
-      | Couple (p11,p12),Couple (p21,p22) ->
-        subseteq_traces p11 p12 && subseteq_traces p21 p22
-      | _,_ -> false
-    else false
+  let rec subseteq_traces trace1 trace2 =
+    match trace1,trace2 with
+    | _,Tp -> true
+    | Tp,_ -> false
+    | Nt node1, Nt node2 ->
+      if node1.Trie.node_UID = node2.Trie.node_UID then true
+      else if (node1.Trie.value = node2.Trie.value) || 
+        (node2.Trie.value = Some HM && node2.Trie.value <> None) then
+        match node1.Trie.parents,node2.Trie.parents with
+        | Root,Root -> true
+        | Single p1,Single p2 -> subseteq_traces (Nt p1) (Nt p2)
+        | Couple (p11,p12),Couple (p21,p22) ->
+          subseteq_traces (Nt p11) (Nt p12) && subseteq_traces (Nt p21) (Nt p22)
+        | _,_ -> false
+      else false
   
   let subseteq env1 env2 = 
     let subeq_times = match env1.times,env2.times with
@@ -208,15 +223,19 @@ module Make (CA : CacheAD.S) = struct
   
   let print fmt env =
     CA.print fmt env.cache;
-    let node = env.traces in
-    Format.fprintf fmt "\n# traces: %s, %f bits\n" 
-      (string_of_big_int node.Trie.num_traces) 
-      (Utils.log2 node.Trie.num_traces);
+    Format.fprintf fmt "\n# traces: ";
+    match env.traces with
+    | Tp -> Format.fprintf fmt "too imprecise to tell"
+    | Nt node ->
+      Format.fprintf fmt "%s, %f bits\n" 
+        (string_of_big_int node.Trie.num_traces) 
+        (Utils.log2 node.Trie.num_traces);
+    Format.fprintf fmt "\n# times: ";
     match env.times with 
-    | Tp -> Format.fprintf fmt "\n# times: too imprecise to tell"
+    | Tp -> Format.fprintf fmt "too imprecise to tell"
     | Nt tms ->
       let numtimes = float_of_int (IntSet.cardinal tms) in
-      Format.fprintf fmt "\n# times: %f, %f bits\n" 
+      Format.fprintf fmt "%f, %f bits\n" 
         numtimes ((log10 numtimes)/.(log10 2.))
       
 
@@ -234,12 +253,12 @@ module Make (CA : CacheAD.S) = struct
         IntSet.add (x + time) tms) tms IntSet.empty)
   
   let add_time_status status times = 
-        match status with
-        | H -> add_time duration_H times
-        | M -> add_time duration_M times
-        | N -> add_time duration_N times
-        | HM -> 
-          join_times (add_time duration_M times) (add_time duration_H times)
+    match status with
+    | H -> add_time duration_H times
+    | M -> add_time duration_M times
+    | N -> add_time duration_N times
+    | HM -> 
+      join_times (add_time duration_M times) (add_time duration_H times)
   
   let touch env addr =
     let c_hit,c_miss = CA.touch_hm env.cache addr in
