@@ -18,7 +18,7 @@ let instruction_base_addr = ref (Int64.of_int 0)
 
 let print_cfg = ref false
 let print_ass = ref false
-let analyze = ref false
+let analyze = ref true
 let interval_cache = ref false
 let do_traces = ref true
 
@@ -74,9 +74,10 @@ let anon_fun = (fun x ->  if !bin_name = "" then bin_name := x
 let speclist = [
     ("--start", Arg.String (fun s -> start_addr := int_of_string s), "set the address (in bytes) where we start parsing");
     ("--end", Arg.String (fun s -> end_addr := int_of_string s), "set the oddress (in bytes) where we stop parsing");
-    ("--cfg", Arg.Unit (fun () -> print_cfg := true; print_ass := false), "prints a control flow graph");
+    ("--cfg", Arg.Unit (fun () -> print_cfg := true; print_ass := false;
+      analyze := false;), "prints the control flow graph only");
     ("--silent", Arg.Unit (fun () -> print_ass := false),            "do not print the assembly code");
-    ("--analyze", Arg.Set analyze, "run analysis");
+    (* ("--analyze", Arg.Set analyze, "run analysis"); *)
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--noOuterUnroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), "overwrites the --unroll option, so that outer loops are not unrolled");
     ("-f", Arg.String anon_fun,                      "give the name of the binary file");
@@ -102,9 +103,9 @@ let speclist = [
      "override the size of the instruction cache lines (in bytes) from the configuration file");
     ("--inst-assoc", (Arg.Int (fun n -> inst_assoc := n)),
      "override the instruction cache associativity (in bytes) from the configuration file");
-    ("--instrAttacker", Arg.Int (fun d -> analyze:=true; attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).");
-    ("--oneInstrInterrupt", Arg.Unit (fun () -> analyze := true; attacker:=OneInstrInterrupt),"attacker that can interrupt only once per round, based on the number of instructions");
-    ("--oneTimedInterrupt", Arg.Unit (fun () -> analyze:=true; attacker:=OneTimedInterrupt),"attacker that can interrupt only once per round, based on time");
+    ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).");
+    ("--oneInstrInterrupt", Arg.Unit (fun () -> attacker:=OneInstrInterrupt),"attacker that can interrupt only once per round, based on the number of instructions");
+    ("--oneTimedInterrupt", Arg.Unit (fun () -> attacker:=OneTimedInterrupt),"attacker that can interrupt only once per round, based on time");
     ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), "Shared cache for data and instructions");
     ("--noInstructionCache", Arg.Unit (fun () -> architecture := NoInstructionCache),"Data cache only");
     ("--noTraces", Arg.Unit (fun () -> do_traces := false),"Disable tracking of traces (and time)");

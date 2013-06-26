@@ -1,5 +1,7 @@
 PREPROCESSOR= camlp4o pa_macro.cmo
 
+EXECUTABLE= cacheaudit 
+
 #OCT_INCLUDE= $(shell oct-config --mlflags | sed 's/_iag//')
 
 ifneq ($(or $(opt),$(OPT)),)
@@ -68,7 +70,7 @@ ML_FILES := \
 	abstract_domains/architectureAD.ml\
 	config.ml
 
-all: cachecow
+all: $(EXECUTABLE)
 
 %.ml: %.mll
 	$(OCAMLLEX) $*.mll
@@ -88,11 +90,11 @@ all: cachecow
 %.cmx: %.ml
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCT_INCLUDE) -c $*.ml
 
-cachecow: $(CMO_FILES) cachecow.ml
+$(EXECUTABLE): $(CMO_FILES) $(addsuffix .ml, $(EXECUTABLE))
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) $(OCT_INCLUDE) -o $@ $+
 
 clean: 
-	rm -f depend cachecow */*/*.cmo */*/*.cmx */*/*.cmi */*/*~ */*/*.annot */*.cmo */*.cmx */*.cmi */*~ */*.annot *.cmo *.cmx *.cmi *~ *.annot */*.html */*.css */*.o output_non_rel.latte output_final_state output_rel.latte
+	rm -f depend $(EXECUTABLE) */*/*.cmo */*/*.cmx */*/*.cmi */*/*~ */*/*.annot */*.cmo */*.cmx */*.cmi */*~ */*.annot *.cmo *.cmx *.cmi *~ *.annot */*.html */*.css */*.o output_non_rel.latte output_final_state output_rel.latte
 
 depend: 
 	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli abstract_domains/*/*.ml abstract_domains/*/*.mli *.ml *.mli> depend
@@ -109,7 +111,7 @@ doc:
 	$(OCAMLINCLUDE) -t "CacheAudit: Static Analysis of Cache Side-Channels" \
 	*.mli iterator/*.mli $(INTERFACE_FILES) abstract_domains/*.mli abstract_domains/numeric/*.mli abstract_domains/cache/*.mli x86_frontend/*.mli
 
-test:	cachecow
+test:	$(EXECUTABLE)
 	cd tests; ./run.sh;
 
 help:

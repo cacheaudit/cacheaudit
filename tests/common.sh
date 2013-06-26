@@ -1,12 +1,14 @@
 #!/bin/bash
 
+EXECUTABLE=cacheaudit
+
 #Calls cachecow and exits when it isnt compiled or has failed with an exception
 function runCacheCow {
-	if [ ! -f ../../cachecow ]; then
+	if [ ! -f ../../$EXECUTABLE ]; then
 	    echo "Cachetool not compiled!";
 	    exit 1;
 	fi
-	../../cachecow --analyze --noInstructionCache $1
+	../../$EXECUTABLE --analyze --noInstructionCache $1
 	if [ ! $? -eq 0 ]; then
 		echo "Cachetool exited with error."
 		exit 1;
