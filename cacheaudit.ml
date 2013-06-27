@@ -147,7 +147,7 @@ let _ =
       if !start_addr =(-1) then start_addr:=starting_offset mem;
       if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := 139844135157760L;
       if !data_cache_s = 0 then data_cache_s := 16384;
-      if !data_line_s = 0 then data_line_s := 32;
+      if !data_line_s = 0 then data_line_s := 64;
       if !data_assoc = 0 then data_assoc := 4;
       if !inst_cache_s = 0 then inst_cache_s := !data_cache_s;
       if !inst_line_s = 0 then inst_line_s := !data_line_s;
@@ -162,7 +162,6 @@ let _ =
       (read_from_file !bin_name), None 
     ) in
   if !print_ass then print_assembly (read_assembly bits);
-  (*  if !print_ass then debug bits;*)
   let data_cache_params = {CacheAD.cs = !data_cache_s; CacheAD.ls = !data_line_s;
     CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy} in
   let inst_cache_strategy = match !inst_cache_strategy_opt with

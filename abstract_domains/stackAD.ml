@@ -7,7 +7,7 @@ module type S =
     include AD.S
 
     val init : X86Headers.t -> MemAD.mem_param -> CacheAD.cache_param -> t
-    val get_offset : t -> op32 -> (int, t) finite_set
+    val get_vals : t -> op32 -> (int, t) finite_set
     val test : t -> condition -> t add_bottom * t add_bottom
     val call : t -> op32 -> int -> (int, t) finite_set
     val return : t -> (int, t) finite_set
@@ -38,7 +38,7 @@ module Make (M: MemAD.S) = struct
   let join = M.join 
   let widen = M.widen 
   let subseteq = M.subseteq 
-  let get_offset  = M.get_offset
+  let get_vals  = M.get_vals
   let test = M.test
  
       
@@ -75,14 +75,14 @@ module Make (M: MemAD.S) = struct
     (* push target address to stack *)
     let mem1 = stackop mem ADpush (Imm (Int64.of_int ret))
     (* return list of possible call targets and their environments *)
-    in get_offset mem1 tgt 
+    in get_vals mem1 tgt 
  
   let return mem = 
    (* Return top of stack and increment ESP by 4. We do not reuse
       the stackop function because POP stores its value in an
       op32 *)
     let mem1 = memop mem (ADarith Add) (Reg ESP) (Imm 4L) in
-    get_offset mem1 (Address {  addrDisp = -4L;addrBase = Some ESP; addrIndex = None;segBase = None;})
+    get_vals mem1 (Address {  addrDisp = -4L;addrBase = Some ESP; addrIndex = None;segBase = None;})
       
      
      

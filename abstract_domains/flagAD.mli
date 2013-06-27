@@ -19,7 +19,7 @@ sig
   val set_var : t -> var -> int64 -> int64 -> t
   val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
   val is_var : t -> var -> bool
-  val meet : t -> t -> t (*TODO: should be add_bottom *)
+  val meet : t -> t -> t 
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val flagop : t -> cons_var flagop -> t
   val shift : t -> shift_op -> var -> cons_var -> mask -> t

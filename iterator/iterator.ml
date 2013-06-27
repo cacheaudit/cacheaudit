@@ -257,7 +257,7 @@ module Make(A:ArchitectureAD.S) = struct
       | Some(Call addr) ->
           out_invs b.out_edges (A.call last_inv addr b.next_block_addr)
       | Some(Jmp addr) -> 
-          out_invs b.out_edges (A.get_offset (A.elapse last_inv time_jmp) addr)
+          out_invs b.out_edges (A.get_vals (A.elapse last_inv time_jmp) addr)
       | Some(Jcc((truth,cond),ad)) -> ( try 
           let inv_true, inv_false = A.test last_inv cond in
           let next_b = find_out_edge b.out_edges b.next_block_addr
