@@ -55,16 +55,14 @@ objdump. There you will find a line "`080483b4 <main>:`", and the last 3 digits
 are the needed address.
 
 ### Value abstract domains
-The default option is that the value abstract domain (e.g. for values in the 
-memory) is a finite set of values, and if those sets grow too large, the values
-are represented as intervals . Alternatively, you can use a pure interval 
-abstract domain using `--interval-cache`. 
+The possible values in the cache (the ages of the blocks) are by default stores 
+as finite sets. A less precise but but more efficient option is to use an
+interval abstract domain, with the option `--interval-cache`.  
 
-The values in the cache are by default represented as finite sets.
-Alternatively, you can use relational sets with the parameter `--rset`. Relational
-sets make the analysis slower, but improve the precision of the bounds. For
-example, noticable improvements can be seen in the Knapsack-algorithm found in 
-`examples/Problems`. 
+Alternatively, you can use the Relational set abstract domain, invoked with
+the parameter `--rset`. Relational sets make the analysis slower, but improve 
+the precision of the bounds. For example, noticable improvements can be seen in 
+the Knapsack-algorithm found in `examples/Problems`. 
 
 TODO: REMOVE THE FOLLOWING (+ OctAD?)!!!!!
 We have tested the octagon abstract domain as well. However, it is currently 
