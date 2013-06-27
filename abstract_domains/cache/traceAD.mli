@@ -1,18 +1,13 @@
-(** Abstract domain maintaining a Trie-data structure
-    where nodes store a Hit/Miss/Top-status of a cache access
+(** Trace abstract domain: keeps track of the possible traces, i.e., successions of cache
+    {i hits} and {i misses}
  *)
 
-module type S = sig
-  include AD.S
-  val init: CacheAD.cache_param -> t 
-  
-  val touch : t -> int64 -> t
-  (* Used to keep track of time, if neccessary *)
-  val elapse : t -> int -> t
-end
+(** Internally, an the possible traces are stored in a prefix graph data 
+    structure, where nodes store the effect of assembly instructions to the cache, 
+    which can be a {i cache hit}, a {i cache miss}, or {i no cache access}. *)
 
-
+(** A functor which results in a cache abstract domain, enriched with the 
+    capabilities of keeping track of traces, i.e., it incorporates a 
+    trace abstract domain *)
 module Make :
-  functor (C : CacheAD.S) -> S
-module MakeNot :
-  functor (C : CacheAD.S) -> S
+  functor (C : CacheAD.S) -> CacheAD.S

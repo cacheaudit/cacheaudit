@@ -1,7 +1,8 @@
 open X86Types
 open AbstractInstr
-open AD.DataStructures
-open NAD.DataStructures
+open AD.DS
+open NumAD.DS
+open Logger
 
 module type S = 
   sig
@@ -23,7 +24,7 @@ module type S =
   end
 
 
-module Make (V: NAD.S) = struct
+module Make (V: NumAD.S) = struct
   
   (* Handles invariants corresponding to combinations of flags.
      For now only supports CF, ZF *)
@@ -39,19 +40,27 @@ module Make (V: NAD.S) = struct
 
   let print_flag cf zf fmt = function 
     Bot -> ()
-  | Nb env -> Format.fprintf fmt "@[<2>When CF is %B and ZF is %B, @,%a@]" cf zf
-                V.print env
+  | Nb env -> Format.fprintf fmt "@[<2>When CF is %B and ZF is %B, @,%a@]"
+              cf zf V.print env
 
   let print_delta_flag cf zf st1 fmt st2 = match st1,st2 with
-    Bot, Bot -> ()
-  | Bot, Nb env -> Format.fprintf fmt "@[New case: CF %B, ZF %B: @,%a@]"
-                    cf zf V.print env
-  | Nb env, Bot -> Format.fprintf fmt "@[The case CF %B, ZF %B is no longer possible@]"
-                    cf zf
-  | Nb env1, Nb env2 ->
-      if env1 != env2 then
-      Format.fprintf fmt "@[Case CF %B, ZF %B: @,%a@]" cf zf
-        (V.print_delta env1) env2
+    | Bot, Bot -> ()
+    | Bot, Nb env -> begin match get_log_level FlagLL with
+      | Debug -> Format.fprintf fmt "@[New case: CF %B, ZF %B: @,%a@]"
+             cf zf V.print env 
+      | _ -> ()
+      end
+    | Nb env, Bot -> begin match get_log_level FlagLL with
+      | Debug -> Format.fprintf fmt "@[The case CF %B, ZF %B is no longer possible@]"
+             cf zf 
+      | _ -> ()
+      end
+    | Nb env1, Nb env2 -> begin match get_log_level FlagLL with
+      | Debug -> if env1 != env2 then
+             Format.fprintf fmt "@[Case CF %B, ZF %B: @,%a@]" cf zf
+             (V.print_delta env1) env2
+      | _ -> Format.fprintf fmt "@[%a@]" (V.print_delta env1) env2
+      end
 
   let print fmt st =
     if is_bottom st then Format.fprintf fmt "Flag domain is empty!@."

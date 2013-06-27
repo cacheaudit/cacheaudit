@@ -4,8 +4,18 @@ let time_effective_load = 0;
 
 open X86Types
 open AbstractInstr
-open AD.DataStructures
-open NAD.DataStructures
+open AD.DS
+open NumAD.DS
+open Logger
+
+(** List of initial values for registers. Register * lower bound * upper bound *)
+type reg_init_values = (X86Types.reg32 * int64 * int64) list
+
+(** List of initial values for memory addresses. Adress * lower bound * upper bound *)
+type mem_init_values = (int64 * int64 * int64) list
+
+(** Parameters for the Memory Abstract Domain initialization *)
+type mem_param = mem_init_values * reg_init_values
 
 module type S =
   sig
@@ -14,15 +24,14 @@ module type S =
   (* init is used to return an initial abstract state *)
   (* the first arguments returns the initial value at a given address if it *)
   (* is defined, None otherwize (meaning it's random *)
-  val init: (int64 -> int64 option) -> (((int64 * int64 * int64) list)*((X86Types.reg32 * int64 * int64) list)) -> 
-    CacheAD.cache_param -> t
+  val init: (int64 -> int64 option) -> mem_param -> CacheAD.cache_param -> t
 
   (* from a genop32 expression, returns a finite list of possible values,
      each value associated with an approximation of the corresponding memory 
      states leading to that particular value. In case no finite list can be
      determied, returns Top.
   *)
-  val get_offset: t -> op32 -> (int,t) finite_set
+  val get_vals: t -> op32 -> (int,t) finite_set
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val memop : t -> memop -> op32 -> op32 -> t
   val memopb : t -> memop -> op8 -> op8 -> t
@@ -30,9 +39,8 @@ module type S =
   val movzx : t -> op32 -> op8 -> t
   val flagop : t -> op32 flagop -> t
   val shift : t -> shift_op -> op32 -> op8 -> t
-  (* Used by trace recording abstract domains. elapse env d signals that time should be increased by d *)
+  val touch : t -> int64 -> t
   val elapse : t -> int -> t
-  val access_readonly : t -> int64 -> t
 end
   
 
@@ -47,14 +55,14 @@ let log_address addr =
 module MemSet = Set.Make(Int64)
 
 (* *)
-module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
+module Make (F : FlagAD.S) (C:CacheAD.S) = struct
 
   type t = {
           vals : F.t; (** Element of the Value Abstract Domain *)
           memory : MemSet.t; (** Set that contains the memory addresses used *)
           initial_values : int64 -> (int64 option); (** Function to determine
           the initial value of an address *)
-          traces : TR.t;
+          cache : C.t;
   }
   (** Main type for this module. *)
 
@@ -64,23 +72,28 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
 
   let print fmt mem = 
     if MemSet.is_empty mem.memory then Format.fprintf fmt "%a %a"
-        F.print mem.vals TR.print mem.traces
+        F.print mem.vals C.print mem.cache
     else
       log_vars mem;
-      Format.fprintf fmt "List of variable memory locations: @[%a@\n%a@, %a@]"
-      pp_vars mem.memory F.print mem.vals TR.print mem.traces
+      if get_log_level MemLL <> Quiet then
+        Format.fprintf fmt "@;List of variable memory locations:@;  @[%a@;%a@, %a@]"
+        pp_vars mem.memory F.print mem.vals C.print mem.cache
+      else 
+        C.print fmt mem.cache
 
   let print_delta mem1 fmt mem2 = 
     Format.fprintf fmt "@[";
-    let added_vars = MemSet.diff mem2.memory mem1.memory
-    and removed_vars = MemSet.diff mem1.memory mem2.memory in
-    if not(MemSet.is_empty added_vars) then
-      Format.fprintf fmt "Added variables %a@," pp_vars added_vars;
-    if not(MemSet.is_empty removed_vars) then
-      Format.fprintf fmt "Removed variables %a@," pp_vars removed_vars;
-    Format.fprintf fmt "%a @; %a@]"
+    if get_log_level MemLL = Debug then begin
+      let added_vars = MemSet.diff mem2.memory mem1.memory
+      and removed_vars = MemSet.diff mem1.memory mem2.memory in
+      if not(MemSet.is_empty added_vars) then
+        Format.fprintf fmt "Added variables %a@," pp_vars added_vars;
+      if not(MemSet.is_empty added_vars) then
+        Format.fprintf fmt "Removed variables %a@," pp_vars removed_vars;
+    end;
+    Format.fprintf fmt "%a @, %a@]"
       (F.print_delta mem1.vals) mem2.vals
-      (TR.print_delta mem1.traces) mem2.traces
+      (C.print_delta mem1.cache) mem2.cache
       
   
       
@@ -118,7 +131,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
     vals = initVals (initRegs (F.init var_to_string) regList) memList;
     memory = initMemory MemSet.empty memList;
     initial_values = iv;
-    traces = TR.init cache_params
+    cache = C.init cache_params
   }
 
 
@@ -133,14 +146,14 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
     { x with vals = f (create_vars y_minus_x x.vals) 
                       (create_vars x_minus_y y.vals);
              memory = MemSet.union x.memory y.memory;
-             traces = g x.traces y.traces
+             cache = g x.cache y.cache
     }
 
   (** Join using the joins of the Flag and Cache abstract domains *)
-  let join = merge_with F.join TR.join
+  let join = merge_with F.join C.join
   
   (** Same as join *)
-  let widen = merge_with F.widen TR.widen
+  let widen = merge_with F.widen C.widen
 
  (** Union of a sequence of abstract elements *)
  (* May raise Bottom *)
@@ -153,7 +166,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
 
   let test env cond =
     let lift = function Bot -> Bot 
-    | Nb v -> Nb {env with vals = v; traces = TR.elapse env.traces time_test} 
+    | Nb v -> Nb {env with vals = v; cache = C.elapse env.cache time_test} 
     in
     let (t,f) = F.test env.vals cond in
     lift t, lift f
@@ -204,8 +217,8 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
         let addrList = address_list env addr in
         assert(addrList<>[]);
         let read (n,e) = 
-          let new_traces = 
-            TR.touch env.traces n in (* touch the cache on read and on write *)
+          let new_cache = 
+            C.touch env.cache n in (* touch the cache on read and on write *)
           (*let new_cache = match rw with Read -> T.touch env.cache n 
                                       | Write -> env.cache in*)
             let (new_n,new_env) = match rw with
@@ -226,7 +239,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
                       {env with vals = F.update_var env.vals n NoMask (Cons value) NoMask Move}
                     | None ->  env
               else (VarOp n, env) in
-          new_n, {new_env with traces = new_traces} in
+          new_n, {new_env with cache = new_cache} in
         (* Get list of possible addresses and return either a var if it existed in the MemSet
         * or a cons (with the value) otherwise *)
           List.map read addrList) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
@@ -244,7 +257,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
     | Address addr -> try(
         let addrList = address_list env addr in
         let read (un,e) =
-          let new_traces = TR.touch env.traces un in
+          let new_cache = C.touch env.cache un in
           (*let new_cache = match rw with Read -> TR.touch env.cache un 
                                       | Write -> env.cache in*)
           let n = Int64.logand un (Int64.lognot 3L) in
@@ -266,14 +279,14 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
                     Some value -> {env with vals = F.update_var env.vals n NoMask (Cons value) NoMask Move}
                   | None -> env
               else (VarOp n, env) in
-          new_n, address_mask, {new_env with traces = new_traces}
+          new_n, address_mask, {new_env with cache = new_cache}
         in
         List.map read addrList) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
 
   (** @return the enviroment that corresponds to a memory access *)
   let decide_env d s ed es = 
     match d,s with
-    | Address _, Address _ -> failwith "Memory-to-memory operation not supported" (* works but records only one cache access *)
+    | Address _, Address _ -> failwith "Memory-to-memory operation not supported" (* would currently record only one cache access *)
     | Address _, _ -> ed
     | _, Address _ -> es
     | _, _ -> ed
@@ -313,7 +326,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
         let d_to_s_vals = list_join (List.concat (List.map doOpS dlist)) in
         join s_to_d_vals d_to_s_vals
 
-    in {res with traces = TR.elapse res.traces time_instr}
+    in {res with cache = C.elapse res.cache time_instr}
   ) with Bottom -> failwith "MemAD.memop: Bottom in memAD after an operation on non bottom env"
 
   (** Same as [memop] except that we deal with 8-bit instructions *)
@@ -334,7 +347,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
         let doOp (s,mks,es) = List.map (fun (d,mkd,ed) -> let joinds = decide_env dst src ed es in { joinds with vals = F.update_var joinds.vals (consvar_to_var d) (Mask mkd) s (Mask mks) Move }) dlist in
         list_join (List.concat (List.map doOp slist)) 
     | ADexchg -> failwith "MemAD.memopb: XCGHB not implemented"
-    in {res with traces = TR.elapse res.traces time_instr}
+    in {res with cache = C.elapse res.cache time_instr}
   ) with Bottom -> failwith "MemAD.memopb: Bottom in memAD after an operation on non bottom env"
 
   (** Performs the move with zero extend operation. @return a new environment or
@@ -344,7 +357,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
     let dlist = var_of_op m dst32 Write in
     let doOp (s, msk, es) = List.map (fun (d,ed) -> let joinds = decide_env dst32 src8 ed es in { joinds with vals = F.update_var joinds.vals (consvar_to_var d) NoMask s (Mask msk) Move }) dlist in
     let res = list_join (List.concat (List.map doOp slist)) in
-    {res with traces = TR.elapse res.traces time_instr}
+    {res with cache = C.elapse res.cache time_instr}
   ) with Bottom -> failwith "MemAD.movzx: bottom after an operation on non bottom environment"
 
   (* flagop: missing ADfset in FlagAD *)
@@ -363,7 +376,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
         list_join (List.concat (List.map doOp slist))
     | ADfset (flg, truth) -> failwith "MemAD.flagop: ADfset not implemented"
   ) with Bottom -> failwith "MemAD.flagop: bottom after an operation on non bottom environment"
-    in {res with traces = TR.elapse res.traces time_instr}
+    in {res with cache = C.elapse res.cache time_instr}
   
   (** Performs the Load Effective Address instruction by loading each possible
     address in the variable correspoding to the register.
@@ -375,7 +388,7 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
     list_join envList
   ) with Bottom -> failwith "MemAD.load_address: bottom after an operation on non bottom environment"
   ) with Is_Top -> let regVar = reg_to_var reg in {env with vals = F.set_var env.vals regVar 0L 0xffffffffL} 
-  in {res with traces = TR.elapse res.traces time_effective_load}
+  in {res with cache = C.elapse res.cache time_effective_load}
 
 
   (* shift : t -> X86Types.shift_op -> op32 -> op8 -> t *)
@@ -386,14 +399,13 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
     let doOp (o, mk, eo) = List.map (fun (d,ed) -> let joinds = decide_env dst offset ed eo in { joinds with vals = (F.shift joinds.vals sop (consvar_to_var d) o (Mask mk))}) dlist in
     list_join (List.concat (List.map doOp offlist))
   ) with Bottom -> failwith "MemAD.shift: bottom after an operation on non bottom environment"
-    in {res with traces = TR.elapse res.traces time_instr}
+    in {res with cache = C.elapse res.cache time_instr}
 
-  (* get_offset: t -> op32 -> (int,t) finite_set *)
   (** Determines a finite list of possible values given a [genop32] with each
     value associated with the environment that led to it.
     @return the list mentioned above or Top if there is no finite list. *)
   (* in the resulting environments, time will have passed by an amount depending on the memory accesses *)
-  let get_offset env gop = match gop with
+  let get_vals env gop = match gop with
     | Imm x -> Finite [(Int64.to_int x, env)]
     | Reg r -> 
         begin
@@ -431,10 +443,10 @@ module Make (F : FlagAD.S) (TR:TraceAD.S) = struct
           Finite (List.fold_left appendLists [] fsList)
         ) with Is_Top -> Top env)
 
-  (* we pass teh elapsed time to the traces domain, the only one keeping track of it so far *)
-  let elapse env d = {env with traces = TR.elapse env.traces d}
+  (* we pass the elapsed time to the cache domain, the only one keeping track of it so far *)
+  let elapse env d = {env with cache = C.elapse env.cache d}
 
-  let access_readonly env addr = {env with traces = TR.touch env.traces addr}
+  let touch env addr = {env with cache = C.touch env.cache addr}
         
 end 
 

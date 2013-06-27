@@ -1,3 +1,5 @@
+(** Module for parsing the configuration file *)
+
 val left_pos : string -> int -> int option
 val right_pos : string -> int -> int option
 val trim : string -> string
@@ -13,4 +15,4 @@ type cache_params = {
 }
 val config :
   string ->
-  int option * (((int64 * int64 * int64) list)*((X86Types.reg32 * int64 * int64) list)) * cache_params
+  int option * MemAD.mem_param * cache_params

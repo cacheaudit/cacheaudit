@@ -1,16 +1,13 @@
 open X86Types
 open AbstractInstr
-open AD.DataStructures
+open AD.DS
 
 module type S = 
   sig
     include AD.S
 
-    val init :
-      X86Headers.t ->
-        (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> 
-          CacheAD.cache_param -> t
-    val get_offset : t -> op32 -> (int, t) finite_set
+    val init : X86Headers.t -> MemAD.mem_param -> CacheAD.cache_param -> t
+    val get_vals : t -> op32 -> (int, t) finite_set
     val test : t -> condition -> t add_bottom * t add_bottom
     val call : t -> op32 -> int -> (int, t) finite_set
     val return : t -> (int, t) finite_set
@@ -21,8 +18,8 @@ module type S =
     val flagop : t -> op32 flagop -> t
     val stackop : t -> stackop -> op32 -> t
     val shift : t -> shift_op -> op32 -> op8 -> t
+    val touch : t -> int64 -> t
     val elapse : t -> int -> t
-    val access_readonly : t -> int64 -> t
   end
 
 
@@ -33,15 +30,15 @@ module Make (M: MemAD.S) = struct
   type t = M.t
 
    (* Stackbase addresses hardwired, taken from interpreter *)
-  let init mem cache_params = M.init (fun addr -> 
+  let init mem mem_params cache_params = M.init (fun addr -> 
     if addr=Int64.zero then failwith "0 address raises seg fault \n"
     else try Some(X86Headers.lookup mem addr) with 
         (*We then assume it is not initialzed*)
-      X86Headers.InvalidVirtualAddress -> None) cache_params (*TDO check that it falls in the stack *)
+      X86Headers.InvalidVirtualAddress -> None) mem_params cache_params (*TDO check that it falls in the stack *)
   let join = M.join 
   let widen = M.widen 
   let subseteq = M.subseteq 
-  let get_offset  = M.get_offset
+  let get_vals  = M.get_vals
   let test = M.test
  
       
@@ -78,14 +75,14 @@ module Make (M: MemAD.S) = struct
     (* push target address to stack *)
     let mem1 = stackop mem ADpush (Imm (Int64.of_int ret))
     (* return list of possible call targets and their environments *)
-    in get_offset mem1 tgt 
+    in get_vals mem1 tgt 
  
   let return mem = 
    (* Return top of stack and increment ESP by 4. We do not reuse
       the stackop function because POP stores its value in an
       op32 *)
     let mem1 = memop mem (ADarith Add) (Reg ESP) (Imm 4L) in
-    get_offset mem1 (Address {  addrDisp = -4L;addrBase = Some ESP; addrIndex = None;segBase = None;})
+    get_vals mem1 (Address {  addrDisp = -4L;addrBase = Some ESP; addrIndex = None;segBase = None;})
       
      
      
@@ -95,7 +92,7 @@ module Make (M: MemAD.S) = struct
   (* keep track of time *)
   let elapse = M.elapse
 
-  let access_readonly = M.access_readonly 
+  let touch = M.touch 
 end 
 
 

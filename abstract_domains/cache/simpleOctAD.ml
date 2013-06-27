@@ -1,7 +1,6 @@
 IFDEF INCLUDEOCT THEN
 open Printf
 
-let verbose = false
 let bin_name = ref "output"
 
 module OrdVar = struct
@@ -124,7 +123,7 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
 
   (* Assigns a variable v the value c. *)
   let set_var (octAD: t) (v: var) (c: int) : t = 
-    if(verbose) then printf "Setting %s variable %Lx to %d.\n" (print_known octAD v) v c;
+    if get_log_level SimpleOctLL = Debug then printf "Setting %s variable %Lx to %d.\n" (print_known octAD v) v c;
     let c = if (c > octAD.max) then octAD.max else c in
     let new_octAD = if not (VarMap.mem v octAD.map) then
       (* Add 1 dimension and add v to the map *)
@@ -148,13 +147,13 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
         failwith "No variable with that position"
 
   let non_ex_var (fn: string) (v: var) = 
-    failwith (Printf.sprintf "octagonAD.%s: non-existent variable %Lx.\n" fn v)
+    failwith (Printf.sprintf "octagoNumAD.%s: non-existent variable %Lx.\n" fn v)
 
-  (* Switch the positions of two variables in a octagonAD. *)
+  (* Switch the positions of two variables in a octagoNumAD. *)
   let switch_positions  (octAD: t) (v1: var) (v2: var) : t = 
     let pos1 = try VarMap.find v1 octAD.map with Not_found -> non_ex_var "switch_positions" v1 in
     let pos2 = try VarMap.find v2 octAD.map  with Not_found -> non_ex_var "switch_positions" v2 in
-    if(verbose) then printf "Shifting the common variable %Lx from position %d to %d.\n" v1 pos1 pos2;
+    if get_log_level SimpleOctLL = Debug then printf "Shifting the common variable %Lx from position %d to %d.\n" v1 pos1 pos2;
     (* Switch positions in Octagon *)
     let perm = Array.init (VarMap.cardinal octAD.map) (fun i -> i) in
     let switch a i j = let tmp = Array.get a i in Array.set a i (Array.get a j);Array.set a j tmp in
@@ -195,7 +194,7 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
    let add_missing_variables (octAD1: t) (octAD2: t) : t = 
      let missing_in_octAD1 = VarMap.filter (fun v pos -> not (VarMap.mem v octAD1.map)) octAD2.map in 
      let new_octAD = ref octAD1 in 
-     VarMap.iter (fun v pos -> if(verbose) then printf "Adding missing variable %Lx to %d.\n" v (!new_octAD.max + 1) ;
+     VarMap.iter (fun v pos -> if get_log_level SimpleOctLL = Debug then printf "Adding missing variable %Lx to %d.\n" v (!new_octAD.max + 1) ;
                                new_octAD := set_var !new_octAD v (!new_octAD.max) 
                  ) missing_in_octAD1;
      !new_octAD
@@ -269,9 +268,11 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
     Oct.is_included_in fixed_octAD1.oct fixed_octAD2.oct
 
   (* Prints the difference between two octagons. *)
-  let print_delta (octAD1: t) (f: Format.formatter) (octAD2: t) : unit = 
-    let (fixed_octAD1, fixed_octAD2) = merge_domains octAD1 octAD2 in
-    Oct.foctdiffprinter (fun i -> fixed_octAD1.v2s (var_at i fixed_octAD1.map)) f fixed_octAD1.oct fixed_octAD2.oct
+  let print_delta (octAD1: t) (f: Format.formatter) (octAD2: t) : unit =
+    match get_log_level SimpleOctLL with
+        | Quiet -> ()
+        | _ -> let (fixed_octAD1, fixed_octAD2) = merge_domains octAD1 octAD2 in
+               Oct.foctdiffprinter (fun i -> fixed_octAD1.v2s (var_at i fixed_octAD1.map)) f fixed_octAD1.oct fixed_octAD2.oct
   
   (* Test whether a is a variable in env *)
   exception NotImplemented
@@ -343,7 +344,7 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
     List.iter (fun a -> Buffer.add_string buffer (string_of_array a)) constraints;
     write_file filename (Buffer.contents buffer) 
 
-  (* Saves an octagonAD in a format that is compatible with LattE integrale. *)
+  (* Saves an octagoNumAD in a format that is compatible with LattE integrale. *)
   let print_to_LattE (octAD: t) (filename: string) : unit = 
     print_to_file octAD (filename ^ "_final_state");
     let file_content = read_file (filename ^ "_final_state") in
@@ -372,7 +373,7 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
             | Sum (x,y) -> Oct.MXMY (x,y,lb), Oct.PXPY (x,y,ub)
             | Dif (x,y) -> Oct.MXPY (x,y,lb), Oct.PXMY (x,y,ub)
           )
-       | _ -> failwith "unexpected Case in octagonAD.toLatte"
+       | _ -> failwith "unexpected Case in octagoNumAD.toLatte"
       in
       let a1 = constr_array constr1 size in
       let a2 = constr_array constr2 size in

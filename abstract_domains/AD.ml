@@ -22,7 +22,7 @@ module type S = sig
 end
 
 (** Module containing common data structures useful for abstract domains *)
-module DataStructures = struct
+module DS = struct
   
   (** Type of finite sets of couples, Top when the set is too big *)
   type ('a,'b) finite_set = Finite of ('a*'b) list | Top of 'b

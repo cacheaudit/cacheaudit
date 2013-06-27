@@ -1,5 +1,7 @@
 PREPROCESSOR= camlp4o pa_macro.cmo
 
+EXECUTABLE= cacheaudit 
+
 #OCT_INCLUDE= $(shell oct-config --mlflags | sed 's/_iag//')
 
 ifneq ($(or $(opt),$(OPT)),)
@@ -28,7 +30,7 @@ OCAMLDEP= ocamldep -pp "${PREPROCESSOR}" $(DEP_FLAGS)
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
 
-OCAMLINCLUDE:= -I x86_frontend -I iterator -I abstract_domains -I abstract_domains/cache -I abstract_domains/numeric
+OCAMLINCLUDE:= -I . -I x86_frontend -I iterator -I abstract_domains -I abstract_domains/cache -I abstract_domains/numeric
 OCAMLLIB_STD= nums.cma str.cma
 
 ifneq ($(or $(debug),$(DEBUG)),)
@@ -36,6 +38,7 @@ ifneq ($(or $(debug),$(DEBUG)),)
 endif
 
 ML_FILES := \
+	logger.ml\
 	x86_frontend/asmUtil.ml \
 	x86_frontend/x86Util.ml \
 	x86_frontend/x86Types.ml \
@@ -49,25 +52,25 @@ ML_FILES := \
   iterator/abstractInstr.ml\
   abstract_domains/AD.ml\
   abstract_domains/stackAD.ml\
-	abstract_domains/numeric/NAD.ml\
+	abstract_domains/numeric/numAD.ml\
 	abstract_domains/numeric/valAD.ml\
+	abstract_domains/utils.ml\
 	abstract_domains/cache/ageAD.ml\
 	abstract_domains/flagAD.ml\
 	abstract_domains/numeric/octAD.ml\
 	abstract_domains/cache/simpleOctAD.ml\
-	abstract_domains/cache/ageFunctionSet.ml\
+	abstract_domains/cache/relAgeFnSet.ml\
 	abstract_domains/cache/relSetMap.ml\
-	abstract_domains/cache/simpleRelSetAD.ml\
+	abstract_domains/cache/relAgeAD.ml\
 	abstract_domains/cache/traceAD.ml\
 	abstract_domains/cache/cacheAD.ml\
-	abstract_domains/cache/relCacheAD.ml\
 	abstract_domains/cache/asynchronousAttacker.ml\
 	abstract_domains/memAD.ml\
 	iterator/iterator.ml\
 	abstract_domains/architectureAD.ml\
 	config.ml
 
-all: cachecow
+all: $(EXECUTABLE)
 
 %.ml: %.mll
 	$(OCAMLLEX) $*.mll
@@ -87,26 +90,28 @@ all: cachecow
 %.cmx: %.ml
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCT_INCLUDE) -c $*.ml
 
-cachecow: $(CMO_FILES) cachecow.ml
+$(EXECUTABLE): $(CMO_FILES) $(addsuffix .ml, $(EXECUTABLE))
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) $(OCT_INCLUDE) -o $@ $+
 
 clean: 
-	rm -f depend cachecow */*.cmo */*.cmx */*.cmi */*~ *.cmo *.cmx *.cmi *~ *.annot */*.annot */*.html */*.css */*.o output_non_rel.latte output_final_state output_rel.latte
+	rm -f depend $(EXECUTABLE) */*/*.cmo */*/*.cmx */*/*.cmi */*/*~ */*/*.annot */*.cmo */*.cmx */*.cmi */*~ */*.annot *.cmo *.cmx *.cmi *~ *.annot */*.html */*.css */*.o output_non_rel.latte output_final_state output_rel.latte
 
 depend: 
-	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli abstract_domains/*/*.ml abstract_domains/*/*.mli > depend
+	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli abstract_domains/*/*.ml abstract_domains/*/*.mli *.ml *.mli> depend
 
 ifneq ($(MAKECMDGOALS),clean)
    -include depend
 endif
 
 #ml files without mli that should be in the doc
-INTERFACE_FILES = abstract_domains/AD.ml iterator/abstractInstr.ml abstract_domains/numeric/NAD.ml
+INTERFACE_FILES = abstract_domains/AD.ml iterator/abstractInstr.ml abstract_domains/numeric/numAD.ml
 
 doc:
-	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ $(OCAMLINCLUDE) */*.mli *.mli */*/*.mli $(INTERFACE_FILES)
+	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ \
+	$(OCAMLINCLUDE) -t "CacheAudit: Static Analysis of Cache Side-Channels" \
+	*.mli iterator/*.mli $(INTERFACE_FILES) abstract_domains/*.mli abstract_domains/numeric/*.mli abstract_domains/cache/*.mli x86_frontend/*.mli
 
-test:	cachecow
+test:	$(EXECUTABLE)
 	cd tests; ./run.sh;
 
 help:
