@@ -1,0 +1,97 @@
+
+CacheAudit 0.1 ReadMe
+======================================================================
+
+CacheAudit is a static analyzer of cache side-channels. More information about 
+the project is available at the 
+[project website](http://software.imdea.org/cacheaudit).
+
+Below we will guide you through the process of building and using CacheAudit.
+
+
+Requirements
+----------------------------------------------------------------------
+We have tested CacheAudit on Linux and Mac. The target executables were 
+C-programs compiled with `gcc` in Linux.
+
+To build CacheAudit, you will need an OCaml environment (we have tested it with 
+OCaml 4.00.0). 
+
+
+Compilation
+----------------------------------------------------------------------
+From the command-line do `make`
+
+How to perform the analysis
+----------------------------------------------------------------------
+Given the `executable` we want to analyse, the general invocation is:
+
+    ./cacheaudit executable
+
+This will run the analysis with default values for the cache configuration 
+(16KB, 4-way set associative cache with a line width of 64, using the LRU 
+replacement strategy) and the initial register values. Those values can also 
+specified in a configuration file with the same name as the executable with a 
+.conf extension. Sample executable files can be found at in `examples`.
+
+### Setting cache parameters
+Cache parameters can be set in the .conf file, or from the command line with 
+the options `--cache_size`, `--asoc`, `--line-size`. 
+
+
+### Settint the replacement strategy
+The default replacement strategy is LRU. You can set the strategy to FIFO 
+(`--fifo`) and to PLRU (`--plru`). Note that the PLRU strategy lacks a counting 
+procedure in the current implementation, so until one is developed, it can only
+tell you if there is 1 possible configuration (i.e., you have non-interference).
+
+ 
+### Setting the start address
+CacheAudit does not currently know at which address the instructions associated
+with the main-function start. You can set the address manually either in the 
+.conf-file (e.g. `START 0x3b4`), or using a parameter (`--start 0x3b4`). You can 
+discover the starting point of the main-function using a disassembler such as
+objdump. There you will find a line "`080483b4 <main>:`", and the last 3 digits 
+are the needed address.
+
+### Value abstract domains
+The default option is that the value abstract domain (e.g. for values in the 
+memory) is a finite set of values, and if those sets grow too large, the values
+are represented as intervals . Alternatively, you can use a pure interval 
+abstract domain using `--interval-cache`. 
+
+The values in the cache are by default represented as finite sets.
+Alternatively, you can use relational sets with the parameter `--rset`. Relational
+sets make the analysis slower, but improve the precision of the bounds. For
+example, noticable improvements can be seen in the Knapsack-algorithm found in 
+`examples/Problems`. 
+
+TODO: REMOVE THE FOLLOWING (+ OctAD?)!!!!!
+We have tested the octagon abstract domain as well. However, it is currently 
+not functional.
+
+### Setting verbosity level
+The analysis can show you more or less information. To adjust this, use the
+--log-level [quiet|normal|debug] parameter.
+
+### Speeding up the execution by disabling unnecessary analysis
+If you are just interested in the result of data cache analysis, you can turn
+off instruction cache analysis using `--noInstructionCache`. If you are only
+interested in access-based adversaries, you can turn off the tracking of
+traces and timing using `--noTraces`.
+
+Guides for creating executables fit for analysis
+----------------------------------------------------------------------
+Compiling a C-program which we ant to analyse with CacheAudit can be done by
+
+    gcc program.c -m32 -fno-stack-protector -o program
+
+The option -m32 compiles for a 32-bit environment, and -fno-stack-protector 
+disables stack-smashing protection.
+
+You may need to do some small tweaks of your program to make it fit for 
+CacheAudit analysis. Below we list some tricks:
+
+* Use unsigned integers whenever you do not need the integer to be signed.
+* TODO: function calls?
+* more???
