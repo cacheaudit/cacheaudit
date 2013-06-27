@@ -14,7 +14,7 @@ module type S =
   sig
     include AD.S
     val init: X86Headers.t -> (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> CacheAD.cache_param -> CacheAD.cache_param option -> int64 -> t
-    val get_offset: t -> op32 -> (int,t) finite_set
+    val get_vals: t -> op32 -> (int,t) finite_set
     val test : t -> condition -> (t add_bottom)*(t add_bottom)
     val call : t -> op32 -> int -> (int,t) finite_set 
     val return : t -> (int,t) finite_set
@@ -73,7 +73,7 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
     (subs_nb l,subs_nb r)
 
   (* Redirect all usual stack calls to the stackAD *)
-  let get_offset env op = subs_finite_set env (ST.get_offset env.call_ad op)
+  let get_vals env op = subs_finite_set env (ST.get_vals env.call_ad op)
   let memop env mop op1 op2 = subs_e env (ST.memop env.call_ad mop op1 op2)
   let memopb  env mop op1 op2 = subs_e env (ST.memopb env.call_ad mop op1 op2)
   let movzx env op1 op2 = subs_e env (ST.movzx env.call_ad op1 op2)
@@ -117,7 +117,7 @@ module MakeShared (ST: StackAD.S) = struct
   let join = ST.join
   let widen = ST.widen
   let subseteq = ST.subseteq
-  let get_offset = ST.get_offset
+  let get_vals = ST.get_vals
   let test = ST.test
   let memop = ST.memop
   let memopb = ST.memopb

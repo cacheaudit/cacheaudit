@@ -31,7 +31,7 @@ module type S =
      states leading to that particular value. In case no finite list can be
      determied, returns Top.
   *)
-  val get_offset: t -> op32 -> (int,t) finite_set
+  val get_vals: t -> op32 -> (int,t) finite_set
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val memop : t -> memop -> op32 -> op32 -> t
   val memopb : t -> memop -> op8 -> op8 -> t
@@ -401,12 +401,11 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   ) with Bottom -> failwith "MemAD.shift: bottom after an operation on non bottom environment"
     in {res with cache = C.elapse res.cache time_instr}
 
-  (* get_offset: t -> op32 -> (int,t) finite_set *)
   (** Determines a finite list of possible values given a [genop32] with each
     value associated with the environment that led to it.
     @return the list mentioned above or Top if there is no finite list. *)
   (* in the resulting environments, time will have passed by an amount depending on the memory accesses *)
-  let get_offset env gop = match gop with
+  let get_vals env gop = match gop with
     | Imm x -> Finite [(Int64.to_int x, env)]
     | Reg r -> 
         begin
