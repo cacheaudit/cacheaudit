@@ -1,5 +1,8 @@
 IFDEF INCLUDEOCT THEN
 open Printf
+open NumAD.DS
+open AD.DS
+open Logger
 
 let bin_name = ref "output"
 
@@ -106,7 +109,7 @@ let write_file (filename: string) (s: string) : unit = try
 
 
 module type OCTAGON_TEST_DOMAIN = sig
-  include SIMPLE_VALUE_AD
+  include AgeAD.S
 
   val print_to_LattE: t -> string -> unit 
   val print_to_file: t -> string -> unit 
@@ -115,8 +118,12 @@ end
 
 module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
   (* oct = The Octagon; map = Mapping from variables to their position in the octagon *)
-  type t = {oct : Oct.oct; map : int VarMap.t; max : int; v2s : var -> string}
-
+  type t = {oct : Oct.oct; map : int VarMap.t; max : int; v2s : var -> string;
+    pfn: var -> int}
+  
+  let count_cstates = failwith "SimpleOctAD: count_cstates not implemented"
+  let delete_var = failwith "SimpleOctAD: count_cstates not implemented"
+  
   (* Returns a string stating whether a variable v is new or known. *)
   let print_known (octAD: t) (v: var) : string = 
     if (VarMap.mem v octAD.map) then "known" else "new"
@@ -213,9 +220,9 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
      (octAD1_b , reorder_common_variables octAD2_b octAD1_b)
 
   (* Returns an empty octagon respecting a given maximum value. *)
-  let init_with_max (v2s: var -> string) (i: int) : t = 
+  let init max_val pfn v2s = 
     let _ = Oct.init() in 
-    {oct = Oct.universe 0; map = VarMap.empty; max = i; v2s = v2s}
+    {oct = Oct.universe 0; map = VarMap.empty; max = max_val; v2s = v2s; pfn=pfn}
 
   (* Sets the upper bound of v to max. *)
   let cap_var (octAD: t) (pos: int) : t = 
