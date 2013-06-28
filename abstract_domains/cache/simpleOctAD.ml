@@ -121,7 +121,7 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
   type t = {oct : Oct.oct; map : int VarMap.t; max : int; v2s : var -> string;
     pfn: var -> int}
   
-  let count_cstates = failwith "SimpleOctAD: count_cstates not implemented"
+  let count_cstates _ = (-1,-1)
   let delete_var = failwith "SimpleOctAD: count_cstates not implemented"
   
   (* Returns a string stating whether a variable v is new or known. *)
