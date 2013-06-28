@@ -78,6 +78,16 @@ module Make (A: AgeAD.S) = struct
     | Blurred -> num_cstates
     | SharedSpace -> bl_num_cstates
 
+  let print_num fmt num =
+    let strnum = string_of_big_int num in
+    if gt_big_int num zero_big_int then 
+      Format.fprintf fmt "%s, (%f bits)\n" strnum (Utils.log2 num)
+    else begin
+      Format.fprintf fmt "counting not possible\n";
+      if get_log_level CacheLL = Debug then
+        Format.fprintf fmt  "Number of configurations %s\n" strnum;
+    end
+  
   let print fmt env =
     if get_log_level CacheLL <> Quiet then begin 
       Format.fprintf fmt "@[<v 2>";
@@ -88,18 +98,16 @@ module Make (A: AgeAD.S) = struct
             Format.fprintf fmt "@]"
           end
         ) env.cache_sets;
-    end
-    else ();
+    end else ();
     Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" A.print env.ages;
     if env.strategy = PLRU then 
       Format.fprintf fmt "Counting on PLRU is incorrect\n";
     Format.printf "\n";
     let num, bl_num = A.count_cstates env.ages in
-    let log_num, log_bl_num = Utils.log2 num, Utils.log2 bl_num in
-    Format.fprintf fmt "\nNumber of valid cache configurations : 
-      %s, that is %f bits.\n" (string_of_big_int num) log_num;
-    Format.fprintf fmt "\nNumber of valid cache configurations (blurred): 
-      %s, that is %f bits.\n" (string_of_big_int bl_num) log_bl_num
+    Format.fprintf fmt "\nNumber of valid cache configurations: ";
+    print_num fmt num;
+    Format.fprintf fmt "\nNumber of valid cache configurations (blurred): ";
+    print_num fmt bl_num
   
   let var_to_string x = Printf.sprintf "%Lx" x 
   
