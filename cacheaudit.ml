@@ -66,7 +66,7 @@ let read_assembly bits =
 let print_assembly bs = 
     List.iter (function (n,b) -> Format.printf "@<6>%n\t%x\t%a@\n" n n X86Print.pp_instr b) bs
     
-let usage = "Usage: " ^ Sys.argv.(0) ^ " [OPTION] [-f] BINARY"
+let usage = "Usage: " ^ Sys.argv.(0) ^ " BINARY [OPTION]\nGeneral options"
 (* function which handles binary names (anonymous arguments) *)
 let anon_fun = (fun x ->  if !bin_name = "" then bin_name := x
                else raise (Arg.Bad ("The binary name is specified a second time: " ^ x)))
@@ -78,23 +78,29 @@ let speclist = [
     ("--end", Arg.String (fun s -> end_addr := int_of_string s), 
       "set the oddress (in bytes) where we stop parsing");
     ("--cfg", Arg.Unit (fun () -> print_cfg := true; analyze := false;), 
-      "prints the control flow graph only, no analysis performed");
+      "prints the control flow graph only, no analysis performed\n");
     ("--cache-size", (Arg.Int (fun n -> data_cache_s := n)),
      "override the size of the cache (in bytes) from the configuration file");
-    ("--line-size", (Arg.Int (fun n -> data_line_s := n)), "override the size 
-      of the cache lines (in bytes) from the configuration file");
+    ("--line-size", (Arg.Int (fun n -> data_line_s := n)), 
+    "override the size  of the cache lines (in bytes) from the configuration file");
     ("--assoc", (Arg.Int (fun n -> data_assoc := n)),
      "override the associativity (in bytes) from the configuration file");
     ("--fifo", Arg.Unit (fun () -> data_cache_strategy := CacheAD.FIFO), 
       "sets the cache replacement strategy to FIFO instead of the default LRU.");
     ("--plru", Arg.Unit (fun () -> data_cache_strategy := CacheAD.PLRU), 
-      "sets the cache replacement strategy to PLRU instead of the default LRU.");
+      "sets the cache replacement strategy to PLRU instead of the default LRU.\n");
     ("--interval-cache", Arg.Unit (fun () -> data_cache_analysis := IntAges), 
       "use the interval abstract domain for the cache.") ;
     ("--rset-cache", Arg.Unit (fun () -> data_cache_analysis := RelAges), 
       "use the relational set abstract domain for the cache.") ;
     ("--oct-cache", Arg.Unit (fun () -> data_cache_analysis := OctAges), 
-      "use the octagon abstract domain for the cache.") ;
+      "use the octagon abstract domain for the cache.\n") ;
+    ("--inst-cache-size", (Arg.Int (fun n -> inst_cache_s := n)),
+     "override the size of the instruction cache (in bytes) from the configuration file");
+    ("--inst-line-size", (Arg.Int (fun n -> inst_line_s := n)),
+     "override the size of the instruction cache lines (in bytes) from the configuration file");
+    ("--inst-assoc", (Arg.Int (fun n -> inst_assoc := n)),
+     "override the instruction cache associativity (in bytes) from the configuration file");
     ("--inst-interval", Arg.Unit (fun () -> inst_cache_analysis_opt := Some IntAges), 
       "use the interval abstract domain for instruction cache.") ;
     ("--inst-rset", Arg.Unit (fun () -> inst_cache_analysis_opt := Some RelAges), 
@@ -104,13 +110,7 @@ let speclist = [
     ("--inst-fifo", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.FIFO), 
       "sets the cache replacement strategy to FIFO instead of the default LRU.");
     ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.PLRU), 
-      "sets the cache replacement strategy to PLRU instead of the default LRU.");
-    ("--inst-cache-size", (Arg.Int (fun n -> inst_cache_s := n)),
-     "override the size of the instruction cache (in bytes) from the configuration file");
-    ("--inst-line-size", (Arg.Int (fun n -> inst_line_s := n)),
-     "override the size of the instruction cache lines (in bytes) from the configuration file");
-    ("--inst-assoc", (Arg.Int (fun n -> inst_assoc := n)),
-     "override the instruction cache associativity (in bytes) from the configuration file");
+      "sets the cache replacement strategy to PLRU instead of the default LRU.\n");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--no-outer-nroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), 
       "overwrites the --unroll option, so that outer loops are not unrolled");
@@ -122,7 +122,7 @@ let speclist = [
       Arg.String (fun ad -> Logger.set_ad_ll !temp_log_level ad)], 
       "Modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD");
     ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
-      "Set the general log level. Options are quiet, normal and debug. Default is normal.");
+      "Set the general log level. Options are quiet, normal and debug. Default is normal.\n");
     ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), 
       "attacker may interrupt each d instruction (or more than d).");
     ("--oneInstrInterrupt", Arg.Unit (fun () -> attacker:=OneInstrInterrupt),
