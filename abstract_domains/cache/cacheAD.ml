@@ -77,7 +77,9 @@ module Make (A: AgeAD.S) = struct
     match !adversary with
     | Blurred -> num_cstates
     | SharedSpace -> bl_num_cstates
-
+  
+  (* [print num] prints [num], which should be positive, as well as how many
+     bits it is. If [num <= 0], print an error message *)
   let print_num fmt num =
     let strnum = string_of_big_int num in
     if gt_big_int num zero_big_int then 
