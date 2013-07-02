@@ -90,15 +90,6 @@ let trim s =
   | None, None -> ""
   | _ -> assert false
 
-(* Returns the contents of a file as string. *)
-let read_file (filename: string) : string = 
-  let buffer = Buffer.create 1024 in
-  let chan = open_in filename in
-  try
-    while true; do
-      Buffer.add_string buffer (input_line chan) 
-    done; ""
-  with End_of_file -> close_in chan; Buffer.contents buffer
 
 (* Writes a string to a file. *)
 let write_file (filename: string) (s: string) : unit = try
@@ -113,7 +104,6 @@ module type OCTAGON_TEST_DOMAIN = sig
   include AgeAD.S
 
   val print_to_LattE: t -> string -> unit 
-  val print_to_file: t -> string -> unit 
   val set_bin_name: string -> unit
 end
 
@@ -317,14 +307,6 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
           v::tl -> Single (int_of_string v)
         | _ -> failwith "get_term: unexpected case"
 
-  (* Print a string representation of the octagon to a file. *)
-  let print_to_file (octAD: t) (filename: string) : unit = try
-    let cout = open_out filename in
-    let co = Format.formatter_of_out_channel cout in
-    Oct.foctprinter string_of_int co octAD.oct;
-    close_out cout
-    with Sys_error _ as e ->
-      Format.printf "Cannot open file \"%s\": %s\n" filename (Printexc.to_string e)
 
   (* Given a constraint, it returns an Array representing it as one line in the LattE input format. *)
   let constr_array (constr: Oct.constr) (n: int) : int array = try
@@ -395,8 +377,23 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
 
   (* Saves an octagoNumAD in a format that is compatible with LattE integrale. *)
   let print_to_LattE (octAD: t) (filename: string) : unit = 
-    print_to_file octAD (filename ^ "_final_state");
-    let file_content = read_file (filename ^ "_final_state") in
+    (* print a string representation of the octagon to a temporary file. *)
+    let tfname, cout = Filename.open_temp_file filename ".tmp" in
+    let co = Format.formatter_of_out_channel cout in
+    Oct.foctprinter string_of_int co octAD.oct;
+    close_out cout;
+    (* read the temporary filename into a buffer *)
+    let buffer = Buffer.create 1024 in
+    let chan = open_in tfname in
+    let file_content =
+      try
+        while true; do
+          Buffer.add_string buffer (input_line chan) 
+        done; ""
+      with End_of_file -> close_in chan; Buffer.contents buffer in
+    (* remove the temporary file *)
+    Sys.remove tfname;
+    
     let parts = Str.split (Str.regexp ",") file_content in
     let trimmed = List.map (fun s -> trim s) parts in  
     let size = Oct.dim octAD.oct in

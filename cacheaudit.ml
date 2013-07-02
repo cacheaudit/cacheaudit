@@ -119,19 +119,19 @@ let speclist = [
       "set the cache replacement strategy to PLRU"
       ^"\n  Controlling and disabling aspects of the analysis:");
     ("--no-instr-cache", Arg.Unit (fun () -> architecture := NoInstructionCache),
-      "Disable instruction cache tracking");
+      "disable instruction cache tracking");
     ("--no-trace-time", Arg.Unit (fun () -> do_traces := false),
-      "Disable tracking of traces and time");
+      "disable tracking of traces and time");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--no-outer-unroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), 
       "overwrites the --unroll option, so that outer loops are not unrolled"
       ^"\n  Logging:");
     ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
-      "Set the general log level. Options are quiet, normal and debug. \
+      "set the general log level. Options are quiet, normal and debug. \
        Default is normal");
     ("--log-one-ad",Arg.Tuple [Arg.Set_string temp_log_level; 
       Arg.String (fun ad -> Logger.set_ad_ll !temp_log_level ad)], 
-      "Modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD"
+      "modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD"
       ^"\n  Asynchronious attacker:");
     ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), 
       "attacker may interrupt each d instruction (or more than d)");
@@ -140,7 +140,7 @@ let speclist = [
     ("--oneTimedInterrupt", Arg.Unit (fun () -> attacker:=OneTimedInterrupt),
       "attacker that can interrupt only once per round, based on time");
     ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), 
-      "Shared cache for data and instructions");
+      "shared cache for data and instructions");
   ]
 
 let _ =
