@@ -131,16 +131,7 @@ let speclist = [
        Default is normal");
     ("--log-one-ad",Arg.Tuple [Arg.Set_string temp_log_level; 
       Arg.String (fun ad -> Logger.set_ad_ll !temp_log_level ad)], 
-      "modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD"
-      ^"\n  Asynchronious attacker:");
-    ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), 
-      "attacker may interrupt each d instruction (or more than d)");
-    ("--oneInstrInterrupt", Arg.Unit (fun () -> attacker:=OneInstrInterrupt),
-      "attacker that can interrupt only once per round, based on the number of instructions");
-    ("--oneTimedInterrupt", Arg.Unit (fun () -> attacker:=OneTimedInterrupt),
-      "attacker that can interrupt only once per round, based on time");
-    ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), 
-      "shared cache for data and instructions");
+      "modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD");
   ]
 
 let _ =
@@ -235,16 +226,11 @@ let _ =
             let module Age = (val age: AgeAD.S) in
             (module CacheAD.Make (Age) : CacheAD.S) 
         in
-        (* Make distinction whether asynchronious attacker is used  *)
+        (* Make distinction whether asynchronous attacker is used  *)
       let module BaseCache = (val cad: CacheAD.S) in
         match !attacker with
         | Final -> cad
-        | Instructions d -> AsynchronousAttacker.min_frequency := d;
-          (module AsynchronousAttacker.InstructionBasedAttacker(BaseCache) :CacheAD.S)
-        | OneInstrInterrupt -> 
-          (module AsynchronousAttacker.OneInstructionInterrupt(BaseCache) : CacheAD.S)
-        | OneTimedInterrupt -> 
-          (module AsynchronousAttacker.OneTimeInterrupt(BaseCache) : CacheAD.S) in
+        | _ -> failwith "Asynchronous attacker not supported" in
       (* end of generate_cache definition *)
         
       (* Generate the data cache AD, with traces or not *)
