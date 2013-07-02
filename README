@@ -60,7 +60,7 @@ as finite sets. A less precise but but more efficient option is to use an
 interval abstract domain, with the option `--interval-cache`.  
 
 Alternatively, you can use the Relational set abstract domain, invoked with
-the parameter `--rset`. Relational sets make the analysis slower, but improve 
+the parameter `--rset-cache`. Relational sets make the analysis slower, but improve 
 the precision of the bounds. For example, noticable improvements can be seen in 
 the Knapsack-algorithm found in `examples/Problems`. 
 

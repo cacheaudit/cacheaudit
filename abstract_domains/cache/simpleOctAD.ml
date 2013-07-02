@@ -1,5 +1,8 @@
 IFDEF INCLUDEOCT THEN
 open Printf
+open NumAD.DS
+open AD.DS
+open Logger
 
 let bin_name = ref "output"
 
@@ -54,6 +57,7 @@ sig
 
   (* Type Conversion *)
   val num_of_int: int -> num
+  val num_of_float: float -> num
   val vnum_of_int: int array -> vnum
   val int_of_num: num -> int option
 end
@@ -106,7 +110,7 @@ let write_file (filename: string) (s: string) : unit = try
 
 
 module type OCTAGON_TEST_DOMAIN = sig
-  include SIMPLE_VALUE_AD
+  include AgeAD.S
 
   val print_to_LattE: t -> string -> unit 
   val print_to_file: t -> string -> unit 
@@ -115,8 +119,15 @@ end
 
 module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
   (* oct = The Octagon; map = Mapping from variables to their position in the octagon *)
-  type t = {oct : Oct.oct; map : int VarMap.t; max : int; v2s : var -> string}
-
+  type t = {oct : Oct.oct; map : int VarMap.t; max : int; v2s : var -> string;
+    pfn: var -> int}
+  
+  let count_cstates _ = 
+    let minus_one = Big_int.big_int_of_int (-1) in
+    (minus_one, minus_one)
+    
+  let delete_var env var = failwith "SimpleOctAD: delete_var not implemented"
+  
   (* Returns a string stating whether a variable v is new or known. *)
   let print_known (octAD: t) (v: var) : string = 
     if (VarMap.mem v octAD.map) then "known" else "new"
@@ -213,9 +224,9 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
      (octAD1_b , reorder_common_variables octAD2_b octAD1_b)
 
   (* Returns an empty octagon respecting a given maximum value. *)
-  let init_with_max (v2s: var -> string) (i: int) : t = 
+  let init max_val pfn v2s = 
     let _ = Oct.init() in 
-    {oct = Oct.universe 0; map = VarMap.empty; max = i; v2s = v2s}
+    {oct = Oct.universe 0; map = VarMap.empty; max = max_val; v2s = v2s; pfn=pfn}
 
   (* Sets the upper bound of v to max. *)
   let cap_var (octAD: t) (pos: int) : t = 
@@ -343,6 +354,44 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
     Buffer.add_string buffer (string_of_int (List.length constraints) ^ " " ^ (string_of_int (size + 1)) ^ "\n");
     List.iter (fun a -> Buffer.add_string buffer (string_of_array a)) constraints;
     write_file filename (Buffer.contents buffer) 
+  
+  exception InvalidExpression
+  (* evaluate an expression given in a string, of one of the following types:
+     "5", "-5", "5+6", "-5/3" *)
+  let eval_expr expr = 
+    try
+      let num = "[0-9]+" in
+      let ops = "[-+*/]" in
+      if not (Str.string_match (Str.regexp ("-?"^num^"\|"^num^ops^num)) expr 0) then
+        raise InvalidExpression;
+      let get_val x = match x with 
+      | Str.Text a -> float_of_string (String.trim a) 
+      | _ -> assert false in
+      let get_op op = match op with Str.Delim s -> s | _ -> assert false in
+      let eval x1 x2 op =
+        match op with
+        | "+" -> x1 +. x2
+        | "-" -> x1 -. x2
+        | "*" -> x1 *. x2
+        | "/" -> x1 /. x2
+        | _ -> raise InvalidExpression in
+      let eval_negate op x =
+        if op = "-" then -. x
+        else raise InvalidExpression in
+      match Str.full_split (Str.regexp ops) expr with
+      | [x] -> get_val x
+      | [op;x] -> 
+        eval_negate (get_op op) (get_val x)
+      | [x1;op;x2] ->  
+        let x1,x2 = (get_val x1), (get_val x2) in
+        let op = get_op op in
+        eval x1 x2 op
+      | [op1;x1;op2;x2] ->
+        let x = eval (get_val x1) (get_val x2) (get_op op2) in
+        eval_negate (get_op op1) x
+      | _ -> raise InvalidExpression
+    with InvalidExpression ->
+      failwith ("SimpleOctAD: cannot evaluate expression "^expr)
 
   (* Saves an octagoNumAD in a format that is compatible with LattE integrale. *)
   let print_to_LattE (octAD: t) (filename: string) : unit = 
@@ -358,8 +407,8 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
       assert (List.length split = 3 || List.length split = 5); 
       let constr1,constr2 = match split with 
         lb::_::varpart::_::ub::_ -> (*Case: ineq*)
-          let lb = Oct.num_of_int (-int_of_string lb) in
-          let ub = Oct.num_of_int (int_of_string ub) in
+          let lb = Oct.num_of_float (-.eval_expr lb) in
+          let ub = Oct.num_of_float (eval_expr ub) in
           ( match get_term varpart with 
               Single x -> Oct.MX (x,lb), Oct.PX (x,ub)
             | Sum (x,y) -> Oct.MXMY (x,y,lb), Oct.PXPY (x,y,ub)

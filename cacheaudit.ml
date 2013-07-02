@@ -66,58 +66,93 @@ let read_assembly bits =
 let print_assembly bs = 
     List.iter (function (n,b) -> Format.printf "@<6>%n\t%x\t%a@\n" n n X86Print.pp_instr b) bs
     
-let usage = "Usage: " ^ Sys.argv.(0) ^ " [OPTION] [-f] BINARY"
+let usage = "Usage: " ^ Sys.argv.(0) ^ " BINARY [OPTION]"
 (* function which handles binary names (anonymous arguments) *)
 let anon_fun = (fun x ->  if !bin_name = "" then bin_name := x
                else raise (Arg.Bad ("The binary name is specified a second time: " ^ x)))
 
 let speclist = [
-    ("--start", Arg.String (fun s -> start_addr := int_of_string s), "set the address (in bytes) where we start parsing");
-    ("--end", Arg.String (fun s -> end_addr := int_of_string s), "set the oddress (in bytes) where we stop parsing");
-    ("--cfg", Arg.Unit (fun () -> print_cfg := true; print_ass := false;
-      analyze := false;), "prints the control flow graph only");
-    ("--silent", Arg.Unit (fun () -> print_ass := false),            "do not print the assembly code");
-    (* ("--analyze", Arg.Set analyze, "run analysis"); *)
-    ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
-    ("--noOuterUnroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), "overwrites the --unroll option, so that outer loops are not unrolled");
-    ("-f", Arg.String anon_fun,                      "give the name of the binary file");
-    ("--oct", Arg.Unit (fun () -> data_cache_analysis := OctAges), "use the octagon abstract domain for the cache.") ;
-    ("--interval-cache", Arg.Unit (fun () -> data_cache_analysis := IntAges), "use the interval abstract domain for the cache.") ;
-    ("--rset", Arg.Unit (fun () -> data_cache_analysis := RelAges), "use the relational set abstract domain for the cache.") ;
-    ("--fifo", Arg.Unit (fun () -> data_cache_strategy := CacheAD.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
-    ("--plru", Arg.Unit (fun () -> data_cache_strategy := CacheAD.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
-    ("--inst-oct", Arg.Unit (fun () -> inst_cache_analysis_opt := Some OctAges), "use the octagon abstract domain for the cache.") ;
-    ("--inst-interval-cache", Arg.Unit (fun () -> inst_cache_analysis_opt := Some IntAges), "use the interval abstract domain for the cache.") ;
-    ("--inst-rset", Arg.Unit (fun () -> inst_cache_analysis_opt := Some RelAges), "use the relational set abstract domain for the cache.") ;
-    ("--inst-fifo", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.FIFO), "sets the cache replacement strategy to FIFO instead of the default LRU.");
-    ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.PLRU), "sets the cache replacement strategy to PLRU instead of the default LRU.");
+    (* ("-f", Arg.String anon_fun, "give the name of the binary file"); *)
+    ("--start", Arg.String (fun s -> start_addr := int_of_string s), 
+      "set the address (in bytes) where we start parsing");
+    ("--end", Arg.String (fun s -> end_addr := int_of_string s), 
+      "set the oddress (in bytes) where we stop parsing");
+    ("--cfg", Arg.Unit (fun () -> print_cfg := true; analyze := false;), 
+      "prints the control flow graph only, no analysis performed"
+      ^"\n  Options for (data and instruction) cache configuration:");
     ("--cache-size", (Arg.Int (fun n -> data_cache_s := n)),
-     "override the size of the cache (in bytes) from the configuration file");
-    ("--line-size", (Arg.Int (fun n -> data_line_s := n)),
-     "override the size of the cache lines (in bytes) from the configuration file");
+      "set the cache size (in bytes)");
+    ("--line-size", (Arg.Int (fun n -> data_line_s := n)), 
+      "set the cache line size (in bytes)");
     ("--assoc", (Arg.Int (fun n -> data_assoc := n)),
-     "override the associativity (in bytes) from the configuration file");
+     "set the cache associativity");
+    ("--lru", Arg.Unit (fun () -> data_cache_strategy := CacheAD.LRU), 
+      "set the cache replacement strategy to LRU (default)");
+    ("--fifo", Arg.Unit (fun () -> data_cache_strategy := CacheAD.FIFO), 
+      "set the cache replacement strategy to FIFO");
+    ("--plru", Arg.Unit (fun () -> data_cache_strategy := CacheAD.PLRU), 
+      "set the cache replacement strategy to PLRU");
+    ("--interval-cache", Arg.Unit (fun () -> data_cache_analysis := IntAges), 
+      "use the interval abstract domain for the cache") ;
+    ("--rset-cache", Arg.Unit (fun () -> data_cache_analysis := RelAges), 
+      "use the relational set abstract domain for the cache") ;
+    ("--oct-cache", Arg.Unit (fun () -> data_cache_analysis := OctAges), 
+      "use the octagon abstract domain for the cache"
+       ^"\n  Options to override the instruction cache configuration:");
     ("--inst-cache-size", (Arg.Int (fun n -> inst_cache_s := n)),
-     "override the size of the instruction cache (in bytes) from the configuration file");
+     "set the instruction cache size (in bytes)");
     ("--inst-line-size", (Arg.Int (fun n -> inst_line_s := n)),
-     "override the size of the instruction cache lines (in bytes) from the configuration file");
+     "set the instruction cache line size (in bytes)");
     ("--inst-assoc", (Arg.Int (fun n -> inst_assoc := n)),
-     "override the instruction cache associativity (in bytes) from the configuration file");
-    ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), "attacker may interrupt each d instruction (or more than d).");
-    ("--oneInstrInterrupt", Arg.Unit (fun () -> attacker:=OneInstrInterrupt),"attacker that can interrupt only once per round, based on the number of instructions");
-    ("--oneTimedInterrupt", Arg.Unit (fun () -> attacker:=OneTimedInterrupt),"attacker that can interrupt only once per round, based on time");
-    ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), "Shared cache for data and instructions");
-    ("--noInstructionCache", Arg.Unit (fun () -> architecture := NoInstructionCache),"Data cache only");
-    ("--noTraces", Arg.Unit (fun () -> do_traces := false),"Disable tracking of traces (and time)");
-    ("--log",Arg.Tuple [Arg.Set_string temp_log_level; Arg.String (fun ad -> Logger.set_ad_ll !temp_log_level ad)], "Modify the output of one AD. --log [ quiet|normal|debug ] SomeAD");
-    ("--log-level",Arg.String (fun level -> Logger.set_global_ll level), "Set the general log level. Options are quiet, normal and debug. Default is normal.");
+     "set the instruction cache associativity");
+    ("--inst-interval", Arg.Unit (fun () -> inst_cache_analysis_opt := Some IntAges), 
+      "use the interval abstract domain for instruction cache") ;
+    ("--inst-rset", Arg.Unit (fun () -> inst_cache_analysis_opt := Some RelAges), 
+      "use the relational set abstract domain for instruction cache") ;
+    ("--inst-oct", Arg.Unit (fun () -> inst_cache_analysis_opt := Some OctAges), 
+      "use the octagon abstract domain for instruction cache") ;
+    ("--inst-lru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.LRU), 
+      "set the instruction cache replacement strategy to LRU");
+    ("--inst-fifo", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.FIFO), 
+      "set the cache replacement strategy to FIFO");
+    ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.PLRU), 
+      "set the cache replacement strategy to PLRU"
+      ^"\n  Controlling and disabling aspects of the analysis:");
+    ("--no-instr-cache", Arg.Unit (fun () -> architecture := NoInstructionCache),
+      "Disable instruction cache tracking");
+    ("--no-trace-time", Arg.Unit (fun () -> do_traces := false),
+      "Disable tracking of traces and time");
+    ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
+    ("--no-outer-unroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), 
+      "overwrites the --unroll option, so that outer loops are not unrolled"
+      ^"\n  Logging:");
+    ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
+      "Set the general log level. Options are quiet, normal and debug. \
+       Default is normal");
+    ("--log-one-ad",Arg.Tuple [Arg.Set_string temp_log_level; 
+      Arg.String (fun ad -> Logger.set_ad_ll !temp_log_level ad)], 
+      "Modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD"
+      ^"\n  Asynchronious attacker:");
+    ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), 
+      "attacker may interrupt each d instruction (or more than d)");
+    ("--oneInstrInterrupt", Arg.Unit (fun () -> attacker:=OneInstrInterrupt),
+      "attacker that can interrupt only once per round, based on the number of instructions");
+    ("--oneTimedInterrupt", Arg.Unit (fun () -> attacker:=OneTimedInterrupt),
+      "attacker that can interrupt only once per round, based on time");
+    ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), 
+      "Shared cache for data and instructions");
   ]
 
 let _ =
   Arg.parse speclist anon_fun usage;
-  if !bin_name="" then (Format.printf "Error: You need to specify a filename\n";
-                        exit 1
-  );
+  if !bin_name="" then begin
+    Format.printf "Error: You need to specify a filename\n";
+    exit 1
+  end;
+  if not (Sys.file_exists !bin_name) then begin
+    Format.printf "%s: No such file or directory\n" (!bin_name);
+    exit 1
+  end;
   let start_values =
     begin
       try

@@ -1,6 +1,7 @@
 IFDEF INCLUDEOCT THEN
 open Printf
 open NumAD.DS
+open AD.DS
 open Logger
 
 let bin_name = ref "output"
@@ -191,10 +192,12 @@ module Oct64 (Oct:OCT) : OCT64 = struct
       | Some x -> Int64.of_int (- x)
 end
 
-module OctagoNumAD (Oct: OCT64): ValAD.T = struct
+module OctagoNumAD (Oct: OCT64): NumAD.S = struct
   (* oct = The Octagon; map = Mapping from variables to their position in the octagon *)
   type t = {oct : Oct.oct; map : int VarMap.t; max : int64; v2s : var -> string}
 
+  let var_names _ = failwith "OctNumAD: var_names not implemented"
+  
   (* Returns a string stating whether a variable v is new or known. *)
   let print_known (octAD: t) (v: var) : string = 
     if (VarMap.mem v octAD.map) then "known" else "new"

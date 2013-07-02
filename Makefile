@@ -19,7 +19,7 @@ endif
 
 ifneq ($(or $(oct),$(OCT)),)
 	PREPROCESSOR += -DINCLUDEOCT
-	OCT_INCLUDE= OCT_INCLUDE_OPT
+	OCT_INCLUDE= $(OCT_INCLUDE_OPT)
 endif
 
 OCAMLC += -dtypes -pp "${PREPROCESSOR}"
