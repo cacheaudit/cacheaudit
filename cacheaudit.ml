@@ -79,7 +79,7 @@ let speclist = [
       "set the oddress (in bytes) where we stop parsing");
     ("--cfg", Arg.Unit (fun () -> print_cfg := true; analyze := false;), 
       "prints the control flow graph only, no analysis performed"
-      ^"\n  Options for (data and instruction) cache configuration:");
+      ^"\n  Options for data cache configuration:");
     ("--cache-size", (Arg.Int (fun n -> data_cache_s := n)),
       "set the cache size (in bytes)");
     ("--line-size", (Arg.Int (fun n -> data_line_s := n)), 
@@ -181,7 +181,7 @@ let _ =
     try (
       let mem = read_exec !bin_name in
       (* Setting default values *)
-      if !start_addr =(-1) then start_addr:=starting_offset mem;
+      if !start_addr =(-1) then failwith ("No starting address given"); (*start_addr:=starting_offset mem;*)
       if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := 139844135157760L;
       if !data_cache_s = 0 then data_cache_s := 16384;
       if !data_line_s = 0 then data_line_s := 64;
