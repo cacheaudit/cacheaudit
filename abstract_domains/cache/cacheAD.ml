@@ -64,9 +64,8 @@ module Make (A: AgeAD.S) = struct
     cache_size: int;
     line_size: int; (* same as "data block size" *)
     associativity: int;
-
     num_sets : int; (* computed from the previous three *)
-    strategy : cache_strategy; (*Can be LRU or FIFO so far *)
+    strategy : cache_strategy; 
   }
 
   let print_addr_set fmt = NumSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
@@ -187,7 +186,7 @@ module Make (A: AgeAD.S) = struct
 
 (* when addr is touched (and already in the cache set)
  update of the age of addr_in *)
-(* In case where addr_in can be either older or youner than the intial age *)
+(* In case where addr_in can be either older or younger than the intial age *)
 (* of addr, splits the cases and returns two cache configurations *)
 (* to allow some precision gain *)
 
@@ -196,11 +195,11 @@ module Make (A: AgeAD.S) = struct
     else
       let young,nyoung = A.comp env.ages addr_in addr in
       match young with
-        Bot -> (match nyoung with
-          Bot ->
-            (* This case is possible if addr and addr_in have only maximal *)
-            (* age (should be out of the cache). TODO: sanity check here ? *)
-            remove_line env addr_in, None
+      | Bot -> (match nyoung with
+	(* This case is possible only if addr and addr_in have only maximal 
+           age, i.e. if they are not loaded. TODO: sanity check here ? *)
+        | Bot ->  remove_line env addr_in, None
+        (* Age of blocks older than addr remains the same *)  
         | Nb nyenv -> { env with ages = nyenv }, None)
       | Nb yenv ->
          { env with ages = A.inc_var yenv addr_in },
@@ -208,21 +207,23 @@ module Make (A: AgeAD.S) = struct
              | Bot -> None
              | Nb nyenv -> Some {env with ages = nyenv }
 
-(* Given a cache and a block adress adrr, the first element is the list of blocks in that block's set that can be in the cache *)
+  (* Increments the ages of all blocks that are in the same cache set as
+     addr, which are given as a list of addresses *)
   let rec precise_age_elements env addr = function
-    [] -> env
-  | addr_in :: clist -> (match age_one_element env addr addr_in with
-      new_env, None -> precise_age_elements new_env addr clist
-    | env1, Some env2 ->
-       let c1 = precise_age_elements env1 addr clist in
-       let c2 = precise_age_elements env2 addr clist in
-(* TODO: see if it is too costly to remove some blocks here, as their*)
+    | [] -> env
+    | addr_in :: clist -> (match age_one_element env addr addr_in with
+      | new_env, None -> precise_age_elements new_env addr clist
+      | env1, Some env2 ->
+	let c1 = precise_age_elements env1 addr clist in
+	let c2 = precise_age_elements env2 addr clist in
+	(* TODO: see if it is too costly to remove some blocks here, as there *)
 (*  could be some of them which need to be put back in the join *)
-       join c1 c2)
-(*Increments all ages in the set by one *)           
-  let incr_ages ages cset = match ages with Bot -> Bot
-    | Nb ages -> 
-            Nb(NumSet.fold (fun addr_in a -> A.inc_var a addr_in) cset ages)
+	join c1 c2)
+
+  (*Increments all ages in the cache set [cset] by one *)           
+  let incr_ages ages cset = match ages with 
+    | Bot -> Bot
+    | Nb ages -> Nb(NumSet.fold (fun addr_in a -> A.inc_var a addr_in) cset ages)
             
             
   let get_ages env addr = A.get_values env.ages (get_block_addr env addr)

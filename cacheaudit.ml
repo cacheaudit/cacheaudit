@@ -43,7 +43,7 @@ let attacker = ref Final
 
 type architecture_model = Joint | Split | NoInstructionCache
 
-let architecture = ref Split
+let architecture = ref NoInstructionCache
 
 let more_to_parse b = more b && (!end_addr=0 || get_byte b <= !end_addr)
 
@@ -98,7 +98,11 @@ let speclist = [
       "use the relational set abstract domain for the cache") ;
     ("--oct-cache", Arg.Unit (fun () -> data_cache_analysis := OctAges), 
       "use the octagon abstract domain for the cache"
-       ^"\n  Options to override the instruction cache configuration:");
+       ^"\n  Options for instruction caches (default are data cache options):");
+    ("--instr-cache", Arg.Unit (fun () -> architecture := Split),
+     "enable instruction cache tracking (separate caches for data and instructions)");
+    ("--shared-cache", Arg.Unit (fun () -> architecture := Joint), 
+     "enable instruction cache tracking (shared caches for data and instructions");
     ("--inst-cache-size", (Arg.Int (fun n -> inst_cache_s := n)),
      "set the instruction cache size (in bytes)");
     ("--inst-line-size", (Arg.Int (fun n -> inst_line_s := n)),
@@ -118,8 +122,7 @@ let speclist = [
     ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.PLRU), 
       "set the cache replacement strategy to PLRU"
       ^"\n  Controlling and disabling aspects of the analysis:");
-    ("--no-instr-cache", Arg.Unit (fun () -> architecture := NoInstructionCache),
-      "disable instruction cache tracking");
+   
     ("--no-trace-time", Arg.Unit (fun () -> do_traces := false),
       "disable tracking of traces and time");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
@@ -139,8 +142,7 @@ let speclist = [
       "attacker that can interrupt only once per round, based on the number of instructions");
     ("--oneTimedInterrupt", Arg.Unit (fun () -> attacker:=OneTimedInterrupt),
       "attacker that can interrupt only once per round, based on time");
-    ("--jointArchitecture", Arg.Unit (fun () -> architecture := Joint), 
-      "shared cache for data and instructions");
+   
   ]
 
 let _ =
