@@ -212,7 +212,7 @@ let _ =
   match mem with
   | None -> ()
   | Some sections ->
-    if !print_cfg then Cfg.printcfg (Cfg.makecfg !start_addr sections);
+    if !print_cfg || Logger.get_log_level Logger.IteratorLL = Logger.Debug then Cfg.printcfg (Cfg.makecfg !start_addr sections);
     if !analyze then begin 
       (* Analysis will be performed. *)
       (* First, the proper abstract domains will be generated, *)
