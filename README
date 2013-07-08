@@ -142,10 +142,17 @@ ages of memory blocks. This can be changed using two flags
 
 ### Options for logging and output
 
-The verbosity of CacheAudit can be changed using the following flag.
+The overall verbosity of CacheAudit can be changed using the following flag.
 Default is `quiet`.
 
-`--log-level [quiet|normal|debug]` 
+`--log [quiet|normal|debug]` 
+
+The verbosity of specific abstract domains can be set by the following
+flag, where SomeAD is one of ageAD, architectureAD, cacheAD, flagAD,
+memAD, stackAD, traceAD, valAD, and iterator.
+
+`--log-one-ad [ quiet|normal|debug ] SomeAD` 
+
 
 
 Creating and parsing binaries
