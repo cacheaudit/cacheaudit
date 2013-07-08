@@ -46,6 +46,8 @@ executable `target` can be specified in a configuration file named
 `target.conf`. Examples of configuration files can be found in the
 `examples` folder.
 
+Below we describe the most important command line options of CacheAudit.
+Use `cacheaudit --help` for a full set of options.
  
 ### Options for parsing
 
@@ -135,6 +137,8 @@ ages of memory blocks. This can be changed using two flags
 		      	time. An example for which noticable improvements
 		      	can be observed is e.g. the Knapsack-algorithm in
 		      	`examples/Problems`.
+`--unroll`		sets the number of times cycles in the CFG are
+			unrolled. Default value is 100. 
 
 ### Options for logging and output
 
