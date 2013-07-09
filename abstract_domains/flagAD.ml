@@ -11,13 +11,12 @@ module type S =
   val init : (var->string) -> t
   val new_var : t -> var -> t
   val delete_var : t -> var -> t
- (** Log the current value of a variable to the log file. For automated testing *)
   val log_var : t -> var -> unit
   val get_var : t -> var -> (t NumMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
-  val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
   val is_var : t -> var -> bool
   val meet : t -> t -> t (*TODO: should be add_bottom *)
+  val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val flagop : t -> cons_var flagop -> t
   val shift : t -> shift_op -> var -> cons_var -> mask -> t
@@ -184,7 +183,6 @@ module Make (V: NumAD.S) = struct
  
   let log_var env v = let _ = tmap (fun x -> V.log_var v x; x) env in ()
 
-(* get_var : FlagAD.t -> var -> EnvMap add_top *)
 
   let get_var st var = 
     (* from a possibly bottom component, the set of values *)
@@ -210,41 +208,6 @@ module Make (V: NumAD.S) = struct
                       (extract st.ft) FT) (extract st.ff) FF with
       Bot -> failwith "Bottom in FladAD.get_var"
     | Nb x -> x
-(*
-    assert(not(is_bottom st));
-    let bot = {tt=Bot;tf=Bot;ft=Bot;ff=Bot} in
-    let extract comp = match comp with 
-      | Bot ->  NumMap.empty
-      | Nb env -> (match (V.get_var env var) with
-	      | Tp  -> failwith "flagAD: get_var can't handle top"
-	      | Nt x -> assert(not(NumMap.is_empty x));x)
-    in
-    (* Merge components 1 and 2 *)
-    let merger12 _ a b = match (a,b) with
-      | (Some x, Some y) -> Some {bot with tt=Nb x; tf=Nb y}
-      | (Some x, None) -> Some {bot with tt= Nb x}
-      | (None, Some y) -> Some {bot with tf = Nb y}
-      | (None, None) -> None 
-    in
-    (* Merge components 2 and 3 *)
-    let merger23 _ a b = match (a,b) with
-      | (Some x, Some y) -> Some {x with ft = Nb y}
-      | (Some x, None) -> Some x
-      | (None, Some y) -> Some {bot with ft = Nb y}
-      | (None, None) -> None  
-    in
-    (* Merge components 3 and 4 *)
-    let merger34 _ a b = match (a,b) with 
-      | (Some x, Some y) -> Some {x with tt = Nb y}
-      | (Some x, None) -> Some x
-      | (None, Some y) -> Some {bot with tt = Nb y}
-      | (None, None) -> None  
-    in Nt (NumMap.merge merger34 
-    (NumMap.merge merger23
-       (NumMap.merge merger12 (extract st.tt) (extract st.tf))
-       (extract st.ft))
-    (extract st.tt))
-*)
 
   (* For operations that do not change flags (e.g. Mov) update_var treats states independently and joins after update.
      For operations that do change flags, update_var joins before the operations 
@@ -263,7 +226,6 @@ module Make (V: NumAD.S) = struct
 	  | Bot -> raise Bottom
 	  | Nb x -> wrap (V.update_var x var mkvar cvar mkcvar varop))
 
-	      
     
 (* is_var returns true iff variable exists in *all* non-Bottom value domains *)
 (* Makes sense? *)

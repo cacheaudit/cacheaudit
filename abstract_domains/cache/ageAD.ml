@@ -42,7 +42,7 @@ module Make (V: NumAD.S) = struct
       Bot -> failwith "SValAD.flatten: bottom"
     | Nb a -> a
 
-  (* computes comparison of x1 and x2, see vguard bellow *)
+  (* computes comparison of x1 and x2, see vguard below *)
   (* the first result is x1<x2, the second one x1=x2 and the last one x1>x2 *)
   let vcomp venv x1 x2 =
    let _,tf,ft,ff= V.flagop venv X86Types.Sub x1 x2 in
