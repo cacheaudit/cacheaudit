@@ -99,7 +99,7 @@ let speclist = [
     ("--oct-cache", Arg.Unit (fun () -> data_cache_analysis := OctAges), 
       "use the octagon abstract domain for the cache"
        ^"\n  Options for instruction caches (default are data cache options):");
-    ("--instr-cache", Arg.Unit (fun () -> architecture := Split),
+    ("--inst-cache", Arg.Unit (fun () -> architecture := Split),
      "enable instruction cache tracking (separate caches for data and instructions)");
     ("--shared-cache", Arg.Unit (fun () -> architecture := Joint), 
      "enable instruction cache tracking (shared caches for data and instructions");
@@ -134,7 +134,9 @@ let speclist = [
        Default is normal");
     ("--log-one-ad",Arg.Tuple [Arg.Set_string temp_log_level; 
       Arg.String (fun ad -> Logger.set_ad_ll !temp_log_level ad)], 
-      "modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD"
+      "modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD, \
+      where SomeAD is one of ageAD, architectureAD, cacheAD, flagAD, \
+      memAD, stackAD, traceAD, valAD, and iterator"
       ^"\n  Asynchronious attacker:");
     ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), 
       "attacker may interrupt each d instruction (or more than d)");
