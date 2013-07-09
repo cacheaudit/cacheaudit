@@ -44,7 +44,11 @@ let rec pp_wto fmt = function
 
 module BlockMap = Map.Make(struct 
   type t = basicblock 
-  let compare b1 b2 = compare b1.start_addr b2.start_addr 
+  let compare b1 b2 = 
+    let res = compare b1.start_addr b2.start_addr in
+    if res = 0 then (
+      compare b1.context b2.context
+    )else res
 end)
 
 (* A modified Tarjan algorithm to find a good weak topological ordering for 
@@ -151,7 +155,7 @@ let rec dont_unroll_outer = function
 module Make(A:ArchitectureAD.S) = struct
   
   let print fmt bm = BlockMap.iter (fun b env -> 
-      Format.fprintf fmt "@[Incoming block %a@\n %a@]" pp_block_header b A.print env)
+      Format.fprintf fmt "@;@[Incoming block %a@; %a@]" pp_block_header b A.print env)
       bm
 
   open X86Types
