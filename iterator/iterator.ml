@@ -310,7 +310,7 @@ module Make(A:ArchitectureAD.S) = struct
   let env_remove pb b env =
     if List.mem b pb then env else BlockMap.remove b env
 
-  let iterate concr_mem start_values cfg data_cache_params inst_cache_params inst_base_addr =
+  let iterate concr_mem start_values data_cache_params inst_cache_params inst_base_addr cfg =
     if get_log_level IteratorLL <> Quiet then trace:= true;
     if get_log_level IteratorLL = Debug then Format.printf "CFG of %d blocks \n" (List.length cfg);
     let start_block = List.hd cfg in

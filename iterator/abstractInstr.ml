@@ -1,5 +1,5 @@
 (** Module defining types for the abstract instructions used by the 
-[Iterator] to communicate with teh abstract domains *)
+[Iterator] to communicate with the abstract domains *)
 
 type 'a flagop = ADcmp of 'a*'a
             | ADtest of 'a*'a 
