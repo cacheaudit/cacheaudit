@@ -109,11 +109,11 @@ let speclist = [
      "set the instruction cache line size (in bytes)");
     ("--inst-assoc", (Arg.Int (fun n -> inst_assoc := n)),
      "set the instruction cache associativity");
-    ("--inst-interval", Arg.Unit (fun () -> inst_cache_analysis_opt := Some IntAges), 
+    ("--inst-interval-cache", Arg.Unit (fun () -> inst_cache_analysis_opt := Some IntAges), 
       "use the interval abstract domain for instruction cache") ;
-    ("--inst-rset", Arg.Unit (fun () -> inst_cache_analysis_opt := Some RelAges), 
+    ("--inst-rset-cache", Arg.Unit (fun () -> inst_cache_analysis_opt := Some RelAges), 
       "use the relational set abstract domain for instruction cache") ;
-    ("--inst-oct", Arg.Unit (fun () -> inst_cache_analysis_opt := Some OctAges), 
+    ("--inst-oct-cache", Arg.Unit (fun () -> inst_cache_analysis_opt := Some OctAges), 
       "use the octagon abstract domain for instruction cache") ;
     ("--inst-lru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.LRU), 
       "set the instruction cache replacement strategy to LRU");

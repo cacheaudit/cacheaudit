@@ -41,9 +41,9 @@ with End_of_file ->
 
 type cache_params =
 {
-    data_cache_s: int; (* in bytes *)
-    data_line_s: int;  (* same as "data block size"; in bytes *)
-    data_assoc: int;
+    cache_s: int; (* in bytes *)
+    line_s: int;  (* same as "data block size"; in bytes *)
+    assoc: int;
     inst_cache_s: int; (* in bytes *)
     inst_line_s: int;  (* same as "data block size"; in bytes *)
     inst_assoc: int;
@@ -87,9 +87,9 @@ let config filename =
     in let vals = (mem,regs)
     in match l with
       | ("START",i,_) ->  (Some (Int64.to_int i), vals, ca)
-      | ("data_cache_s",i,_) -> (st,vals,{ca with data_cache_s = Int64.to_int i})
-      | ("data_line_s",i,_) -> (st,vals,{ca with data_line_s = Int64.to_int i})
-      | ("data_assoc",i,_) -> (st,vals,{ca with data_assoc = Int64.to_int i})
+      | ("cache_s",i,_) -> (st,vals,{ca with cache_s = Int64.to_int i})
+      | ("line_s",i,_) -> (st,vals,{ca with line_s = Int64.to_int i})
+      | ("assoc",i,_) -> (st,vals,{ca with assoc = Int64.to_int i})
       | ("inst_cache_s",i,_) -> (st,vals,{ca with inst_cache_s = Int64.to_int i})
       | ("inst_line_s",i,_) -> (st,vals,{ca with inst_line_s = Int64.to_int i})
       | ("inst_assoc",i,_) -> (st,vals,{ca with inst_assoc = Int64.to_int i})
@@ -103,5 +103,5 @@ let config filename =
                     (st,(setInitialValue (Int64.of_string str) l h mem, regs), ca)
                   ) with Failure arg -> failwith (Printf.sprintf "Configuration not supported. %s is not a valid register or a memory location" arg)
             )
-  in let empty_cparams = {data_cache_s = 0; data_line_s = 0; data_assoc = 0; inst_cache_s = 0; inst_line_s = 0; inst_assoc = 0; inst_base_addr = (Int64.of_int 0)}
+  in let empty_cparams = {cache_s = 0; line_s = 0; assoc = 0; inst_cache_s = 0; inst_line_s = 0; inst_assoc = 0; inst_base_addr = (Int64.of_int 0)}
   in auxmatch scanned (None,([],[]),empty_cparams)
