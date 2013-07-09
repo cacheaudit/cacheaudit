@@ -7,6 +7,7 @@ type basicblock = {
   next_block_addr : int;
   content : (int * X86Types.instr) list;
   jump_command : X86Types.instr option;
+  context : int list;
   mutable out_edges : basicblock list;
   mutable in_edges : basicblock list;
 }
