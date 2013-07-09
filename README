@@ -36,7 +36,7 @@ For analyzing an executable `target` using CacheAudit, use
 
     cacheaudit target
 
-This will start parsing the executable at a default entry point and
+This will start parsing the executable at a user-specified entry point and
 run the analysis with a default cache configuration (16KB, 4-way set
 associative cache with a line width of 64, LRU replacement) and
 initial values of the CPU registers.
@@ -49,7 +49,7 @@ executable `target` can be specified in a configuration file named
 Below we describe the most important command line options of CacheAudit.
 Use `cacheaudit --help` for a full set of options.
  
-### Options for parsing
+### Parser entry point ###
 
 For analyzing an executable using CacheAudit, the user needs to
 provide an starting point for the binary parser. Typically, this
@@ -57,11 +57,20 @@ starting point will be the address of a function, such as `main` and
 can either be given in the configuration file ( e.g. `START 0x3b4`) or
 as a command-line parameter (`--start 0x3b4`).
 
-A short description on how to determine the entry point for a Linux
-x86 executable can be found in the section on creating and parsing
-binaries below.
+The starting point of the x86 parser on an Linux ELF executable is
+specified as an offset from the base address 0x0804800 of the `.text`
+section. I.e. if the address of `main` is '0x080483b4', the starting
+point is '0x3b4'. This starting point can either be specified in the
+config file or as a command line parameter, as described above.
 
-### Options for architecture and attacker model
+The starting point can be identified using a disassembler, e.g. `objdump`. 
+In our experiments we compiled with debugging information (`gcc -g -m32 ...
+-o target`) and displayed the disassembled binary with interleaved
+source code to identify `main`:
+
+    objdump -d -S target
+
+### Options for architecture and attacker model ###
 
 By default, CacheAudit performs a security analysis w.r.t.
 access-based adversaries and data caches. The analysis can be enhanced
@@ -78,55 +87,28 @@ with the following different options.
 
 `--traces`	      	perform trace-based and time-based analysis
 
-### Options for cache configuration 
+### Options for cache configuration ###
 
 By default, CacheAudit runs the analysis with a 16KB, 4-way set
-associative cache with a line size of 64B, and LRU replacement. The
-following options allow to override this configuration.
+associative cache with a line size of 64B, and LRU replacement. The cache 
+parameters can be set in the .conf file 
+(e.g., `cache_s 4096`, `line_s 32`, `assoc 2`). Alternatively,
+they can be set from the command line using the options
+`--cache-size`, `--line-size`, `--assoc`. The replacement strategy can be
+changed to FIFO or PLRU using the options `--fifo` or `--plru`.
 
-
-`--cache-size`	        set the cache size (in bytes). Can also be specified 
-		  	in the `.conf` file, e.g. `data_cache_s 4096`.
-
-`--line-size` 	      	set the cache line size (in bytes). Can also be specified
-		      	in the `.conf` file, e.g. `data_line_s 32`.
-
-`--assoc` 	      	set the cache associativity. Can also be specified 
-		      	in the `.conf` file, e.g. `data_assoc 2`
-
-`--lru` 		set the cache replacement strategy to LRU (default)
-
-`--fifo` 		set the cache replacement strategy to FIFO
-
-`--plru`                set the cache replacement strategy to PLRU.
-			Currently, CacheAudit lacks a procedure for
-		      	counting of concretizations of PLRU and can only
-		      	distinguish between one or more configurations
-		      	(i.e. a noninterference check)
-		      
-`--interval-cache`      use the interval abstract domain for the cache
-
-`--rset-cache`  	use the relational set abstract domain for the cache
-
-`--oct-cache` 	      	use the Octagon abstract domain for tracking
-			cache states (requires installation of
-			CacheAudit using the Octagon option). This
-			cache domain does not implement counting
-			itself; rather, it creates a file with suffix
-			`.latte` which can be used as input for the
-			[LattE](https://www.math.ucdavis.edu/~mkoeppe/latte/)
-			tool for lattice point enumeration.
 
 The given configuration is used for both data and instruction caches.
 For an analysis using separate data and instruction caches, it is
 possible to override the settings for instruction cache by using the
-options `--instr-X`, where X is any of the data cache options described
-above (without the leading `--`).
+options `--inst-X`, where X is any of the data cache options described
+above (without the leading `--`). Similarly, in the .conf files the options
+`inst_X` can be used.
 
-### Options for the static analysis 
+### Options for the static analysis ###
 
 By default, CacheAudit a set-based abstract domain for tracking the
-ages of memory blocks. This can be changed using two flags
+ages of memory blocks. This can be changed using the following options:
 
 `--interval-cache`      use a less precise but more efficient interval
 			representation
@@ -138,21 +120,22 @@ ages of memory blocks. This can be changed using two flags
 		      	can be observed is e.g. the Knapsack-algorithm in
 		      	`examples/Problems`.
 
-`--unroll`		sets the number of times cycles in the CFG are
-			unrolled. Default value is 100. 
+`--oct-cache` 	      	use the Octagon abstract domain for tracking
+			cache states (requires installation of
+			CacheAudit using the Octagon option). This
+			cache domain does not implement counting
+			itself; rather, it creates a file with suffix
+			`.latte` which can be used as input for the
+			[LattE](https://www.math.ucdavis.edu/~mkoeppe/latte/)
+			tool for lattice point enumeration.
 
-### Options for logging and output
+One can also change the number of times cycles in the CFG are unrolled using 
+the `--unroll` option. Default value is 100.
 
-The overall verbosity of CacheAudit can be changed using the following flag.
-Default is `quiet`.
+### Setting the level of verbosity ###
 
-`--log [quiet|normal|debug]` 
-
-The verbosity of specific abstract domains can be set by the following
-flag, where SomeAD is one of ageAD, architectureAD, cacheAD, flagAD,
-memAD, stackAD, traceAD, valAD, and iterator.
-
-`--log-one-ad [ quiet|normal|debug ] SomeAD` 
+The overall verbosity of CacheAudit can be changed using the option 
+`--log [quiet|normal|debug]` . Default is `quiet`.
 
 
 
@@ -161,10 +144,11 @@ Creating and parsing binaries
 
 ### Supported subset of x86 instructions ###
 
-As a research prototype, CacheAudit supports only a limited subset of
+The current version of CacheAudit supports a limited subset of
 the 32-bit x86 instructions (see the `x86_frontend/x68Parse.ml` for a
-specification of the commands supported by the parser). In particular,
-CacheAudit currently supports only two CPU flags, namely CF and ZF.
+specification of the commands supported by the parser). It also supports
+only the CPU flags CF and ZF. Support of more x86 specifications are left
+to future versions.
 
 It can easily happen that the code produced by the compiler is not
 contained in the instruction set that is supported by CacheAudit. Here
@@ -187,21 +171,4 @@ Compiling a C-program for analysis with CacheAudit can be done by
 
 The `-m32` options forces the compiler to produce 32 bit code, and
 `-fno-stack-protector` disables stack canaries.
-
-
-
-### Parser Entry ###
-
-The starting point of the x86 parser on an Linux ELF executable is
-specified as an offset from the base address 0x0804800 of the `.text`
-section. I.e. if the address of `main` is '0x080483b4', the starting
-point is '0x3b4'. This starting point can either be specified in the
-config file or as a command line parameter, as described above.
-
-The starting point can be identified using a disassembler, e.g. `objdump`. 
-In our experiments we compiled with debugging information (`gcc -g -m32 ...
--o target`) and displayed the disassembled binary with interleaved
-source code to identify `main`:
-
-    objdump -d -S target
 
