@@ -276,6 +276,6 @@ let _ =
       let iterate = Iter.iterate in
       let start = Sys.time () in 
       (* Run the analysis *)
-      iterate sections start_values (Cfg.makecfg !start_addr sections) data_cache_params (Some(inst_cache_params)) !instruction_base_addr;
+      iterate sections start_values data_cache_params (Some(inst_cache_params)) !instruction_base_addr (Cfg.makecfg !start_addr sections);
       Printf.printf "Analysis took %d seconds.\n" (int_of_float (Sys.time () -. start))
     end
