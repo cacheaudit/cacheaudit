@@ -5,9 +5,9 @@ val right_pos : string -> int -> int option
 val trim : string -> string
 val read_lines : string -> string list
 type cache_params = {
-  data_cache_s : int;
-  data_line_s : int;
-  data_assoc : int;
+  cache_s : int;
+  line_s : int;
+  assoc : int;
   inst_cache_s : int;
   inst_line_s : int;
   inst_assoc : int;
