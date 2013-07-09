@@ -93,8 +93,10 @@ module type AGE_FUNCTION_SET = sig
   val empty : t
   (* Tests if two AFS contain the same partial cache states. *)
   val equal : t -> t -> bool
-  (* Filter the set according to a compare function applied two given variables. *)
+  (* Filter the set according to a compare function applied to two given variables. *)
   val filter_comp : t -> var -> var -> (int -> int -> int) -> t
+  (* Filter the set according to a compare function applied to a variable and a constant. *)
+  val filter_comp_val : t -> var -> int -> (int -> int -> int) -> t
   (* Filter all partial cache states from afs1 which constitue a contradiction to afs2. *)
   (* afs1 and afs2 can have different variable sets *)
   val filter : t -> t -> t
@@ -166,6 +168,9 @@ module RelAgeFnSet : AGE_FUNCTION_SET = struct
 
   let filter_comp afs v1 v2 compare = 
     {afs with set = S.filter (fun af -> compare (AF.get v1 af) (AF.get v2 af) = -1) afs.set}
+
+  let filter_comp_val afs v1 c compare = 
+    {afs with set = S.filter (fun af -> compare (AF.get v1 af) c = -1) afs.set}
 
   let inc_var afs v max = 
     {afs with set = S.fold (fun af set -> S.add (AF.add v (Pervasives.min (AF.get v af + 1) max) af) set) afs.set S.empty}

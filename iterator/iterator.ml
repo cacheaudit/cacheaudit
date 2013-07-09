@@ -37,9 +37,18 @@ and 'a iteration = {
   unroll_count : int; 
 }
 
+let rec pp_wto fmt = function
+  EmptyWto -> ()
+| Linear(b,w) -> Format.fprintf fmt ", %a%a" pp_block_addr b.start_addr pp_wto w
+| SubWto s -> Format.fprintf fmt "@[, (%a%a)@]%a" pp_block_addr s.head_block.start_addr pp_wto s.inner_wto pp_wto s.next_wto
+
 module BlockMap = Map.Make(struct 
   type t = basicblock 
-  let compare b1 b2 = compare b1.start_addr b2.start_addr 
+  let compare b1 b2 = 
+    let res = compare b1.start_addr b2.start_addr in
+    if res = 0 then (
+      compare b1.context b2.context
+    )else res
 end)
 
 (* A modified Tarjan algorithm to find a good weak topological ordering for 
@@ -146,7 +155,7 @@ let rec dont_unroll_outer = function
 module Make(A:ArchitectureAD.S) = struct
   
   let print fmt bm = BlockMap.iter (fun b env -> 
-      Format.fprintf fmt "@[Incoming block %a@\n %a@]" pp_block_header b A.print env)
+      Format.fprintf fmt "@;@[Incoming block %a@; %a@]" pp_block_header b A.print env)
       bm
 
   open X86Types
@@ -312,7 +321,7 @@ module Make(A:ArchitectureAD.S) = struct
     if !trace then Format.printf "@[Initially, %a@]@." print init_env;
     let wto = tarjan cfg in
     let wto = if !unroll_outer_loop then wto else dont_unroll_outer wto in
-    if get_log_level IteratorLL = Debug then Format.printf "Order of iteration computed \n";
+    if get_log_level IteratorLL = Debug then Format.printf "@[Iteration ordering is %a@.@]" pp_wto wto;
     (* TODO: Explain the role of pb *)
     let rec next_i pb env = function 
       | EmptyWto -> env
@@ -321,17 +330,19 @@ module Make(A:ArchitectureAD.S) = struct
 	   incoming environment from b and update incoming environments
 	   of all blocks affected by b's outcoming environment. 
 	   Continue interpretation with next block w*)
-	if BlockMap.mem b env then
+	      if BlockMap.mem b env then
           let in_inv = BlockMap.find b env in
 	  (* out_invs : (Cfg.basicblock * A.t) list *)
           let out_invs = interpret_block in_inv b in
           next_i pb (List.fold_left (fun e (ob,oinv) -> env_add ob oinv e) 
 		       (env_remove pb b env) out_invs) w
-        else next_i pb env w
+        else ( if !trace then Format.printf "Block %a with empty incoming env is
+        ignored.@." pp_block_addr b.start_addr; 
+               next_i pb env w)
       | SubWto it -> 
-	(* First check for fixpoint *)
-	if BlockMap.mem it.head_block env then
-	  let incoming_inv = BlockMap.find it.head_block env in
+        (* First check for fixpoint *)
+        if BlockMap.mem it.head_block env then
+          let incoming_inv = BlockMap.find it.head_block env in
           if subseteq incoming_inv it.head_invariant then ( 
             if !trace then Format.printf "Local fixpoint reached for %a\n"
               pp_block_header it.head_block;
@@ -365,7 +376,14 @@ module Make(A:ArchitectureAD.S) = struct
               (Linear(it.head_block, it.inner_wto)) in
             next_i pb it_env (SubWto{ it with head_invariant = Nb w_inv;})
           ))
-	else next_i pb env it.next_wto
+        else (* We arrive with an empty environment.
+        * But maybe some inner blocks of that loop have non-empty incoming envs, so we iterate at least once *)
+          let env1 = next_i pb env it.inner_wto in
+          if BlockMap.mem it.head_block env1 then next_i pb env1 (SubWto it)
+          else (
+            if !trace then Format.printf "Loop starting at block %a with empty incoming env.@." pp_block_addr it.head_block.start_addr; 
+            next_i pb env it.next_wto
+          )
     in
     let final_env = next_i final_blocks init_env wto in
     print Format.std_formatter final_env

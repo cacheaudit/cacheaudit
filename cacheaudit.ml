@@ -43,7 +43,7 @@ let attacker = ref Final
 
 type architecture_model = Joint | Split | NoInstructionCache
 
-let architecture = ref Split
+let architecture = ref NoInstructionCache
 
 let more_to_parse b = more b && (!end_addr=0 || get_byte b <= !end_addr)
 
@@ -79,7 +79,7 @@ let speclist = [
       "set the oddress (in bytes) where we stop parsing");
     ("--cfg", Arg.Unit (fun () -> print_cfg := true; analyze := false;), 
       "prints the control flow graph only, no analysis performed"
-      ^"\n  Options for (data and instruction) cache configuration:");
+      ^"\n  Options for data cache configuration:");
     ("--cache-size", (Arg.Int (fun n -> data_cache_s := n)),
       "set the cache size (in bytes)");
     ("--line-size", (Arg.Int (fun n -> data_line_s := n)), 
@@ -98,7 +98,11 @@ let speclist = [
       "use the relational set abstract domain for the cache") ;
     ("--oct-cache", Arg.Unit (fun () -> data_cache_analysis := OctAges), 
       "use the octagon abstract domain for the cache"
-       ^"\n  Options to override the instruction cache configuration:");
+       ^"\n  Options for instruction caches (default are data cache options):");
+    ("--instr-cache", Arg.Unit (fun () -> architecture := Split),
+     "enable instruction cache tracking (separate caches for data and instructions)");
+    ("--shared-cache", Arg.Unit (fun () -> architecture := Joint), 
+     "enable instruction cache tracking (shared caches for data and instructions");
     ("--inst-cache-size", (Arg.Int (fun n -> inst_cache_s := n)),
      "set the instruction cache size (in bytes)");
     ("--inst-line-size", (Arg.Int (fun n -> inst_line_s := n)),
@@ -118,8 +122,7 @@ let speclist = [
     ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.PLRU), 
       "set the cache replacement strategy to PLRU"
       ^"\n  Controlling and disabling aspects of the analysis:");
-    ("--no-instr-cache", Arg.Unit (fun () -> architecture := NoInstructionCache),
-      "disable instruction cache tracking");
+   
     ("--no-trace-time", Arg.Unit (fun () -> do_traces := false),
       "disable tracking of traces and time");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
@@ -167,10 +170,9 @@ let _ =
     end
   in
   let bits, mem =
-    try (
       let mem = read_exec !bin_name in
       (* Setting default values *)
-      if !start_addr =(-1) then start_addr:=starting_offset mem;
+      if !start_addr =(-1) then failwith ("No starting address given"); (*start_addr:=starting_offset mem;*)
       if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := 139844135157760L;
       if !data_cache_s = 0 then data_cache_s := 16384;
       if !data_line_s = 0 then data_line_s := 64;
@@ -181,12 +183,7 @@ let _ =
       Printf.printf "Cache size %d, line size %d, associativity %d\n" !data_cache_s !data_line_s !data_assoc;
       Printf.printf "Offset of first instruction is 0x%x (%d bytes in the file)\n" 
         !start_addr !start_addr;
-      (get_bits mem), Some mem) 
-    with Macho.NonMachOFile -> (
-      Printf.printf "Not an ELF, or Mach-O file, entry point not determined\n";
-      if !start_addr= -1 then start_addr:=0;
-      (read_from_file !bin_name), None 
-    ) in
+      (get_bits mem), Some mem in
   if !print_ass then print_assembly (read_assembly bits);
   let data_cache_params = {CacheAD.cs = !data_cache_s; CacheAD.ls = !data_line_s;
     CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy} in
@@ -201,7 +198,7 @@ let _ =
   match mem with
   | None -> ()
   | Some sections ->
-    if !print_cfg then Cfg.printcfg (Cfg.makecfg !start_addr sections);
+    if !print_cfg || Logger.get_log_level Logger.IteratorLL = Logger.Debug then Cfg.printcfg (Cfg.makecfg !start_addr sections);
     if !analyze then begin 
       (* Analysis will be performed. *)
       (* First, the proper abstract domains will be generated, *)

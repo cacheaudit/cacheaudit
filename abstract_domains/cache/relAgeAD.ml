@@ -124,7 +124,16 @@ module RelAgeAD = struct
     let gt = M.mapi (fun vset afs -> update_ages vset rsAD.map (fun x y -> Pervasives.compare y x) sm_v2) rsAD.map in 
     (check_validity {rsAD with map = ls},check_validity {rsAD with map = gt})
 
-  let comp_with_val rsAD v c = failwith "comp_with_val (needed for FIFO) not yet implemented in relational sets" (*TODO*)
+  let comp_with_val rsAD v1 c = 
+    let update_ages (vset:NumSet.t) map (compare:int->int->int) (limit:int): AFS.t  = 
+      let old_ages = M.find vset map in 
+      match NumSet.mem v1 vset with  
+          true   -> AFS.filter_comp_val old_ages v1 limit compare
+        | false -> old_ages in 
+    let ls  = M.mapi (fun vset afs -> update_ages vset rsAD.map Pervasives.compare c) rsAD.map in
+    let gt = M.mapi (fun vset afs -> update_ages vset rsAD.map (fun x y -> Pervasives.compare y x) c) rsAD.map in 
+    (check_validity {rsAD with map = ls},check_validity {rsAD with map = gt})
+
   let exact_val rsAD v c = failwith "exact_val (needed for PLRU) not yet implem
 ented in relational sets" (*TODO*)
 

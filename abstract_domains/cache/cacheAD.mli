@@ -21,7 +21,7 @@ module type S = sig
       in [cache_param] *)
   val touch : t -> int64 -> t
   (** [touch addr] corresponds to a read or write of memory location [addr]. 
-      The line containing [addr] is loaded into cache (if not in cache), and the
+      The block containing [addr] is loaded into cache (if not in cache), and the
       positions of the elements in the corresponding cache set may be changed 
       according to the replacement strategy *)
   val touch_hm : t -> int64 -> (t add_bottom*t add_bottom)
