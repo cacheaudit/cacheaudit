@@ -1,5 +1,5 @@
 
-CacheAudit 0.1 ReadMe
+CacheAudit 0.1
 ======================================================================
 
 CacheAudit is a static analyzer of cache side-channels. CacheAudit takes as
