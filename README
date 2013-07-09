@@ -27,14 +27,14 @@ Installation
 ----------------------------------------------------------------------
 For compiling and installing CacheAudit, run `make` in the CacheAudit
 folder and copy the executable `cacheaudit` to a directory in your
-PATH. For creating the documentation, run `make doc`. For more
-installation options, run `make help`.
+PATH. For creating the documentation of the interfaces, run `make doc`. 
+For more installation options, run `make help`.
 
 Using CacheAudit
 ----------------------------------------------------------------------
 For analyzing an executable `target` using CacheAudit, use
 
-    `cacheaudit target`
+    cacheaudit target
 
 This will start parsing the executable at a default entry point and
 run the analysis with a default cache configuration (16KB, 4-way set
@@ -54,7 +54,7 @@ Use `cacheaudit --help` for a full set of options.
 For analyzing an executable using CacheAudit, the user needs to
 provide an starting point for the binary parser. Typically, this
 starting point will be the address of a function, such as `main` and
-can either be given in the configuration file ( e.g.`START 0x3b4`) or
+can either be given in the configuration file ( e.g. `START 0x3b4`) or
 as a command-line parameter (`--start 0x3b4`).
 
 A short description on how to determine the entry point for a Linux
@@ -86,13 +86,13 @@ following options allow to override this configuration.
 
 
 `--cache-size`	        set the cache size (in bytes). Can also be specified 
-		  	in the `.conf` file using `data_cache_s`.
+		  	in the `.conf` file, e.g. `data_cache_s 4096`.
 
 `--line-size` 	      	set the cache line size (in bytes). Can also be specified
-		      	in the `.conf` file using 'data_line_s'.
+		      	in the `.conf` file, e.g. `data_line_s 32`.
 
 `--assoc` 	      	set the cache associativity. Can also be specified 
-		      	in the `.conf` file using 'data_assoc 4'
+		      	in the `.conf` file, e.g. `data_assoc 2`
 
 `--lru` 		set the cache replacement strategy to LRU (default)
 
@@ -121,7 +121,7 @@ The given configuration is used for both data and instruction caches.
 For an analysis using separate data and instruction caches, it is
 possible to override the settings for instruction cache by using the
 options `--instr-X`, where X is any of the data cache options described
-above without the leading `--`.
+above (without the leading `--`).
 
 ### Options for the static analysis 
 
@@ -137,6 +137,7 @@ ages of memory blocks. This can be changed using two flags
 		      	time. An example for which noticable improvements
 		      	can be observed is e.g. the Knapsack-algorithm in
 		      	`examples/Problems`.
+
 `--unroll`		sets the number of times cycles in the CFG are
 			unrolled. Default value is 100. 
 
@@ -182,7 +183,7 @@ the current version of CacheAudit.
 
 Compiling a C-program for analysis with CacheAudit can be done by
 
-    `gcc program.c -m32 -fno-stack-protector -o target`
+    gcc program.c -m32 -fno-stack-protector -o target
 
 The `-m32` options forces the compiler to produce 32 bit code, and
 `-fno-stack-protector` disables stack canaries.
@@ -197,10 +198,10 @@ section. I.e. if the address of `main` is '0x080483b4', the starting
 point is '0x3b4'. This starting point can either be specified in the
 config file or as a command line parameter, as described above.
 
-The starting point can be identified using any disassembler. In our
-experiments we compiled with debugging information (`gcc -g -m32 ...
+The starting point can be identified using a disassembler, e.g. `objdump`. 
+In our experiments we compiled with debugging information (`gcc -g -m32 ...
 -o target`) and displayed the disassembled binary with interleaved
 source code to identify `main`:
 
-`objdump -d -S target'
+    objdump -d -S target
 
