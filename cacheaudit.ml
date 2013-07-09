@@ -166,9 +166,9 @@ let _ =
         | None -> Printf.printf "Start address not specified\n"
         | Some x -> Printf.printf "Start address is 0x%x\n" x; start_addr := x);
           instruction_base_addr := cp.inst_base_addr;
-          data_cache_s := if !data_cache_s <= 0 then cp.data_cache_s else !data_cache_s;
-          data_line_s := if !data_line_s <= 0 then cp.data_line_s else !data_line_s;
-          data_assoc := if !data_assoc <= 0 then cp.data_assoc else !data_assoc;
+          data_cache_s := if !data_cache_s <= 0 then cp.cache_s else !data_cache_s;
+          data_line_s := if !data_line_s <= 0 then cp.line_s else !data_line_s;
+          data_assoc := if !data_assoc <= 0 then cp.assoc else !data_assoc;
           inst_cache_s := if !inst_cache_s <= 0 then cp.inst_cache_s else !inst_cache_s;
           inst_line_s := if !inst_line_s <= 0 then cp.inst_line_s else !inst_line_s;
           inst_assoc := if !inst_assoc <= 0 then cp.inst_assoc else !inst_assoc;
