@@ -9,7 +9,14 @@ module type S =
 sig
   include AD.S
     
-    (** Creates a StackAD with the following parameters *)
+    (** Creates a StackAD with the following parameters
+	More specifically, in 
+	[init cm sv dcp]     
+       - [cm] is the executable,
+       - [sv] are initial values of memory locations and registers, and
+       - [dcp] is the configuration of the data caches
+    *)
+
   val init : X86Headers.t -> MemAD.mem_param -> CacheAD.cache_param -> t
 
   (** For an op32 expression, returns a finite list of possible
@@ -28,18 +35,32 @@ sig
 
   (** Records a return (and its effect on the stack). *)
   val return : t -> (int, t) finite_set
+ 
+  (** 32 bit memory operation *)
   val memop : t -> memop -> op32 -> op32 -> t
+
+  (** 8 bit memory operation *)
   val memopb : t -> memop -> op8 -> op8 -> t
+  
+  (** Move with zero extend *)
   val movzx : t -> op32 -> op8 -> t
+
+  (** Load operation *)
   val load_address : t -> reg32 -> address -> t
+
+  (** Flag operation *)
   val flagop : t -> op32 flagop -> t
+
+  (** Stack operation *)
   val stackop : t -> stackop -> op32 -> t
+
+  (** Shift operation *)
   val shift : t -> shift_op -> op32 -> op8 -> t
     
-  (** Is used to signal to the cache that a memory location has been accessed *)  
+  (** Signal to the cache that a memory location has been accessed *)  
   val touch : t -> int64 -> t
       
-  (** Is is used to signal from the iterator to the cache the
+  (** Signal from the iterator to the cache the
       time consumed by an instruction *)
   val elapse : t -> int -> t
 end

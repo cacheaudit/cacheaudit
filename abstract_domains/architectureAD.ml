@@ -101,7 +101,7 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
   }
 
   let read_instruction env addr = { env with inst_ad = (IC.touch env.inst_ad (Int64.add (Int64.of_int addr) !instruction_addr_base)) }
-  (* Instructions are isolated from data so it doesn't matter if the address is relative *)
+
 
 end
 

@@ -29,7 +29,6 @@ module Make (M: MemAD.S) = struct
     (* Stack.top and Memory abstract domain *)
   type t = M.t
 
-   (* Stackbase addresses hardwired, taken from interpreter *)
   let init mem mem_params cache_params = M.init (fun addr -> 
     if addr=Int64.zero then failwith "0 address raises seg fault \n"
     else try Some(X86Headers.lookup mem addr) with 
@@ -40,9 +39,6 @@ module Make (M: MemAD.S) = struct
   let subseteq = M.subseteq 
   let get_vals  = M.get_vals
   let test = M.test
- 
-      
-  (* Check with Laurent if Op is needed *)
   let memop = M.memop
   let memopb  = M.memopb
   let movzx = M.movzx
