@@ -23,7 +23,7 @@ module type S =
   
   (* init is used to return an initial abstract state *)
   (* the first arguments returns the initial value at a given address if it *)
-  (* is defined, None otherwize (meaning it's random *)
+  (* is defined, None otherwise (meaning it can be any) *)
   val init: (int64 -> int64 option) -> mem_param -> CacheAD.cache_param -> t
 
   (* from a genop32 expression, returns a finite list of possible values,

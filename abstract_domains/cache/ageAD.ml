@@ -67,11 +67,7 @@ possible, so it approximates Bottom *)
         | Bot -> yenv
         | Nb nyenv -> V.join yenv nyenv
     in {env with value = new_valad}
-      
-  (* let get_keys map = let keys,_ = List.split (NumMap.bindings map) *)
-  (*                    in keys                                       *)
-                     
-                 
+                       
   let is_var env a = V.is_var env.value a
 
   let set_var env v a = 
@@ -128,12 +124,6 @@ possible, so it approximates Bottom *)
     assert (env1.max_age = env2.max_age);
     {env1 with value = (V.widen env1.value env2.value)}
 
-  (* let get_var env v =                                               *)
-  (*   let res = (V.get_var env.value v) in                            *)
-  (*   match res with                                                  *)
-  (*   | Tp -> Tp                                                      *)
-  (*   | Nt a -> Nt (NumMap.map (fun vad -> {env with value = vad}) a) *)
-  
   let get_values env v = let l = match V.get_var env.value v with
      Tp -> []  | Nt x -> NumMap.bindings x in
      List.map (fun (k,v) -> Int64.to_int k) l
