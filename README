@@ -63,12 +63,11 @@ section. I.e. if the address of `main` is '0x080483b4', the starting
 point is '0x3b4'. This starting point can either be specified in the
 config file or as a command line parameter, as described above.
 
-The starting point can be identified using a disassembler, e.g. `objdump`. 
-In our experiments we compiled with debugging information (`gcc -g -m32 ...
--o target`) and displayed the disassembled binary with interleaved
-source code to identify `main`:
+The starting point of `main` can be e.g. identified by inspecting the symbol 
+table of an executable (which was not `strip`-ed), 
+e.g. using "`nm target`" or "`objdump --syms target`".
+A disassembler can be used to determine a non-trivial starting point.
 
-    objdump -d -S target
 
 ### Options for architecture and attacker model ###
 
