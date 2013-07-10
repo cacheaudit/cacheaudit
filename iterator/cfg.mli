@@ -1,6 +1,7 @@
 (** Module for creating and printing control flow graphs *)
 
-(** Type for basic blocks *)
+(** Type for basic blocks. A final jump command is stored in
+    [jump_command] and is not contained in the block's content *)
 type basicblock = {
   start_addr : int;
   end_addr : int;

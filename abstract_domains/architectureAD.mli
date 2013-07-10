@@ -9,11 +9,17 @@ module type S =
 sig
   include AD.S
 
-  (** Creates an ArchitectureAD with the following parameters 
-      {b TODO: Explain parameters. Can we use a record type for better readability?} *)
+  (** Creates an ArchitectureAD with given parameters. More specifically, in 
+      [init cm sv dcp icp ba]     
+       - [cm] is the executable,
+       - [sv] are initial values of memory locations and registers,
+       - [dcp] and [icp] are the configurations of data and instruction caches, and
+       - [ba] is the base address of instructions.
+  *)
   val init: X86Headers.t -> 
     (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> 
     CacheAD.cache_param -> CacheAD.cache_param option -> int64 -> t
+ 
     
   (** For an op32 expression, returns a finite list of possible
       values, each value associated with an approximation of the
@@ -32,19 +38,33 @@ sig
 
   (** Records a return (and its effect on the stack). *)
   val return : t -> (int,t) finite_set
+
+  (** 32 bit memory operation *)
   val memop : t -> memop -> op32 -> op32 -> t
+
+  (** 8 bit memory operation *)
   val memopb : t -> memop -> op8 -> op8 -> t
+
+  (** Move with zero extend *)
   val movzx : t -> op32 -> op8 -> t
+
+  (** Load operation *)
   val load_address : t -> reg32 -> address -> t
+
+  (** Flag operation *)
   val flagop : t -> op32 flagop -> t
+
+  (** Stack operation *)
   val stackop : t -> stackop -> op32 -> t
+
+  (** Shift operation *)
   val shift : t -> shift_op -> op32 -> op8 -> t
 
-    (** Records the addresses of operations, which is required for instruction caches *)
+  (** Records the addresses of operations, which is required for instruction caches *)
   val read_instruction: t -> int -> t
 
-    (** Is used to signal from the iterator to the cache the
-	time consumed by an instruction *)
+  (** Signals from the iterator to the cache the time consumed by an
+      instruction *)
   val elapse : t -> int -> t
 
 end

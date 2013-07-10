@@ -17,8 +17,12 @@ module type S =
 sig
   include AD.S
     
-  (** Creates an MemAD with the following parameters {b TODO: Explain
-      parameters. Can we use a record type for better readability?} *)
+ (** Creates a MemAD with given parameters. More specifically, in 
+      [init iv mem dcp]     
+       - [iv] represents initial values of memory locations
+       - [mem] are initial values of registers
+       - [dcp] is the configuration of the data cache, and
+  *)
   val init: (int64 -> int64 option) -> mem_param -> CacheAD.cache_param -> t
     
  (** [get_vals env op] returns a finite list of possible values for an op32 
@@ -30,17 +34,29 @@ sig
   (** Returns an overapproximation of the environments in which the condition holds,
       followed by an overapproximation of the environments in which it doesn't. *)
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
+
+  (** 32 bit memory operation *)
   val memop : t -> memop -> op32 -> op32 -> t
+
+  (** 8 bit memory operation *)
   val memopb : t -> memop -> op8 -> op8 -> t
+
+  (** Load operation *)
   val load_address : t -> reg32 -> address -> t
+
+  (** Move with zero extend *)
   val movzx : t -> op32 -> op8 -> t
+
+  (** Flag operation *)
   val flagop : t -> op32 flagop -> t
+
+  (** Shift operation *)
   val shift : t -> shift_op -> op32 -> op8 -> t
     
-  (** Is used to signal to the cache that a memory location has been accessed *)  
+  (** Signals to the cache that a memory location has been accessed *)  
   val touch : t -> int64 -> t
 
-  (** Is is used to signal from the iterator to the cache the time
+  (** Signals from the iterator to the cache the time
       consumed by an instruction *)
   val elapse : t -> int -> t
 end
@@ -54,5 +70,5 @@ module Make :
 (** Appends an address to the list of addresses that are logged.  The
     ordering of values in the log file corresponds to the ordering of
     that list.  Whenever there is a call to print, all addresses are
-    logged (usually twice) {b TODO: Why twice?} *)
+    logged *)
 val log_address: int64 -> unit

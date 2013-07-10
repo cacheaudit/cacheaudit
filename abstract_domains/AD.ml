@@ -10,8 +10,8 @@ module type S = sig
   val widen: t -> t -> t
 
 
-(** Test for inclusion. [subseteq x y] means that gamma(x) is
-      contained in gamma(y); false just means that we could not prove it *)
+(** Test for inclusion. true means that gamma(x) is
+      contained in gamma(y); false means that we could not infer this fact *)
   val subseteq: t -> t -> bool
 
 (** Prints the current state *)
@@ -35,7 +35,7 @@ module DS = struct
   type 'a add_bottom = Nb of 'a | Bot
   exception Bottom
 
-  (** lifting a function f on two domains without bottom when bottom should be absorbed *)
+  (** Lifting a function f on two domains without bottom when bottom should be absorbed *)
   let lift_combine f a1 a2 = match a1,a2 with
     Bot, x | x, Bot -> x
   | Nb x1, Nb x2 -> Nb(f x1 x2)
