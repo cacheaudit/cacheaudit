@@ -1,7 +1,8 @@
 (* Copyright (c) 2005, Regents of the University of California
  * All rights reserved.
  *
- * Authors: Adam Chlipala, Laurent Mauborgne
+ * Author: Adam Chlipala
+ * Extended by: Goran Doychev, Ignacio Echeverria, Boris Koepf, Laurent Mauborgne
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:

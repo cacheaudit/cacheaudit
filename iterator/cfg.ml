@@ -1,3 +1,6 @@
+(* Copyright (c) 2013, IMDEA Software Institute.             *)
+(* See ../LICENSE for authorship and licensing information   *)
+
 (* This module builds the control flow graph of the program being analyzed. 
    The graph is built in five phases:
 

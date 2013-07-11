@@ -1,5 +1,5 @@
 (* Copyright (c) 2013, IMDEA Software Institute.             *)
-(* See ../LICENSE for authorship and licensing information    *)
+(* See ../LICENSE for authorship and licensing information   *)
 
 
 (** Module defining types for the abstract instructions used by the 

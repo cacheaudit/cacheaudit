@@ -1,3 +1,6 @@
+(* Copyright (c) 2013, IMDEA Software Institute.             *)
+(* See ../LICENSE for authorship and licensing information   *)
+
 (** Analysis of headers for executable files.
    So far, only ELF is supported       
  *)

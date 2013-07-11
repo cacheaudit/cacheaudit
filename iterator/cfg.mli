@@ -1,5 +1,5 @@
 (* Copyright (c) 2013, IMDEA Software Institute.             *)
-(* See ../LICENSE for authorship and licensing information    *)
+(* See ../LICENSE for authorship and licensing information   *)
 
 (** Module for creating and printing control flow graphs *)
 
