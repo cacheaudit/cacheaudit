@@ -1,3 +1,6 @@
+(* Copyright (c) 2013, IMDEA Software Institute.             *)
+(* See ../LICENSE for authorship and licensing information    *)
+
 (** Module for creating and printing control flow graphs *)
 
 (** Type for basic blocks. A final jump command is stored in

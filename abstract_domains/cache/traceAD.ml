@@ -1,3 +1,6 @@
+(* Copyright (c) 2013, IMDEA Software Institute.              *)
+(* See ../../LICENSE for authorship and licensing information *)
+
 open Big_int
 open AD.DS
 

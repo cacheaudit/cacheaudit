@@ -1,3 +1,7 @@
+(* Copyright (c) 2013, IMDEA Software Institute.             *)
+(* See ../LICENSE for authorship and licensing information   *)
+
+
 open X86Types
 open AbstractInstr
 open AD.DS

@@ -1,3 +1,6 @@
+(* Copyright (c) 2013, IMDEA Software Institute.              *)
+(* See ../../LICENSE for authorship and licensing information *)
+
 (** Value abstract domain: overapproximates possible values of
     variables by sets and intervals *)
 

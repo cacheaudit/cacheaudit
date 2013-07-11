@@ -31,7 +31,7 @@
  *)
 
 
-(*
- * Code in the "x86_frontend" and "example" folders was created by
- * different authors; corresponding software licenses can be found there. 
+(* Different authorship, copyright, and licenses may hold for code
+ * in the "x86_frontend" and "example" folders. See the individual
+ *  files for corresponding statements.
  *)

@@ -1,3 +1,6 @@
+(* Copyright (c) 2013, IMDEA Software Institute.             *)
+(* See ../LICENSE for authorship and licensing information   *)
+
 let time_instr = 1 (* number of cycles of one instriction, to which we add the time for memory accesses *)
 let time_test = 1 (* number of cycles for a test *)
 let time_effective_load = 0; 

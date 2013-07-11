@@ -1,3 +1,6 @@
+(* Copyright (c) 2013, IMDEA Software Institute.              *)
+(* See ../../LICENSE for authorship and licensing information *)
+
 open AD.DS
 open NumAD.DS
 open Logger
