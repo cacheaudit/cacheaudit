@@ -76,24 +76,24 @@ let addr_starting_block = -3
 (* Starting addr has the lowest value because it should be the first one
    in the list of nodes of the cfg. *)
 
+(* Returns last element of list, fails if list is empty *)
+let rec last = function
+  | [x] -> x
+  | (x::xs) -> last xs
+  | _ -> failwith "Empty lists have no last elements"
 
 let new_block sa en nb cont = 
-  let rec extract_last = function
-      [] -> failwith "Empty list argument to extract_last\n"
-    | [l] -> [], l
-    | x::ll -> let beg,l = extract_last ll in x::beg,l
-  in
-  let c,j = match cont with
-      [] -> [], None
-    | _ -> let beg,(_,l) = extract_last cont in
+  let j = match cont with
+    | [] -> None
+    | _ -> let (_,l) = last cont in
       ( match l with
-        Jcc _ | Jmp _ | Ret | Halt | Call _ -> beg, Some l
-      | _ -> cont, None
+        Jcc _ | Jmp _ | Ret | Halt | Call _ -> Some l
+      | _ -> None
       )
   in { p_start_addr = sa;
        p_end_addr   = en;
        p_next_block_addr =  nb;
-       p_content    = c;
+       p_content    = cont;
        p_jump_command = j;
        p_out_edges  = [];
        p_in_edges   = [];
@@ -123,12 +123,6 @@ let pp_block fmt b =
 
 let pp_context fmt ctx =
     Format.fprintf fmt "@[("; List.iter (fun i -> Format.fprintf fmt "0x%x " i) ctx; Format.fprintf fmt ")@]"
-
-(* Returns last element of list, fails if list is empty *)
-let rec last = function
-  | [x] -> x
-  | (x::xs) -> last xs
-  | _ -> failwith "Empty lists have no last elements"
 
 (* Returns the same list without the first element, if there is one *)
 let strip_first = function
