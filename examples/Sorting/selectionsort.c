@@ -1,4 +1,4 @@
-// SelectionSort
+// Source from http://www.codebeach.com/2008/09/sorting-algorithms-in-c.html
 //# include <stdio.h>
 
 int main(){

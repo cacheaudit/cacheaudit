@@ -1,9 +1,0 @@
-All binaries produced on Linux for 32 bit architecture:
-gcc -m32 input.c -o output
-
-For a precise analysis, use --unroll 300
-
-NOTE:
-Things to do:
-1) Make number of unfoldings configurable.
-2) Also, it would make sense to specify the number of cache sets rather than the overall cache size (as is right now)
