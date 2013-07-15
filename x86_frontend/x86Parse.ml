@@ -2,6 +2,7 @@
  * All rights reserved.
  *
  * Author: Adam Chlipala
+ * Extended by: Goran Doychev, Boris Koepf, Laurent Mauborgne   
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -65,8 +66,8 @@ let rec read_instr_body bits seg_override =
     read_instr_body bits (Some GS)
   else if byte = 0x66 then
     (* 16-bit mode instruction *)
-    raise (Parse "No 16-bit instructions yet!")
-  else if byte >= 0x40 && byte < 0x40 + nRegs32 then
+    raise (Parse (Printf.sprintf "Unsupported 16-bit instruction at position 0x%x" position))
+ else if byte >= 0x40 && byte < 0x40 + nRegs32 then
     Inc (Reg (int_to_reg32 (byte - 0x40))), bits
   else if byte >= 0x48 && byte < 0x48 + nRegs32 then
     Dec (Reg (int_to_reg32 (byte - 0x48))), bits
@@ -196,7 +197,8 @@ let rec read_instr_body bits seg_override =
         0 ->
           let imm, bits = read_uint32 bits 8 in
           Movb (dst, Imm imm), bits
-      | _ -> raise (Parse "Unknown 0xC6 instruction")
+      | _ -> raise (Parse (Printf.sprintf "Unknown 0xC6 instruction 0x%x at position 0x%x" spare position))
+
       end
   | 0xC7 ->
       let dst, bits, spare = read_rm32_with_spare bits seg_override in
@@ -204,7 +206,7 @@ let rec read_instr_body bits seg_override =
         0 ->
           let imm, bits = read_uint32 bits 32 in
           Mov (dst, Imm imm), bits
-      | _ -> raise (Parse "Unknown 0xC7 instruction")
+      | _ -> raise (Parse (Printf.sprintf "Unknown 0xC7 instruction 0x%x at position 0x%x" spare position))
       end
   | 0xC9 -> Leave, bits
   | 0xD1 -> 
