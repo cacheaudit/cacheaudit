@@ -348,7 +348,7 @@ module SimpleOctAD (Oct: OCT): OCTAGON_TEST_DOMAIN  = struct
     try
       let num = "[0-9]+" in
       let ops = "[-+*/]" in
-      if not (Str.string_match (Str.regexp ("-?"^num^"\|"^num^ops^num)) expr 0) then
+      if not (Str.string_match (Str.regexp ("-?"^num^"\\|"^num^ops^num)) expr 0) then
         raise InvalidExpression;
       let get_val x = match x with 
       | Str.Text a -> float_of_string (String.trim a) 
