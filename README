@@ -58,8 +58,8 @@ can either be given in the configuration file ( e.g. `START 0x3b4`) or
 as a command-line parameter (`--start 0x3b4`).
 
 The starting point of the x86 parser on an Linux ELF executable is
-specified as an offset from the base address 0x0804800 of the `.text`
-section. I.e. if the address of `main` is '0x080483b4', the starting
+specified as an offset from the base address `0x08048000` of the `.text`
+section. I.e. if the address of `main` is `0x080483b4`, the starting
 point is '0x3b4'. This starting point can either be specified in the
 config file or as a command line parameter, as described above.
 
