@@ -64,7 +64,8 @@ int main ()
   ECRYPT_ctx* x=&mycontext;
   // Inlined deterministic parts of Key setup,
   // namely the initialization of the counter
-  // (Salsa is a Hash Function in Counter Mode)
+  // (Salsa=Hash Function in Counter Mode)
+
   x->input[8]=0;
   x->input[9]=0;
   //
