@@ -37,8 +37,7 @@ module EdgeSet = Set.Make(
 
 open X86Types
 open AsmUtil
-
-let verbose = ref false
+open Logger
 
 (*Control Flow Graph*)
 type prebasicblock =
@@ -165,13 +164,13 @@ let rec_call edge edges f =
    Collects edges of the CFG in form (source address, target address)
 *)
 let getedges sections bs =
-  if !verbose then Format.printf "getedges \n";
+  if get_log_level CfgLL = Debug then Format.printf "getedges \n";
   let rec getaux context ret b edges = 
     if more b then
       let i,nb = X86Parse.read_instr b in
       let src = get_byte b in
       let nsrc = get_byte nb in
-      if !verbose then
+      if get_log_level CfgLL = Debug then
         Format.printf "Context %a @<6>%x %a@." pp_context context (get_byte b) X86Print.pp_instr i;
       match i with 
 	| Jcc (_,x) -> 
@@ -267,14 +266,15 @@ let clone_functions cfg =
     | [] -> ContextBlockMap.add ([],n.p_start_addr) (copy_block_wo_edges n []) l
     | _ ->
       List.fold_left(fun l ((cn,_,_,_),_) -> 
-        if !verbose then Format.printf "Added block 0x%x with context %a@." n.p_start_addr pp_context cn;
+        if get_log_level CfgLL = Debug then Format.printf "Added block 0x%x with context %a@." n.p_start_addr pp_context cn;
         (* Using a map avoids duplication of blocks when there is a branch. *)
         ContextBlockMap.add (cn,n.p_start_addr) (copy_block_wo_edges n cn) l
       ) l n.p_out_edges
     )ContextBlockMap.empty cfg in
   List.iter (fun n -> 
     List.iter (fun ((ctx,edge_t,src,dst),_) -> try
-      let key = ((ctx_apply_t ctx edge_t),dst) in
+      (* Special case for error block. It always has an empty context and can be reached from any context *)
+      let key = match dst with -2 (* error block *) -> ([],dst) | _ -> ((ctx_apply_t ctx edge_t),dst) in
       let src_block = ContextBlockMap.find (ctx,n.p_start_addr) newnodes in
       let tgt_block = ContextBlockMap.find key newnodes in
       src_block.out_edges <- tgt_block::src_block.out_edges;
@@ -298,7 +298,7 @@ let makecfg start sections=
      post_edges are determined when computing basic blocks *)
   let pre_edges = EdgeSet.add ([],InternalEdge,addr_starting_block, start) 
                               (getedges sections bs) in 
-  if !verbose then Format.printf "got Edges\n";
+  if get_log_level CfgLL = Debug then Format.printf "got Edges\n";
   let pre_blocks, post_edges = collectbasicblocks pre_edges bs in
   let edges = EdgeSet.union pre_edges post_edges in
   let start_block = new_block addr_starting_block addr_starting_block 0 [] in
@@ -316,7 +316,7 @@ let makecfg start sections=
   			tgt_block.p_in_edges <- (ed,src_block):: tgt_block.p_in_edges;
       with Not_found -> (Format.printf "Edge (0x%x, 0x%x) not found\n" src tgt; raise Not_found)
     ) edges;
-  if !verbose then Format.printf "Got graph\n"; 
+  if get_log_level CfgLL = Debug then Format.printf "Got graph\n"; 
   clone_functions basicblocks
 
 (* Prints control flow graph, blocks separated by newline *)
