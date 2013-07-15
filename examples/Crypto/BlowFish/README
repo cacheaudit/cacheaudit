@@ -1,7 +1,0 @@
-Encryption using BlowFish from the polarSSL library (https://polarssl.org/)
-
-VERSIONS:
-blowfish.c: Blowfish encryption, including key schedule
-
-All code in this folder is licensed under the terms of the GNU public
-license. See aes.c for the original license and copyright statements.
