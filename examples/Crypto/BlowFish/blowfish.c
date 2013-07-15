@@ -1,7 +1,7 @@
 /*
  *  Blowfish implementation
  *
- *  Copyright (C) 2012-2012, Brainspark B.V.
+ *  Copyright (C) 2012-2013, Brainspark B.V.
  *
  *  This file is part of PolarSSL (http://www.polarssl.org)
  *  Lead Maintainer: Paul Bakker <polarssl_maintainer at polarssl.org>
@@ -34,6 +34,8 @@
 #if defined(POLARSSL_BLOWFISH_C)
 
 #include "blowfish.h"
+
+#if !defined(POLARSSL_BLOWFISH_ALT)
 
 /*
  * 32-bit integer manipulation macros (big endian)
@@ -69,45 +71,37 @@ static const uint32_t P[BLOWFISH_ROUNDS + 2] = {
 /* declarations of data at the end of this file */
 static const uint32_t S[4][256];
 
+static uint32_t F(blowfish_context *ctx, uint32_t x) 
+{
+   unsigned short a, b, c, d;
+   uint32_t  y;
 
+   d = (unsigned short)(x & 0xFF);
+   x >>= 8;
+   c = (unsigned short)(x & 0xFF);
+   x >>= 8;
+   b = (unsigned short)(x & 0xFF);
+   x >>= 8;
+   a = (unsigned short)(x & 0xFF);
+   y = ctx->S[0][a] + ctx->S[1][b];
+   y = y ^ ctx->S[2][c];
+   y = y + ctx->S[3][d];
 
+   return y;
+}
 
-int main(){
+static void blowfish_enc(blowfish_context *ctx, uint32_t *xl, uint32_t *xr) 
+{
+    uint32_t  Xl, Xr, temp;
+    short i;
 
-  blowfish_context context;
-  blowfish_context* ctx = &context;
-  uint32_t  Xl, Xr, temp;
-  unsigned int i;
-  
+    Xl = *xl;
+    Xr = *xr;
 
     for (i = 0; i < BLOWFISH_ROUNDS; ++i) 
     {
-      
-   
-      Xl = Xl ^ ctx->P[i];
-
-      // Hand-inlined F
-      //static uint32_t F(blowfish_context *ctx, uint32_t x) 
-      //{
-      unsigned int a, b, c, d;
-      uint32_t  y;
-      uint32_t x = Xl;
-
-      d = (unsigned int)(x & 0xFF);
-      x >>= 8;
-      c = (unsigned int)(x & 0xFF);
-      x >>= 8;
-      b = (unsigned int)(x & 0xFF);
-      x >>= 8;
-      a = (unsigned int)(x & 0xFF);
-      y = ctx->S[0][a] + ctx->S[1][b];
-      y = y ^ ctx->S[2][c];
-      y = y + ctx->S[3][d];
-      // End of F
-
-
-
-        Xr = y ^ Xr;
+        Xl = Xl ^ ctx->P[i];
+        Xr = F(ctx, Xl) ^ Xr;
 
         temp = Xl;
         Xl = Xr;
@@ -121,9 +115,259 @@ int main(){
     Xr = Xr ^ ctx->P[BLOWFISH_ROUNDS];
     Xl = Xl ^ ctx->P[BLOWFISH_ROUNDS + 1];
 
-
+    *xl = Xl;
+    *xr = Xr;
 }
 
+static void blowfish_dec(blowfish_context *ctx, uint32_t *xl, uint32_t *xr) 
+{
+    uint32_t  Xl, Xr, temp;
+    short i;
+
+    Xl = *xl;
+    Xr = *xr;
+
+    for (i = BLOWFISH_ROUNDS + 1; i > 1; --i) 
+    {
+        Xl = Xl ^ ctx->P[i];
+        Xr = F(ctx, Xl) ^ Xr;
+
+        temp = Xl;
+        Xl = Xr;
+        Xr = temp;
+    }
+
+    temp = Xl;
+    Xl = Xr;
+    Xr = temp;
+
+    Xr = Xr ^ ctx->P[1];
+    Xl = Xl ^ ctx->P[0];
+
+    *xl = Xl;
+    *xr = Xr;
+}
+
+/*
+ * Blowfish key schedule
+ */
+int blowfish_setkey( blowfish_context *ctx, const unsigned char *key, unsigned int keysize )
+{
+    unsigned int i, j, k;
+    uint32_t data, datal, datar;
+
+    if( keysize < BLOWFISH_MIN_KEY || keysize > BLOWFISH_MAX_KEY ||
+        ( keysize % 8 ) ) 
+    {
+        return POLARSSL_ERR_BLOWFISH_INVALID_KEY_LENGTH;
+    }
+
+    keysize >>= 3;
+
+    for( i = 0; i < 4; i++ ) 
+    {
+        for( j = 0; j < 256; j++ )
+            ctx->S[i][j] = S[i][j];
+    }
+
+    j = 0;
+    for( i = 0; i < BLOWFISH_ROUNDS + 2; ++i )
+    {
+        data = 0x00000000;
+        for( k = 0; k < 4; ++k )
+        {
+            data = ( data << 8 ) | key[j++];
+            if( j >= keysize )
+                j = 0;
+        }
+        ctx->P[i] = P[i] ^ data;
+    }
+
+    datal = 0x00000000;
+    datar = 0x00000000;
+
+    for( i = 0; i < BLOWFISH_ROUNDS + 2; i += 2 )
+    {
+        blowfish_enc( ctx, &datal, &datar );
+        ctx->P[i] = datal;
+        ctx->P[i + 1] = datar;
+    }
+
+    for( i = 0; i < 4; i++ )
+    {
+       for( j = 0; j < 256; j += 2 )
+       {
+            blowfish_enc( ctx, &datal, &datar );
+            ctx->S[i][j] = datal;
+            ctx->S[i][j + 1] = datar;
+        }
+    }
+    return( 0 );
+}
+
+/*
+ * Blowfish-ECB block encryption/decryption
+ */
+int blowfish_crypt_ecb( blowfish_context *ctx,
+                    int mode,
+                    const unsigned char input[BLOWFISH_BLOCKSIZE],
+                    unsigned char output[BLOWFISH_BLOCKSIZE] )
+{
+    uint32_t X0, X1;
+
+    GET_UINT32_BE( X0, input,  0 ); 
+    GET_UINT32_BE( X1, input,  4 ); 
+
+    if( mode == BLOWFISH_DECRYPT )
+    {
+        blowfish_dec(ctx, &X0, &X1);
+    }
+    else /* BLOWFISH_ENCRYPT */
+    {
+        blowfish_enc(ctx, &X0, &X1);
+    }
+
+    PUT_UINT32_BE( X0, output,  0 );
+    PUT_UINT32_BE( X1, output,  4 );
+
+    return( 0 );
+}
+
+/*
+ * Blowfish-CBC buffer encryption/decryption
+ */
+int blowfish_crypt_cbc( blowfish_context *ctx,
+                    int mode,
+                    size_t length,
+                    unsigned char iv[BLOWFISH_BLOCKSIZE],
+                    const unsigned char *input,
+                    unsigned char *output )
+{
+    int i;
+    unsigned char temp[BLOWFISH_BLOCKSIZE];
+
+    if( length % BLOWFISH_BLOCKSIZE )
+        return( POLARSSL_ERR_BLOWFISH_INVALID_INPUT_LENGTH );
+
+    if( mode == BLOWFISH_DECRYPT )
+    {
+        while( length > 0 )
+        {
+            memcpy( temp, input, BLOWFISH_BLOCKSIZE );
+            blowfish_crypt_ecb( ctx, mode, input, output );
+
+            for( i = 0; i < BLOWFISH_BLOCKSIZE;i++ )
+                output[i] = (unsigned char)( output[i] ^ iv[i] );
+
+            memcpy( iv, temp, BLOWFISH_BLOCKSIZE );
+
+            input  += BLOWFISH_BLOCKSIZE;
+            output += BLOWFISH_BLOCKSIZE;
+            length -= BLOWFISH_BLOCKSIZE;
+        }
+    }
+    else
+    {
+        while( length > 0 )
+        {
+            for( i = 0; i < BLOWFISH_BLOCKSIZE; i++ )
+                output[i] = (unsigned char)( input[i] ^ iv[i] );
+
+            blowfish_crypt_ecb( ctx, mode, output, output );
+            memcpy( iv, output, BLOWFISH_BLOCKSIZE );
+
+            input  += BLOWFISH_BLOCKSIZE;
+            output += BLOWFISH_BLOCKSIZE;
+            length -= BLOWFISH_BLOCKSIZE;
+        }
+    }
+
+    return( 0 );
+}
+
+#if defined(POLARSSL_CIPHER_MODE_CFB)
+/*
+ * Blowfish CFB buffer encryption/decryption
+ */
+int blowfish_crypt_cfb64( blowfish_context *ctx,
+                       int mode,
+                       size_t length,
+                       size_t *iv_off,
+                       unsigned char iv[BLOWFISH_BLOCKSIZE],
+                       const unsigned char *input,
+                       unsigned char *output )
+{
+    int c;
+    size_t n = *iv_off;
+
+    if( mode == BLOWFISH_DECRYPT )
+    {
+        while( length-- )
+        {
+            if( n == 0 )
+                blowfish_crypt_ecb( ctx, BLOWFISH_ENCRYPT, iv, iv );
+
+            c = *input++;
+            *output++ = (unsigned char)( c ^ iv[n] );
+            iv[n] = (unsigned char) c;
+
+            n = (n + 1) % BLOWFISH_BLOCKSIZE;
+        }
+    }
+    else
+    {
+        while( length-- )
+        {
+            if( n == 0 )
+                blowfish_crypt_ecb( ctx, BLOWFISH_ENCRYPT, iv, iv );
+
+            iv[n] = *output++ = (unsigned char)( iv[n] ^ *input++ );
+
+            n = (n + 1) % BLOWFISH_BLOCKSIZE;
+        }
+    }
+
+    *iv_off = n;
+
+    return( 0 );
+}
+#endif /*POLARSSL_CIPHER_MODE_CFB */
+
+#if defined(POLARSSL_CIPHER_MODE_CTR)
+/*
+ * Blowfish CTR buffer encryption/decryption
+ */
+int blowfish_crypt_ctr( blowfish_context *ctx,
+                       size_t length,
+                       size_t *nc_off,
+                       unsigned char nonce_counter[BLOWFISH_BLOCKSIZE],
+                       unsigned char stream_block[BLOWFISH_BLOCKSIZE],
+                       const unsigned char *input,
+                       unsigned char *output )
+{
+    int c, i;
+    size_t n = *nc_off;
+
+    while( length-- )
+    {
+        if( n == 0 ) {
+            blowfish_crypt_ecb( ctx, BLOWFISH_ENCRYPT, nonce_counter, stream_block );
+
+            for( i = BLOWFISH_BLOCKSIZE; i > 0; i-- )
+                if( ++nonce_counter[i - 1] != 0 )
+                    break;
+        }
+        c = *input++;
+        *output++ = (unsigned char)( c ^ stream_block[n] );
+
+        n = (n + 1) % BLOWFISH_BLOCKSIZE;
+    }
+
+    *nc_off = n;
+
+    return( 0 );
+}
+#endif /* POLARSSL_CIPHER_MODE_CTR */
 
 static const uint32_t S[4][256] = {
     {   0xD1310BA6L, 0x98DFB5ACL, 0x2FFD72DBL, 0xD01ADFB7L,
@@ -384,4 +628,25 @@ static const uint32_t S[4][256] = {
         0xB74E6132L, 0xCE77E25BL, 0x578FDFE3L, 0x3AC372E6L  }
 };
 
+#endif /* !POLARSSL_BLOWFISH_ALT */
 #endif /* POLARSSL_BLOWFISH_C */
+
+
+int main (){
+
+  unsigned char key[16]; // 128 bit key
+  blowfish_context context;
+
+  blowfish_setkey(&context, key, 128);
+
+
+  unsigned char input[BLOWFISH_BLOCKSIZE];
+  unsigned char output[BLOWFISH_BLOCKSIZE];
+
+  blowfish_crypt_ecb(&context, BLOWFISH_ENCRYPT, input, output);
+
+
+}
+
+
+

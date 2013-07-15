@@ -352,7 +352,7 @@ int aes_setkey_enc( aes_context *ctx, const unsigned char *key, unsigned int key
     unsigned int i;
     uint32_t *RK;
 
-    // Keysize is 256 Bit
+    // Keysize is fixed to 256 Bit
     ctx->nr = 14; 
     ctx->rk = RK = ctx->buf;
 
@@ -502,97 +502,18 @@ int aes_crypt_ecb( aes_context *ctx,
     return( 0 );
 }
 
-// Same as aes_crypt_ecb. Workaround to a bug in CacheAudit,
-// which cannot yet handle the case that a function is called from two differnet sites
-
-int aes_crypt_ecb2( aes_context *ctx,
-                    int mode,
-                    const unsigned char input[16],
-                    unsigned char output[16] )
-{
-  unsigned int i;
-  uint32_t *RK, X0, X1, X2, X3, Y0, Y1, Y2, Y3;
-
-
-    RK = ctx->rk;
-
-    GET_UINT32_LE( X0, input,  0 ); X0 ^= *RK++;
-    GET_UINT32_LE( X1, input,  4 ); X1 ^= *RK++;
-    GET_UINT32_LE( X2, input,  8 ); X2 ^= *RK++;
-    GET_UINT32_LE( X3, input, 12 ); X3 ^= *RK++;
-
-    // ENCRYPT only
-
-
-    for( i = (ctx->nr >> 1) - 1; i > 0; i-- )
-      {
-	AES_FROUND( Y0, Y1, Y2, Y3, X0, X1, X2, X3 );
-	AES_FROUND( X0, X1, X2, X3, Y0, Y1, Y2, Y3 );
-      }
-    
-    AES_FROUND( Y0, Y1, Y2, Y3, X0, X1, X2, X3 );
-
-    X0 = *RK++ ^							\
-      ( (uint32_t) FSb[ ( Y0       ) & 0xFF ]       ) ^
-      ( (uint32_t) FSb[ ( Y1 >>  8 ) & 0xFF ] <<  8 ) ^
-      ( (uint32_t) FSb[ ( Y2 >> 16 ) & 0xFF ] << 16 ) ^
-      ( (uint32_t) FSb[ ( Y3 >> 24 ) & 0xFF ] << 24 );
-    
-    X1 = *RK++ ^						\
-      ( (uint32_t) FSb[ ( Y1       ) & 0xFF ]       ) ^
-      ( (uint32_t) FSb[ ( Y2 >>  8 ) & 0xFF ] <<  8 ) ^
-      ( (uint32_t) FSb[ ( Y3 >> 16 ) & 0xFF ] << 16 ) ^
-      ( (uint32_t) FSb[ ( Y0 >> 24 ) & 0xFF ] << 24 );
-    
-    X2 = *RK++ ^							\
-      ( (uint32_t) FSb[ ( Y2       ) & 0xFF ]       ) ^
-      ( (uint32_t) FSb[ ( Y3 >>  8 ) & 0xFF ] <<  8 ) ^
-      ( (uint32_t) FSb[ ( Y0 >> 16 ) & 0xFF ] << 16 ) ^
-      ( (uint32_t) FSb[ ( Y1 >> 24 ) & 0xFF ] << 24 );
-
-    X3 = *RK++ ^							\
-      ( (uint32_t) FSb[ ( Y3       ) & 0xFF ]       ) ^
-      ( (uint32_t) FSb[ ( Y0 >>  8 ) & 0xFF ] <<  8 ) ^
-      ( (uint32_t) FSb[ ( Y1 >> 16 ) & 0xFF ] << 16 ) ^
-      ( (uint32_t) FSb[ ( Y2 >> 24 ) & 0xFF ] << 24 );
-
-
-    PUT_UINT32_LE( X0, output,  0 );
-    PUT_UINT32_LE( X1, output,  4 );
-    PUT_UINT32_LE( X2, output,  8 );
-    PUT_UINT32_LE( X3, output, 12 );
-
-    return( 0 );
-}
-
-
 
 
 int main (){
 
-  unsigned char inp0[16];
-  unsigned char inp1[16];
-  unsigned char ki[16];
-  unsigned char xi[16];
+  unsigned char in[32];
+  unsigned char key[32];
+  unsigned char out[32];
   aes_context mycontext; 
-  unsigned int i;
-  for (i=0; i<16; i++){
-    inp0[i]=0;
-    inp1[i]=1;
-  }
 
- 
-  //  for (i=0; i<numrounds){
-      // key schedule
-  while (1){
-  aes_setkey_enc(&mycontext, ki, 256);
-    // xi
-  aes_crypt_ecb(&mycontext, AES_ENCRYPT, inp0, xi);
-    // ki
-   aes_crypt_ecb2(&mycontext, AES_ENCRYPT, inp1, ki);    
-  }
+  aes_setkey_enc(&mycontext, key, 256);
+  aes_crypt_ecb(&mycontext, AES_ENCRYPT, in, out);
 
-  return 0;
 }
 
 
