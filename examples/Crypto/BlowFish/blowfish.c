@@ -93,7 +93,7 @@ static uint32_t F(blowfish_context *ctx, uint32_t x)
 static void blowfish_enc(blowfish_context *ctx, uint32_t *xl, uint32_t *xr) 
 {
     uint32_t  Xl, Xr, temp;
-    short i;
+    int i;
 
     Xl = *xl;
     Xr = *xr;
