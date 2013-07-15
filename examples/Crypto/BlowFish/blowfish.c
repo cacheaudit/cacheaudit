@@ -73,16 +73,18 @@ static const uint32_t S[4][256];
 
 static uint32_t F(blowfish_context *ctx, uint32_t x) 
 {
-   unsigned short a, b, c, d;
+  // Changed types from unsigned short to unsigned int
+  // because CacheAudit currently does not support 16 bit operations.
+   unsigned int a, b, c, d;
    uint32_t  y;
 
-   d = (unsigned short)(x & 0xFF);
+   d = (unsigned int)(x & 0xFF);
    x >>= 8;
-   c = (unsigned short)(x & 0xFF);
+   c = (unsigned int)(x & 0xFF);
    x >>= 8;
-   b = (unsigned short)(x & 0xFF);
+   b = (unsigned int)(x & 0xFF);
    x >>= 8;
-   a = (unsigned short)(x & 0xFF);
+   a = (unsigned int)(x & 0xFF);
    y = ctx->S[0][a] + ctx->S[1][b];
    y = y ^ ctx->S[2][c];
    y = y + ctx->S[3][d];
@@ -93,7 +95,7 @@ static uint32_t F(blowfish_context *ctx, uint32_t x)
 static void blowfish_enc(blowfish_context *ctx, uint32_t *xl, uint32_t *xr) 
 {
     uint32_t  Xl, Xr, temp;
-    int i;
+    unsigned int i;
 
     Xl = *xl;
     Xr = *xr;
@@ -119,34 +121,6 @@ static void blowfish_enc(blowfish_context *ctx, uint32_t *xl, uint32_t *xr)
     *xr = Xr;
 }
 
-static void blowfish_dec(blowfish_context *ctx, uint32_t *xl, uint32_t *xr) 
-{
-    uint32_t  Xl, Xr, temp;
-    short i;
-
-    Xl = *xl;
-    Xr = *xr;
-
-    for (i = BLOWFISH_ROUNDS + 1; i > 1; --i) 
-    {
-        Xl = Xl ^ ctx->P[i];
-        Xr = F(ctx, Xl) ^ Xr;
-
-        temp = Xl;
-        Xl = Xr;
-        Xr = temp;
-    }
-
-    temp = Xl;
-    Xl = Xr;
-    Xr = temp;
-
-    Xr = Xr ^ ctx->P[1];
-    Xl = Xl ^ ctx->P[0];
-
-    *xl = Xl;
-    *xr = Xr;
-}
 
 /*
  * Blowfish key schedule
@@ -218,14 +192,9 @@ int blowfish_crypt_ecb( blowfish_context *ctx,
     GET_UINT32_BE( X0, input,  0 ); 
     GET_UINT32_BE( X1, input,  4 ); 
 
-    if( mode == BLOWFISH_DECRYPT )
-    {
-        blowfish_dec(ctx, &X0, &X1);
-    }
-    else /* BLOWFISH_ENCRYPT */
-    {
-        blowfish_enc(ctx, &X0, &X1);
-    }
+   
+    blowfish_enc(ctx, &X0, &X1);
+
 
     PUT_UINT32_BE( X0, output,  0 );
     PUT_UINT32_BE( X1, output,  4 );
