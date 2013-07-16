@@ -23,7 +23,7 @@ let print_cfg = ref false
 let print_ass = ref false
 let analyze = ref true
 let interval_cache = ref false
-let do_traces = ref true
+let do_traces = ref false
 
 
 type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
@@ -77,9 +77,9 @@ let anon_fun = (fun x ->  if !bin_name = "" then bin_name := x
 let speclist = [
     (* ("-f", Arg.String anon_fun, "give the name of the binary file"); *)
     ("--start", Arg.String (fun s -> start_addr := int_of_string s), 
-      "set the address (in bytes) where we start parsing");
+      "set the address (in bytes) where to start parsing");
     ("--end", Arg.String (fun s -> end_addr := int_of_string s), 
-      "set the oddress (in bytes) where we stop parsing");
+      "set the oddress (in bytes) where to stop parsing");
     ("--cfg", Arg.Unit (fun () -> print_cfg := true; analyze := false;), 
       "prints the control flow graph only, no analysis performed"
       ^"\n  Options for data cache configuration:");
@@ -126,21 +126,19 @@ let speclist = [
       "set the cache replacement strategy to PLRU"
       ^"\n  Controlling and disabling aspects of the analysis:");
    
-    ("--no-trace-time", Arg.Unit (fun () -> do_traces := false),
-      "disable tracking of traces and time");
+    ("--traces", Arg.Unit (fun () -> do_traces := true),
+      "enable tracking of hit/miss traces and execution times");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--no-outer-unroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), 
       "overwrites the --unroll option, so that outer loops are not unrolled"
       ^"\n  Logging:");
-    ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
+    ("--log [quiet|normal|debug]",Arg.String (fun level -> Logger.set_global_ll level), 
       "set the general log level. Options are quiet, normal and debug. \
        Default is normal");
-    ("--log-one-ad",Arg.Tuple [Arg.Set_string temp_log_level; 
+    ("--log-one-ad [quiet|normal|debug] SomeAD",Arg.Tuple [Arg.Set_string temp_log_level; 
       Arg.String (fun ad -> Logger.set_ad_ll !temp_log_level ad)], 
-      "modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD, \
-      where SomeAD is one of ageAD, architectureAD, cacheAD, flagAD, \
-      memAD, stackAD, traceAD, valAD, and iterator");
-  ]
+      "modify the output of SomeAD, where SomeAD is one of ageAD, architectureAD, cacheAD, flagAD, \
+      memAD, stackAD, traceAD, valAD, and iterator");]
 
 let _ =
   Arg.parse speclist anon_fun usage;
