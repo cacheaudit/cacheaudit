@@ -21,6 +21,7 @@ type ad_ll =
   | TraceLL
   | ValLL
   | IteratorLL
+  | CfgLL
 
 (** Returns the log level for the specified abstract domain. *)
 val get_log_level : ad_ll -> log_level
