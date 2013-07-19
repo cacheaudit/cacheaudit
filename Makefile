@@ -105,7 +105,7 @@ endif
 INTERFACE_FILES = abstract_domains/AD.ml iterator/abstractInstr.ml abstract_domains/numeric/numAD.ml
 
 doc:
-	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ \
+	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -d documentation/ \
 	$(OCAMLINCLUDE) -t "CacheAudit: Static Analysis of Cache Side-Channels" \
 	*.mli iterator/*.mli $(INTERFACE_FILES) abstract_domains/*.mli abstract_domains/numeric/*.mli abstract_domains/cache/*.mli x86_frontend/*.mli
 
