@@ -207,7 +207,7 @@ module Make (CA : CacheAD.S) = struct
         | Root,Root -> true
         | Single p1,Single p2 -> subseteq_traces (Nt p1) (Nt p2)
         | Couple (p11,p12),Couple (p21,p22) ->
-          subseteq_traces (Nt p11) (Nt p12) && subseteq_traces (Nt p21) (Nt p22)
+          subseteq_traces (Nt p11) (Nt p21) && subseteq_traces (Nt p12) (Nt p22)
         | _,_ -> false
       else false
   
