@@ -4,7 +4,7 @@
 type log_level = Quiet | Normal | Debug
 
 (** Type to identify the different ADs that can be specifically targeted for logging *)
-type ad_ll = AgeLL | ArchitectureLL | CacheLL | FlagLL | MemLL | OctLL | RelCacheLL | SimpleOctLL | SimpleRelSetLL | StackLL | TraceLL | ValLL | IteratorLL | CfgLL
+type ad_ll = AgeLL | ArchitectureLL | CacheLL | FlagLL | MemLL | OctLL | RelCacheLL | SimpleOctLL | SimpleRelSetLL | StackLL | TraceLL | AccessLL | ValLL | IteratorLL | CfgLL
 
 (** Map from ADs to their log level *)
 module ADMap = Map.Make(struct type t = ad_ll let compare = Pervasives.compare end )
@@ -26,6 +26,7 @@ let string_to_ad = function
 	| "simpleRelSetAD" -> SimpleRelSetLL
 	| "stackAD" -> StackLL
 	| "traceAD" -> TraceLL
+	| "accessAD" -> AccessLL
 	| "valAD" -> ValLL
 	| "iterator" -> IteratorLL
 	| "cfg" -> CfgLL

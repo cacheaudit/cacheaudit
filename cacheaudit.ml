@@ -35,6 +35,7 @@ let line_size = ref 0
 let associativity = ref 0
 
 type attacker_model = Final 
+  | Access of bool
   | Instructions of int (* may interrupt each x instruction *)
   | OneInstrInterrupt
   | OneTimedInterrupt
@@ -144,6 +145,10 @@ let speclist = [
       "attacker that can interrupt only once per round, based on the number of instructions");
     ("--oneTimedInterrupt", Arg.Unit (fun () -> attacker:=OneTimedInterrupt),
       "attacker that can interrupt only once per round, based on time");
+    ("--accessAttacker", Arg.Unit (fun () -> attacker := Access false), 
+      "attacker sees cache set usages.");
+    ("--accessAttacker-noStuttering", Arg.Unit (fun () -> attacker := Access true), 
+      "attacker sees cache set usages without stuttering.");
    
   ]
 
@@ -241,22 +246,23 @@ let _ =
         in
         (* Make distinction whether asynchronious attacker is used  *)
       let module BaseCache = (val cad: CacheAD.S) in
-        match !attacker with
+        let attacked_cache = match !attacker with
         | Final -> cad
+        | Access st -> AccessAD.no_stuttering := st;
+          (module AccessAD.Make(BaseCache) :CacheAD.S)
         | Instructions d -> AsynchronousAttacker.min_frequency := d;
           (module AsynchronousAttacker.InstructionBasedAttacker(BaseCache) :CacheAD.S)
         | OneInstrInterrupt -> 
           (module AsynchronousAttacker.OneInstructionInterrupt(BaseCache) : CacheAD.S)
         | OneTimedInterrupt -> 
           (module AsynchronousAttacker.OneTimeInterrupt(BaseCache) : CacheAD.S) in
+        let module AtCache = (val attacked_cache: CacheAD.S) in
+        if !do_traces then (module TraceAD.Make (AtCache) : CacheAD.S)
+        else attacked_cache in
       (* end of generate_cache definition *)
         
       (* Generate the data cache AD, with traces or not *)
-      let state = generate_cache data_cache_analysis attacker in
-      let datacache = if !do_traces then
-    (let module CState = (val state : CacheAD.S) in
-     (module TraceAD.Make (CState) : CacheAD.S))
-  else state in
+      let datacache = generate_cache data_cache_analysis attacker in
       let module DataCache = (val datacache : CacheAD.S) in
       (* Generate the memory AD *)
       let module Mem = MemAD.Make(FlagAD.Make(ValAD.Make(ValAD.ValADOptForMemory)))(DataCache) in

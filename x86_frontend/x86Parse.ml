@@ -104,11 +104,14 @@ let rec read_instr_body bits seg_override =
     let imm, bits = read_uint32 bits 32 in
     Arith(Add, Reg EAX, Imm imm), bits
   | 0x09 -> arith_to_rm Or
+  | 0x0B -> arith_from_rm Or
   | 0x0D ->
         let imm, bits = read_uint32 bits 32 in
         Arith(Or, Reg EAX, Imm imm), bits
   | 0x1C -> let imm, bits = read_uint32 bits 8 in
         Arithb(Subb, Reg AL, Imm imm), bits
+  | 0x21 -> arith_to_rm And
+  | 0x23 -> arith_from_rm And
   | 0x25 -> let disp, bits = read_int32 bits 32 in
       Arith (And, Reg EAX, Imm disp), bits
   | 0x29 -> arith_to_rm Sub
@@ -211,6 +214,7 @@ let rec read_instr_body bits seg_override =
   | 0xC9 -> Leave, bits
   | 0xD1 -> 
       shift (fun bits -> Imm (Int64.of_int 1), bits)
+  | 0xD3 -> shift (fun bits -> Reg CL, bits)
   | 0xE8 ->
       let loc = get_byte bits + 4 in
       let imm, bits = read_int32 bits 32 in
@@ -228,6 +232,7 @@ let rec read_instr_body bits seg_override =
       let gop, bits, spare = read_rm32_with_spare bits seg_override in
       begin match spare with
       (* | 6 -> Div gop, bits *)
+      | 2 -> Arith(Xor, gop, Imm (Int64.of_int 0xFFFFFFFF)), bits
       | _ -> raise (Parse (Printf.sprintf "Unknown 0xF7 instruction 0x%x at position 0x%x" spare position))
       end
   | 0xF9 -> FlagSet(CF, true), bits
@@ -253,7 +258,7 @@ let rec read_instr_body bits seg_override =
         let o_to,bits,spare = read_rm8_with_spare bits seg_override in
           Movzx (Reg (int_to_reg32 spare),o_to),bits
       
-      | _ -> raise (Parse (Printf.sprintf "Unknown 0x0F instruction 0x%x" opc))
+      | _ -> raise (Parse (Printf.sprintf "Unknown 0x0F instruction 0x%x at position 0x%x" opc position))
       end
   | _ -> raise (Parse (Printf.sprintf "Unknown instruction 0x%x at position 0x%x" byte position))
 
