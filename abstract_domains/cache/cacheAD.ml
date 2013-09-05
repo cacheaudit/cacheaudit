@@ -214,18 +214,8 @@ module Make (A: AgeAD.S) = struct
       | Nb yenv, Nb nyenv ->  { env with ages = add_out (A.inc_var yenv addr_in) }, Some {env with ages = nyenv }
       (* Combination of both cases, returned separately for increased precision. *)
       | Bot, Bot -> remove_line env addr_in, None
-       
-
-(*	let nuenv = match A.exact_val env addr env.associativity with
-	  | Bot -> env
-	  | Nb nenv -> match A.exact_val nenv addr_in env.associativity with
-	    | Bot -> env
-	    | Nb nenv -> nenv *)
-	
   (* The last case is only possible only if addr and addr_in
-     both have only maximal age, i.e. if they are not loaded. We explicitly
-     add the corresponding environment, which is omitted by the other
-     cases, before we remove addr_in
+     both have only maximal age, i.e. if they are not loaded.
      TODO: sanity check here ? *)
 
 
