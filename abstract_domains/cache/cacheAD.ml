@@ -191,21 +191,43 @@ module Make (A: AgeAD.S) = struct
 (* to allow some precision gain *)
 
   let age_one_element env addr addr_in =
-    if addr = addr_in then env,None (*This case is treated later in touch*)
+    (* This case requires setting age of addr to 0 and is treated later in touch *)
+    if addr = addr_in then env,None 
     else
+      (* Deals with the case in which ages of addr and addr_in are
+	 equal to associativity, i.e. addr and addr_in are both not
+	 cached *)
+      let add_out in_ages =
+	match A.exact_val env.ages addr env.associativity with
+	| Bot -> in_ages
+	| Nb addr_nc -> match A.exact_val addr_nc addr_in env.associativity  with
+	  | Bot -> in_ages
+	  | Nb both_nc -> A.join in_ages both_nc
+      in
+      (* Deals with the cases in which age of addr \neq age of addr_in *)
       let young,nyoung = A.comp env.ages addr_in addr in
-      match young with
-      | Bot -> (match nyoung with
-	(* This case is possible only if addr and addr_in have only maximal 
-           age, i.e. if they are not loaded. TODO: sanity check here ? *)
-        | Bot ->  remove_line env addr_in, None
-        (* Age of blocks older than addr remains the same *)  
-        | Nb nyenv -> { env with ages = nyenv }, None)
-      | Nb yenv ->
-         { env with ages = A.inc_var yenv addr_in },
-           match nyoung with
-             | Bot -> None
-             | Nb nyenv -> Some {env with ages = nyenv }
+      match young,nyoung with
+      | Bot, Nb nyenv -> { env with ages = add_out nyenv }, None
+      (* Age of blocks older than addr remains the same *)  
+      | Nb yenv, Bot ->  { env with ages = add_out (A.inc_var yenv addr_in) }, None
+      (* Age of blocks younger than addr is increased by one *)
+      | Nb yenv, Nb nyenv ->  { env with ages = add_out (A.inc_var yenv addr_in) }, Some {env with ages = nyenv }
+      (* Combination of both cases, returned separately for increased precision. *)
+      | Bot, Bot -> remove_line env addr_in, None
+       
+
+(*	let nuenv = match A.exact_val env addr env.associativity with
+	  | Bot -> env
+	  | Nb nenv -> match A.exact_val nenv addr_in env.associativity with
+	    | Bot -> env
+	    | Nb nenv -> nenv *)
+	
+  (* The last case is only possible only if addr and addr_in
+     both have only maximal age, i.e. if they are not loaded. We explicitly
+     add the corresponding environment, which is omitted by the other
+     cases, before we remove addr_in
+     TODO: sanity check here ? *)
+
 
   (* Increments the ages of all blocks that are in the same cache set as
      addr, which are given as a list of addresses *)
@@ -281,7 +303,7 @@ module Make (A: AgeAD.S) = struct
       	    | c1, Some c2 -> (* in this case, only the ages differ *)
         		{c1 with ages = A.join c1.ages c2.ages}
         	  ) cset env
-          in {env with ages = A.set_var env.ages addr 0}
+          in {env with ages = A.set_var env.ages addr 0} (* set age of accessed block to 0 *)
         | FIFO -> (* We first split the cache ages in cases where addr is in the block and cases where it is not *)
           let ages_in, ages_out = 
             A.comp_with_val env.ages addr env.associativity in
@@ -291,7 +313,7 @@ module Make (A: AgeAD.S) = struct
             match incr_ages ages_out cset with Bot -> Bot
             | Nb ages -> Nb {env with ages=A.set_var ages addr 0}
           in (match lift_combine join env1 env2 with 
-            Bot -> failwith "Unxepected bottom in touch when the strategy is FIFO"
+            Bot -> failwith "Unexpected bottom in touch when the strategy is FIFO"
           | Nb c -> c)
         | PLRU -> (* for each possible age of the block, we apply a different permutation *)
           let addr_ages = A.get_values env.ages addr in
@@ -301,7 +323,7 @@ module Make (A: AgeAD.S) = struct
                 (one_plru_touch env.ages env.associativity cset addr addr_age)
             ) Bot addr_ages in
           (match ages with 
-            Bot -> failwith "Unxepected bottom in touch when the strategy is PLRU"
+            Bot -> failwith "Unexpected bottom in touch when the strategy is PLRU"
           | Nb ages -> {env with ages = A.set_var ages addr 0}
           )
       (* in {new_cache with traces = traces} *)

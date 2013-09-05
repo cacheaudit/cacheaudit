@@ -186,7 +186,6 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   (** @return the list of all possible combinations resulting from the
       environment given an address. *)
   let address_list env addr =
-(*    try  *)
     let base = match addr.addrBase with
                  Some reg ->  unFinite (get_reg32 env reg)
                | None -> [(0L, env.vals)] in
@@ -196,12 +195,11 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
           let intscale = Int64.of_int (X86Util.scale_to_size scale) in
           List.map (fun (x,e) -> (Int64.mul intscale x, e)) (unFinite (get_reg32 env reg))
       | None ->  [(0L, env.vals)] in
-   (* Combine all the base and index values and meet the enviroments *)
+    (* Combine all the base and index values and meet the enviroments *)
     assert(index <> []);
     let comb = List.concat (List.map (fun (x,e) -> List.map (fun (y,e') -> (Int64.add x y, F.meet e e')) index) base) in
     List.map (fun (x, e) -> (Int64.add addr.addrDisp x, e)) comb
-(*    ) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue" *)
-    
+      
     
   (** Create an unitialized variable; assume it is not already created. *) 
   let create_var env n addr = {env with vals = F.new_var env.vals n; memory = MemSet.add n env.memory}
