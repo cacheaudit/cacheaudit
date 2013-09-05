@@ -675,7 +675,6 @@ module Make (O:VALADOPT) = struct
           end
       | Interval(l1,h1), Interval(l2,h2) -> Nb (VarMap.add dst top m)
       | FSet d, Interval(l,h) -> Nb (VarMap.add dst top m)
-      | _ -> failwith "ValAD.shift: case not implemented"
     in
     (
       create_m (fun sop rs og os -> flag_carry_shift sop rs og os && flag_zero rs),
