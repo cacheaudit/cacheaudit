@@ -190,20 +190,21 @@ module Make (A: AgeAD.S) = struct
 (* of addr, splits the cases and returns two cache configurations *)
 (* to allow some precision gain *)
 
+  (* Increment the age of addr_in if it is younger than addr *)
   let age_one_element env addr addr_in =
     (* This case requires setting age of addr to 0 and is treated later in touch *)
     if addr = addr_in then env,None 
     else
       (* Deals with the case in which ages of addr and addr_in are
-	 equal to associativity, i.e. addr and addr_in are both not
-	 cached *)
+       equal to associativity, i.e. addr and addr_in are both not
+       cached *)
       let add_out in_ages =
-	match A.exact_val env.ages addr env.associativity with
-	| Bot -> in_ages
-	| Nb addr_nc -> match A.exact_val addr_nc addr_in env.associativity  with
-	  | Bot -> in_ages
-	  | Nb both_nc -> A.join in_ages both_nc
-      in
+        match A.exact_val env.ages addr env.associativity with
+        | Bot -> in_ages
+        | Nb addr_nc -> 
+          match A.exact_val addr_nc addr_in env.associativity  with
+          | Bot -> in_ages
+          | Nb both_nc -> A.join in_ages both_nc in
       (* Deals with the cases in which age of addr \neq age of addr_in *)
       let young,nyoung = A.comp env.ages addr_in addr in
       match young,nyoung with
@@ -221,16 +222,18 @@ module Make (A: AgeAD.S) = struct
 
   (* Increments the ages of all blocks that are in the same cache set as
      addr, which are given as a list of addresses *)
-  let rec precise_age_elements env addr = function
+  let rec precise_age_elements env addr addrs = match addrs with
     | [] -> env
-    | addr_in :: clist -> (match age_one_element env addr addr_in with
+    | addr_in :: clist -> begin
+      match age_one_element env addr addr_in with
       | new_env, None -> precise_age_elements new_env addr clist
       | env1, Some env2 ->
-	let c1 = precise_age_elements env1 addr clist in
-	let c2 = precise_age_elements env2 addr clist in
-	(* TODO: see if it is too costly to remove some blocks here, as there *)
-(*  could be some of them which need to be put back in the join *)
-	join c1 c2)
+        let c1 = precise_age_elements env1 addr clist in
+        let c2 = precise_age_elements env2 addr clist in
+        (* TODO: see if it is too costly to remove some blocks here, as there *)
+        (*  could be some of them which need to be put back in the join *)
+        join c1 c2 
+    end
 
   (*Increments all ages in the cache set [cset] by one *)           
   let incr_ages ages cset = match ages with 
