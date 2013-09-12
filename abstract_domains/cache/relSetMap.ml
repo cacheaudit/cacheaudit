@@ -21,6 +21,7 @@ module type REL_SET_MAP = sig
   val differences : t -> t -> (NumSet.t * AFS.t * AFS.t) list
   val mem : NumSet.t -> t -> bool
   val for_all : (NumSet.t -> AFS.t -> bool) -> t -> bool
+  val fold : (VarSet.t -> AFS.t -> 'b -> 'b) -> t -> 'b -> 'b
 end
 
 module RelSetMap : REL_SET_MAP = struct
@@ -79,6 +80,8 @@ module RelSetMap : REL_SET_MAP = struct
   let filter f rsMap = {rsMap with map = M.filter f rsMap.map}
 
   let mapi f rsMap = {rsMap with map = M.mapi f rsMap.map}
+
+  let fold f rsMap b = M.fold f rsMap.map b
 
   let mem vset rsMap = M.mem vset rsMap.map
 

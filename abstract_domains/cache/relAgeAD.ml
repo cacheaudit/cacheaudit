@@ -134,8 +134,14 @@ module RelAgeAD = struct
     let gt = M.mapi (fun vset afs -> update_ages vset rsAD.map (fun x y -> Pervasives.compare y x) c) rsAD.map in 
     (check_validity {rsAD with map = ls},check_validity {rsAD with map = gt})
 
-  let exact_val rsAD v c = failwith "exact_val (needed for PLRU) not yet implem
-ented in relational sets" (*TODO*)
+  let exact_val rsAD v c = 
+    let update_ages (vset:NumSet.t) map (compare:int->int->int) (limit:int): AFS.t  = 
+      let old_ages = M.find vset map in 
+      match NumSet.mem v vset with  
+          true   -> AFS.filter_comp_val old_ages v limit compare
+        | false -> old_ages in 
+   let out = M.fold (fun vset afs map -> M.add vset (update_ages vset map (fun x y -> if x = y then -1 else 1) c) map) rsAD.map rsAD.map in
+     check_validity {rsAD with map = out}
 
   let permute rsAD f v = failwith "permute (needed for PLRU) not yet implemente
 d in relational sets" (*TODO*)
