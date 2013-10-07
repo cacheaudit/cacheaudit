@@ -74,8 +74,8 @@ module Make (A: AgeAD.S) = struct
   let count_cache_states env = 
     let num_cstates,bl_num_cstates = A.count_cstates env.ages in
     match !adversary with
-    | Blurred -> num_cstates
-    | SharedSpace -> bl_num_cstates
+    | Blurred -> bl_num_cstates
+    | SharedSpace -> num_cstates
   
   (* [print num] prints [num], which should be positive, as well as how many
      bits it is. If [num <= 0], print an error message *)
