@@ -11,7 +11,7 @@ let data_assoc = ref 0
 let inst_cache_s = ref 0
 let inst_line_s = ref 0
 let inst_assoc = ref 0
-let data_cache_strategy = ref CacheAD.LRU
+let data_cache_strategy = ref AgeAD.LRU
 let inst_cache_strategy_opt = ref None
 
 let instruction_base_addr = ref (Int64.of_int 0)
@@ -87,11 +87,11 @@ let speclist = [
       "set the cache line size (in bytes)");
     ("--assoc", (Arg.Int (fun n -> data_assoc := n)),
      "set the cache associativity");
-    ("--lru", Arg.Unit (fun () -> data_cache_strategy := CacheAD.LRU), 
+    ("--lru", Arg.Unit (fun () -> data_cache_strategy := AgeAD.LRU), 
       "set the cache replacement strategy to LRU (default)");
-    ("--fifo", Arg.Unit (fun () -> data_cache_strategy := CacheAD.FIFO), 
+    ("--fifo", Arg.Unit (fun () -> data_cache_strategy := AgeAD.FIFO), 
       "set the cache replacement strategy to FIFO");
-    ("--plru", Arg.Unit (fun () -> data_cache_strategy := CacheAD.PLRU), 
+    ("--plru", Arg.Unit (fun () -> data_cache_strategy := AgeAD.PLRU), 
       "set the cache replacement strategy to PLRU");
     ("--interval-cache", Arg.Unit (fun () -> data_cache_analysis := IntAges), 
       "use the interval abstract domain for the cache") ;
@@ -116,11 +116,11 @@ let speclist = [
       "use the relational set abstract domain for instruction cache") ;
     ("--inst-oct-cache", Arg.Unit (fun () -> inst_cache_analysis_opt := Some OctAges), 
       "use the octagon abstract domain for instruction cache") ;
-    ("--inst-lru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.LRU), 
+    ("--inst-lru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some AgeAD.LRU), 
       "set the instruction cache replacement strategy to LRU");
-    ("--inst-fifo", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.FIFO), 
+    ("--inst-fifo", Arg.Unit (fun () -> inst_cache_strategy_opt := Some AgeAD.FIFO), 
       "set the cache replacement strategy to FIFO");
-    ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.PLRU), 
+    ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some AgeAD.PLRU), 
       "set the cache replacement strategy to PLRU"
       ^"\n  Controlling and disabling aspects of the analysis:");
    
@@ -197,6 +197,11 @@ let _ =
       if !inst_line_s = 0 then inst_line_s := !data_line_s;
       if !inst_assoc = 0 then inst_assoc := !data_assoc;
       Printf.printf "Cache size %d, line size %d, associativity %d\n" !data_cache_s !data_line_s !data_assoc;
+      let rep_strat = match !data_cache_strategy with 
+      | AgeAD.LRU -> "LRU"
+      | AgeAD.FIFO -> "FIFO"
+      | AgeAD.PLRU -> "PLRU" in
+      Printf.printf "Data cache replacement strategy: %s\n" rep_strat;
       Printf.printf "Offset of first instruction is 0x%x (%d bytes in the file)\n" 
         !start_addr !start_addr;
       (get_bits mem), Some mem) 

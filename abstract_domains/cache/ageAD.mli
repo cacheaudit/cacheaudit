@@ -12,13 +12,18 @@ open Big_int
 open AD.DS
 open NumAD.DS
 
+type replacement_strategy = 
+  | LRU  (** least-recently used *)
+  | FIFO (** first in, first out *)
+  | PLRU (** tree-based pseudo LRU *)
+
 (** The signature of the Age abstract domain *)
 module type S = sig
   include AD.S
   
   (** {6 Initialization} *)
   
-  val init : int -> (var -> int) -> (var->string) -> t
+  val init : int -> (var -> int) -> (var->string) -> replacement_strategy -> t
   (** [init max_val pfn v2s] initializes the abstract domain
        with a maximal value [max_val]. 
        [pfn] is a partitioning function of the variables according to their 
@@ -55,6 +60,9 @@ module type S = sig
      takes values smaller than [a] or not.
      The first result contains the values where [x] < [a], and the second one 
      the values where [x] >= [a]. *)
+  
+  val get_strategy : t -> replacement_strategy
+  (** [get_strategy env] return the replacement strategy used *)
   
   (** {6 Counting} *)
 

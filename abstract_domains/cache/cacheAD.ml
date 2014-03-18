@@ -2,15 +2,11 @@ open AD.DS
 open NumAD.DS
 open Logger
 
-type cache_strategy = 
-  | LRU  (** least-recently used *)
-  | FIFO (** first in, first out *)
-  | PLRU (** tree-based pseudo LRU *)
 type cache_param = { 
   cs: int; 
   ls: int; 
   ass: int; 
-  str: cache_strategy;
+  str: AgeAD.replacement_strategy;
  } 
 
 module type S = sig
@@ -65,8 +61,9 @@ module Make (A: AgeAD.S) = struct
     line_size: int; (* same as "data block size" *)
     associativity: int;
     num_sets : int; (* computed from the previous three *)
-    strategy : cache_strategy; 
   }
+  
+  let get_strategy env = A.get_strategy env.ages
 
   let print_addr_set fmt = NumSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
 
@@ -101,8 +98,8 @@ module Make (A: AgeAD.S) = struct
         ) env.cache_sets;
     end else ();
     Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" A.print env.ages;
-    if env.strategy = PLRU then 
-      Format.fprintf fmt "Counting on PLRU is incorrect\n";
+    if get_strategy env = AgeAD.PLRU then 
+      Format.fprintf fmt "\nWarning: Counting on PLRU is incorrect\n";
     Format.printf "\n";
     let num, bl_num = A.count_cstates env.ages in
     Format.fprintf fmt "\nNumber of valid cache configurations: ";
@@ -127,13 +124,12 @@ module Make (A: AgeAD.S) = struct
     | 0 -> csets
     | n -> init_csets (IntMap.add (n - 1) NumSet.empty csets) (n - 1) in
     { cache_sets = init_csets IntMap.empty ns;
-      ages = A.init ass (calc_set_addr ns) var_to_string;
+      ages = A.init ass (calc_set_addr ns) var_to_string strategy;
       handled_addrs = NumSet.empty;
       cache_size = cs;
       line_size = ls;
       associativity = ass;
       num_sets = ns;
-      strategy = strategy;
     }
 
 
@@ -286,8 +282,8 @@ module Make (A: AgeAD.S) = struct
     let cset = IntMap.find set_addr env.cache_sets in
     if is_handled env addr then begin
       let new_cache =
-        match env.strategy with
-        | LRU -> 
+        match get_strategy env with
+        | AgeAD.LRU -> 
           let env = if !precise_touch 
           then precise_age_elements env addr (NumSet.elements cset)
           else NumSet.fold (fun addr_in curr_cache ->
@@ -297,7 +293,7 @@ module Make (A: AgeAD.S) = struct
         		{c1 with ages = A.join c1.ages c2.ages}
         	  ) cset env
           in {env with ages = A.set_var env.ages addr 0} (* set age of accessed block to 0 *)
-        | FIFO -> (* We first split the cache ages in cases where addr is in the block and cases where it is not *)
+        | AgeAD.FIFO -> (* We first split the cache ages in cases where addr is in the block and cases where it is not *)
           let ages_in, ages_out = 
             A.comp_with_val env.ages addr env.associativity in
           let env1 = match ages_in with Bot -> Bot
@@ -308,7 +304,7 @@ module Make (A: AgeAD.S) = struct
           in (match lift_combine join env1 env2 with 
             Bot -> failwith "Unexpected bottom in touch when the strategy is FIFO"
           | Nb c -> c)
-        | PLRU -> (* for each possible age of the block, we apply a different permutation *)
+        | AgeAD.PLRU -> (* for each possible age of the block, we apply a different permutation *)
           let addr_ages = A.get_values env.ages addr in
           let ages = List.fold_left 
             (fun ages addr_age -> 
