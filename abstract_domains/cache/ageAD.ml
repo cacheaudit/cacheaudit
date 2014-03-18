@@ -1,10 +1,16 @@
 open Big_int
 open AD.DS
 open NumAD.DS
+open Logger
+
+type replacement_strategy = 
+  | LRU  (** least-recently used *)
+  | FIFO (** first in, first out *)
+  | PLRU (** tree-based pseudo LRU *)
 
 module type S = sig
   include AD.S
-  val init : int -> (var -> int) -> (var->string) -> t
+  val init : int -> (var -> int) -> (var->string) -> replacement_strategy -> t
   val inc_var : t -> var -> t
   val set_var : t -> var -> int -> t
   val delete_var : t -> var -> t
@@ -13,6 +19,7 @@ module type S = sig
   val exact_val : t -> var -> int -> (t add_bottom)
   val comp : t -> var -> var -> (t add_bottom)*(t add_bottom)
   val comp_with_val : t -> var -> int -> (t add_bottom)*(t add_bottom)
+  val get_strategy : t -> replacement_strategy
   val count_cstates: t -> big_int * big_int
 end
 
@@ -23,15 +30,19 @@ module Make (V: NumAD.S) = struct
     value: V.t;
     max_age : int; (*all values bigger than max_age are assumed to be max_age *)
     pfn : var -> int;
+    strategy : replacement_strategy
   }
     
   
-  let init max_age pfn v2s = {
+  let init max_age pfn v2s str = {
     value = V.init v2s; 
     max_age = max_age;
     pfn = pfn;
+    strategy = str
   }
-
+  
+  let get_strategy env = env.strategy
+  
   let join e1 e2 = 
     assert (e1.max_age = e2.max_age);
     {e1 with value = (V.join e1.value e2.value)}
@@ -115,8 +126,20 @@ possible, so it approximates Bottom *)
                      (NumMap.remove v1 vm) value1
       }
   
+  let print_addrsets fmt env = 
+      Format.fprintf fmt "Address sets:\n";
+      let cache_sets = Utils.partition (V.var_names env.value) env.pfn in
+      IntMap.iter (fun _ addr_set ->
+          Format.fprintf fmt "{ ";
+          NumSet.iter (fun addr -> Format.fprintf fmt "%Lx " addr) addr_set;
+          Format.fprintf fmt "}\n"
+          ) cache_sets 
+
   let print_delta env1 fmt env2 = V.print_delta env1.value fmt env2.value
-  let print fmt env = V.print fmt env.value
+  let print fmt env = 
+    V.print fmt env.value;
+    if (get_log_level AgeLL) = Debug then print_addrsets fmt env
+        
   let subseteq env1 env2= 
     assert (env1.max_age = env2.max_age);
     (V.subseteq env1.value env2.value)
@@ -134,43 +157,90 @@ possible, so it approximates Bottom *)
   (*** Counting valid states ***)
   
   (* Checks if the given cache state is valid *)
-  (* with respect to the ages defined in cache.ages. *)
+  (* with respect to the ages (which are stored in [env])*)
+  (*  of the elements of the same cache set [addr_set]*)
   let is_valid_cstate env addr_set cache_state  = 
-    let rec pos addr l i = match l with 
+    assert (List.for_all (function Some a -> NumSet.mem a addr_set | None -> true) cache_state);
+    (* get the position of [addr] in cache state [cstate], starting from [i];*)
+    (* if the addres is not in cstate, then it should be max_age *)
+    let rec pos addr cstate i = match cstate with 
        [] -> env.max_age
-    | hd::tl -> if hd = addr then i else pos addr tl (i+1) in
+    | hd::tl -> if hd = Some addr then i else pos addr tl (i+1) in
     NumSet.for_all (fun addr -> 
-      List.mem (pos addr cache_state 0)(get_values env addr)) addr_set 
+      List.mem (pos addr cache_state 0) (get_values env addr)) addr_set 
   
-  (* Count the number of n-permutations of the address set addr_set *)
+  
+  (* create a uniform list containing n times the element x *)
+  let create_ulist n x =
+    let rec loop n x s = 
+      if n <= 0 then s else loop (n-1) x (x::s)
+    in loop n x []
+  
+  (* create a list with the elements [a;a+1;...;b-1] (not including b) *)
+  let create_range a b = 
+    let rec loop x s = 
+      if x < a then s else loop (x-1) (x::s)
+    in loop (b-1) []
+  
+  (* Count the number of n-permutations of the address set addr_set*)
+  (* which are also a valid cache state *)
   let num_tuples env n addr_set = 
     if NumSet.cardinal addr_set >= n then begin
-      let rec loop n elements tuple s = 
-        if n = 0 then begin
-          if is_valid_cstate env addr_set tuple then Int64.add s 1L else s
-        end else
+      (* the loop creates all n-permutations and tests each for validity *)
+      let rec loop n elements tuple num = 
+        if n = 0 then 
+          if env.strategy <> PLRU then
+            if is_valid_cstate env addr_set tuple then Int64.add num 1L else num
+          else
+            (* In PLRU holes are possible; *)
+            (* so in the current tuple, try all possibilities to put holes,*)
+            (* and test the new tuples (cstate-s) for validity *)
+            (* There are (max_age choose |tuple|) possible ways to put the holes *)
+            (* which for associativity 4 is at most 6, for 8 at most 70 *)
+            let rec loop_holes cstate rem_elts num = 
+              if (List.length rem_elts) = 0 then 
+                (* no rem_elts -> this is a possible cache state;*)
+                (* check it for validity *)
+                if is_valid_cstate env addr_set cstate then Int64.add num 1L else num
+              else
+                let elt = List.hd rem_elts in
+                let rem_elts = List.tl rem_elts in
+                (* a list containing the possible number of holes before elt *)
+                let poss_num_holes = create_range 0 (env.max_age - 
+                  (List.length cstate) - (List.length rem_elts)) in
+                
+                List.fold_left (fun num nholes -> 
+                  (* add the nholes holes and elt to the state *)
+                  (* and continue scanning the remaining elements *)
+                  loop_holes (cstate @ (create_ulist nholes None) @ [elt]) rem_elts num
+                  ) num poss_num_holes
+            in loop_holes [] tuple num
+        else
+          (* add next element to tuple and continue looping *)
+          (* (will go on until n elements have been picked) *)
           NumSet.fold (fun addr s -> 
-            loop (n-1) (NumSet.remove addr elements) (addr::tuple) s) 
-            elements s in 
-        loop n addr_set [] 0L
+            loop (n-1) (NumSet.remove addr elements) ((Some addr)::tuple) s
+            ) elements num in 
+      loop n addr_set [] 0L
     end else 0L
     
-  (* Computes two lists list where each item i is the number of possible *)
+  (* Computes two lists where each item i is the number of possible *)
   (* cache states of cache set i for a shared-memory *)
   (* and the disjoint-memory (blurred) adversary *)
   let cache_states_per_set env =
     let cache_sets = Utils.partition (V.var_names env.value) env.pfn in
     IntMap.fold (fun _ addr_set (nums,bl_nums) ->
-      let num_tpls,num_bl =
-        let rec loop i (num,num_blurred) =
-          if i > env.max_age then (num,num_blurred)
-          else
-            let this_num = 
-              num_tuples env i addr_set in 
-            let this_bl = if this_num > 0L then 1L else 0L in
-            loop (i+1) (Int64.add num this_num, Int64.add num_blurred this_bl)
-         in loop 0 (0L,0L) in
-      (num_tpls::nums,num_bl::bl_nums)) cache_sets ([],[])
+        let num_tpls,num_bl =
+          let rec loop i (num,num_blurred) =
+            if i > env.max_age then (num,num_blurred)
+            else
+              let this_num = 
+                num_tuples env i addr_set in 
+              let this_bl = if this_num > 0L then 1L else 0L in
+              loop (i+1) (Int64.add num this_num, Int64.add num_blurred this_bl) in 
+          loop 0 (0L,0L) in 
+        (num_tpls::nums,num_bl::bl_nums)
+      ) cache_sets ([],[])
       
   let count_cstates env = 
     let nums_cstates,bl_nums_cstates = cache_states_per_set env in
