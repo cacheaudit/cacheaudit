@@ -257,7 +257,6 @@ let rec read_instr_body bits seg_override =
         let _,_ = read_uint bits 8 in (* throw away first byte *)
         let o_to,bits,spare = read_rm8_with_spare bits seg_override in
           Movzx (Reg (int_to_reg32 spare),o_to),bits
-      
       | _ -> raise (Parse (Printf.sprintf "Unknown 0x0F instruction 0x%x at position 0x%x" opc position))
       end
   | _ -> raise (Parse (Printf.sprintf "Unknown instruction 0x%x at position 0x%x" byte position))

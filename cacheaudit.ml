@@ -80,7 +80,7 @@ let speclist = [
       "set the oddress (in bytes) where we stop parsing");
     ("--cfg", Arg.Unit (fun () -> print_cfg := true; analyze := false;), 
       "prints the control flow graph only, no analysis performed"
-      ^"\n  Options for data cache configuration:");
+      ^"\n\n  Options for data cache configuration:");
     ("--cache-size", (Arg.Int (fun n -> data_cache_s := n)),
       "set the cache size (in bytes)");
     ("--line-size", (Arg.Int (fun n -> data_line_s := n)), 
@@ -99,7 +99,7 @@ let speclist = [
       "use the relational set abstract domain for the cache") ;
     ("--oct-cache", Arg.Unit (fun () -> data_cache_analysis := OctAges), 
       "use the octagon abstract domain for the cache"
-       ^"\n  Options for instruction caches (default are data cache options):");
+       ^"\n\n  Options for instruction caches (default are data cache options):");
     ("--inst-cache", Arg.Unit (fun () -> architecture := Split),
      "enable instruction cache tracking (separate caches for data and instructions)");
     ("--shared-cache", Arg.Unit (fun () -> architecture := Joint), 
@@ -122,14 +122,14 @@ let speclist = [
       "set the cache replacement strategy to FIFO");
     ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some AgeAD.PLRU), 
       "set the cache replacement strategy to PLRU"
-      ^"\n  Controlling and disabling aspects of the analysis:");
+      ^"\n\n  Controlling and disabling aspects of the analysis:");
    
     ("--no-trace-time", Arg.Unit (fun () -> do_traces := false),
       "disable tracking of traces and time");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--no-outer-unroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), 
       "overwrites the --unroll option, so that outer loops are not unrolled"
-      ^"\n  Logging:");
+      ^"\n\n  Logging:");
     ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
       "set the general log level. Options are quiet, normal and debug. \
        Default is normal");
@@ -138,7 +138,7 @@ let speclist = [
       "modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD, \
       where SomeAD is one of ageAD, architectureAD, cacheAD, flagAD, \
       memAD, stackAD, traceAD, valAD, and iterator"
-      ^"\n  Asynchronious attacker:");
+      ^"\n\n  Asynchronious attacker:");
     ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), 
       "attacker may interrupt each d instruction (or more than d)");
     ("--oneInstrInterrupt", Arg.Unit (fun () -> attacker:=OneInstrInterrupt),

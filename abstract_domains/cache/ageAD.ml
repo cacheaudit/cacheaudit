@@ -28,7 +28,8 @@ module Make (V: NumAD.S) = struct
   
   type t = {
     value: V.t;
-    max_age : int; (*all values bigger than max_age are assumed to be max_age *)
+    max_age : int; (* max_age = the cache associativity 
+                      and is interpreted as "outside of the cache" *)
     pfn : var -> int;
     strategy : replacement_strategy
   }
@@ -192,9 +193,13 @@ possible, so it approximates Bottom *)
           if env.strategy <> PLRU then
             if is_valid_cstate env addr_set tuple then Int64.add num 1L else num
           else
-            (* In PLRU holes are possible; *)
-            (* so in the current tuple, try all possibilities to put holes,*)
-            (* and test the new tuples (cstate-s) for validity *)
+            (* In PLRU "holes" are possible, i.e., there may be a with age i, *)
+            (* and there is no b with age i-1. *)
+            (* We overapproximate the counting for this by considering all *)
+            (* possible combinations of holes *)
+            (* (even though not all are achievable with PLRU).*)
+            (* In the current tuple, we try all possibilities to put holes,*)
+            (* and test the new tuples (cstate-s) for validity. *)
             (* There are (max_age choose |tuple|) possible ways to put the holes *)
             (* which for associativity 4 is at most 6, for 8 at most 70 *)
             let rec loop_holes cstate rem_elts num = 
