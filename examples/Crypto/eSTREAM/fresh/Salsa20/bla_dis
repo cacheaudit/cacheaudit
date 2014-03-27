@@ -1,0 +1,413 @@
+0000043D 55                           	push	%ebp
+0000043E 89 E5                        	mov	%esp, %ebp
+00000440 56                           	push	%esi
+00000441 53                           	push	%ebx
+00000442 83 E4 F0                     	and	$0xF0, %esp
+00000445 81 EC A0 01 00 00            	sub	$0x000001A0, %esp
+0000044B 65 A1 14 00 00 00            	movl	%gs:0x00000014, %eax
+00000451 89 84 24 9C 01 00 00         	movl	%eax, 0x19C(%esp)
+00000458 31 C0                        	xor	%eax, %eax
+0000045A C7 44 24 10 80 00 00 00      	movl	$0x00000080, 0x10(%esp)
+00000462 C7 44 24 14 40 00 00 00      	movl	$0x00000040, 0x14(%esp)
+0000046A C7 04 24 80 00 00 00         	movl	$0x00000080, (%esp)
+00000471 8D 84 24 9C 00 00 00         	leal	0x9C(%esp), %eax
+00000478 89 44 24 08                  	movl	%eax, 0x8(%esp)
+0000047C 8D 84 24 1C 01 00 00         	leal	0x11C(%esp), %eax
+00000483 89 44 24 0C                  	movl	%eax, 0xC(%esp)
+00000487 83 3C 24 00                  	cmpl	$0x00, (%esp)
+0000048B 75 05                        	jnz	0x00000492
+00000492 C7 44 24 04 00 00 00 00      	movl	$0x00000000, 0x4(%esp)
+0000049A EB 18                        	ljmp	0x000004B4
+000004B4 83 7C 24 04 0F               	cmpl	$0x0F, 0x4(%esp)
+000004B9 7E E1                        	jle	0x0000049C
+0000049C 8B 44 24 18                  	movl	0x18(%esp), %eax
+000004A0 8B 54 24 04                  	movl	0x4(%esp), %edx
+000004A4 8B 14 90                     	movl	(%eax,%edx,4), %edx
+000004A7 8B 44 24 04                  	movl	0x4(%esp), %eax
+000004AB 89 54 84 1C                  	movl	%edx, 0x1C(%esp,%eax,4)
+000004AF 83 44 24 04 01               	addl	$0x01, 0x4(%esp)
+000004B4 83 7C 24 04 0F               	cmpl	$0x0F, 0x4(%esp)
+000004B9 7E E1                        	jle	0x0000049C
+000004BB C7 44 24 04 14 00 00 00      	movl	$0x00000014, 0x4(%esp)
+000004C3 E9 E5 02 00 00               	ljmp	0x000007AD
+000007AD 83 7C 24 04 00               	cmpl	$0x00, 0x4(%esp)
+000007B2 0F 8F 10 FD FF FF            	jg	0x000004C8
+000004C8 8B 44 24 2C                  	movl	0x2C(%esp), %eax
+000004CC 8B 4C 24 1C                  	movl	0x1C(%esp), %ecx
+000004D0 8B 54 24 4C                  	movl	0x4C(%esp), %edx
+000004D4 01 CA                        	add	%ecx, %edx
+000004D6 C1 CA 19                     	ror	$0x19, %edx
+000004D9 31 D0                        	xor	%edx, %eax
+000004DB 89 44 24 2C                  	movl	%eax, 0x2C(%esp)
+000004DF 8B 44 24 3C                  	movl	0x3C(%esp), %eax
+000004E3 8B 4C 24 2C                  	movl	0x2C(%esp), %ecx
+000004E7 8B 54 24 1C                  	movl	0x1C(%esp), %edx
+000004EB 01 CA                        	add	%ecx, %edx
+000004ED C1 CA 17                     	ror	$0x17, %edx
+000004F0 31 D0                        	xor	%edx, %eax
+000004F2 89 44 24 3C                  	movl	%eax, 0x3C(%esp)
+000004F6 8B 44 24 4C                  	movl	0x4C(%esp), %eax
+000004FA 8B 4C 24 3C                  	movl	0x3C(%esp), %ecx
+000004FE 8B 54 24 2C                  	movl	0x2C(%esp), %edx
+00000502 01 CA                        	add	%ecx, %edx
+00000504 C1 CA 13                     	ror	$0x13, %edx
+00000507 31 D0                        	xor	%edx, %eax
+00000509 89 44 24 4C                  	movl	%eax, 0x4C(%esp)
+0000050D 8B 44 24 1C                  	movl	0x1C(%esp), %eax
+00000511 8B 4C 24 4C                  	movl	0x4C(%esp), %ecx
+00000515 8B 54 24 3C                  	movl	0x3C(%esp), %edx
+00000519 01 CA                        	add	%ecx, %edx
+0000051B C1 CA 0E                     	ror	$0x0E, %edx
+0000051E 31 D0                        	xor	%edx, %eax
+00000520 89 44 24 1C                  	movl	%eax, 0x1C(%esp)
+00000524 8B 44 24 40                  	movl	0x40(%esp), %eax
+00000528 8B 4C 24 30                  	movl	0x30(%esp), %ecx
+0000052C 8B 54 24 20                  	movl	0x20(%esp), %edx
+00000530 01 CA                        	add	%ecx, %edx
+00000532 C1 CA 19                     	ror	$0x19, %edx
+00000535 31 D0                        	xor	%edx, %eax
+00000537 89 44 24 40                  	movl	%eax, 0x40(%esp)
+0000053B 8B 44 24 50                  	movl	0x50(%esp), %eax
+0000053F 8B 4C 24 40                  	movl	0x40(%esp), %ecx
+00000543 8B 54 24 30                  	movl	0x30(%esp), %edx
+00000547 01 CA                        	add	%ecx, %edx
+00000549 C1 CA 17                     	ror	$0x17, %edx
+0000054C 31 D0                        	xor	%edx, %eax
+0000054E 89 44 24 50                  	movl	%eax, 0x50(%esp)
+00000552 8B 44 24 20                  	movl	0x20(%esp), %eax
+00000556 8B 4C 24 50                  	movl	0x50(%esp), %ecx
+0000055A 8B 54 24 40                  	movl	0x40(%esp), %edx
+0000055E 01 CA                        	add	%ecx, %edx
+00000560 C1 CA 13                     	ror	$0x13, %edx
+00000563 31 D0                        	xor	%edx, %eax
+00000565 89 44 24 20                  	movl	%eax, 0x20(%esp)
+00000569 8B 44 24 30                  	movl	0x30(%esp), %eax
+0000056D 8B 4C 24 20                  	movl	0x20(%esp), %ecx
+00000571 8B 54 24 50                  	movl	0x50(%esp), %edx
+00000575 01 CA                        	add	%ecx, %edx
+00000577 C1 CA 0E                     	ror	$0x0E, %edx
+0000057A 31 D0                        	xor	%edx, %eax
+0000057C 89 44 24 30                  	movl	%eax, 0x30(%esp)
+00000580 8B 44 24 54                  	movl	0x54(%esp), %eax
+00000584 8B 4C 24 44                  	movl	0x44(%esp), %ecx
+00000588 8B 54 24 34                  	movl	0x34(%esp), %edx
+0000058C 01 CA                        	add	%ecx, %edx
+0000058E C1 CA 19                     	ror	$0x19, %edx
+00000591 31 D0                        	xor	%edx, %eax
+00000593 89 44 24 54                  	movl	%eax, 0x54(%esp)
+00000597 8B 44 24 24                  	movl	0x24(%esp), %eax
+0000059B 8B 4C 24 54                  	movl	0x54(%esp), %ecx
+0000059F 8B 54 24 44                  	movl	0x44(%esp), %edx
+000005A3 01 CA                        	add	%ecx, %edx
+000005A5 C1 CA 17                     	ror	$0x17, %edx
+000005A8 31 D0                        	xor	%edx, %eax
+000005AA 89 44 24 24                  	movl	%eax, 0x24(%esp)
+000005AE 8B 44 24 34                  	movl	0x34(%esp), %eax
+000005B2 8B 4C 24 24                  	movl	0x24(%esp), %ecx
+000005B6 8B 54 24 54                  	movl	0x54(%esp), %edx
+000005BA 01 CA                        	add	%ecx, %edx
+000005BC C1 CA 13                     	ror	$0x13, %edx
+000005BF 31 D0                        	xor	%edx, %eax
+000005C1 89 44 24 34                  	movl	%eax, 0x34(%esp)
+000005C5 8B 44 24 44                  	movl	0x44(%esp), %eax
+000005C9 8B 4C 24 34                  	movl	0x34(%esp), %ecx
+000005CD 8B 54 24 24                  	movl	0x24(%esp), %edx
+000005D1 01 CA                        	add	%ecx, %edx
+000005D3 C1 CA 0E                     	ror	$0x0E, %edx
+000005D6 31 D0                        	xor	%edx, %eax
+000005D8 89 44 24 44                  	movl	%eax, 0x44(%esp)
+000005DC 8B 44 24 28                  	movl	0x28(%esp), %eax
+000005E0 8B 4C 24 58                  	movl	0x58(%esp), %ecx
+000005E4 8B 54 24 48                  	movl	0x48(%esp), %edx
+000005E8 01 CA                        	add	%ecx, %edx
+000005EA C1 CA 19                     	ror	$0x19, %edx
+000005ED 31 D0                        	xor	%edx, %eax
+000005EF 89 44 24 28                  	movl	%eax, 0x28(%esp)
+000005F3 8B 44 24 38                  	movl	0x38(%esp), %eax
+000005F7 8B 4C 24 28                  	movl	0x28(%esp), %ecx
+000005FB 8B 54 24 58                  	movl	0x58(%esp), %edx
+000005FF 01 CA                        	add	%ecx, %edx
+00000601 C1 CA 17                     	ror	$0x17, %edx
+00000604 31 D0                        	xor	%edx, %eax
+00000606 89 44 24 38                  	movl	%eax, 0x38(%esp)
+0000060A 8B 44 24 48                  	movl	0x48(%esp), %eax
+0000060E 8B 4C 24 38                  	movl	0x38(%esp), %ecx
+00000612 8B 54 24 28                  	movl	0x28(%esp), %edx
+00000616 01 CA                        	add	%ecx, %edx
+00000618 C1 CA 13                     	ror	$0x13, %edx
+0000061B 31 D0                        	xor	%edx, %eax
+0000061D 89 44 24 48                  	movl	%eax, 0x48(%esp)
+00000621 8B 44 24 58                  	movl	0x58(%esp), %eax
+00000625 8B 4C 24 48                  	movl	0x48(%esp), %ecx
+00000629 8B 54 24 38                  	movl	0x38(%esp), %edx
+0000062D 01 CA                        	add	%ecx, %edx
+0000062F C1 CA 0E                     	ror	$0x0E, %edx
+00000632 31 D0                        	xor	%edx, %eax
+00000634 89 44 24 58                  	movl	%eax, 0x58(%esp)
+00000638 8B 44 24 20                  	movl	0x20(%esp), %eax
+0000063C 8B 4C 24 1C                  	movl	0x1C(%esp), %ecx
+00000640 8B 54 24 28                  	movl	0x28(%esp), %edx
+00000644 01 CA                        	add	%ecx, %edx
+00000646 C1 CA 19                     	ror	$0x19, %edx
+00000649 31 D0                        	xor	%edx, %eax
+0000064B 89 44 24 20                  	movl	%eax, 0x20(%esp)
+0000064F 8B 44 24 24                  	movl	0x24(%esp), %eax
+00000653 8B 4C 24 20                  	movl	0x20(%esp), %ecx
+00000657 8B 54 24 1C                  	movl	0x1C(%esp), %edx
+0000065B 01 CA                        	add	%ecx, %edx
+0000065D C1 CA 17                     	ror	$0x17, %edx
+00000660 31 D0                        	xor	%edx, %eax
+00000662 89 44 24 24                  	movl	%eax, 0x24(%esp)
+00000666 8B 44 24 28                  	movl	0x28(%esp), %eax
+0000066A 8B 4C 24 24                  	movl	0x24(%esp), %ecx
+0000066E 8B 54 24 20                  	movl	0x20(%esp), %edx
+00000672 01 CA                        	add	%ecx, %edx
+00000674 C1 CA 13                     	ror	$0x13, %edx
+00000677 31 D0                        	xor	%edx, %eax
+00000679 89 44 24 28                  	movl	%eax, 0x28(%esp)
+0000067D 8B 44 24 1C                  	movl	0x1C(%esp), %eax
+00000681 8B 4C 24 28                  	movl	0x28(%esp), %ecx
+00000685 8B 54 24 24                  	movl	0x24(%esp), %edx
+00000689 01 CA                        	add	%ecx, %edx
+0000068B C1 CA 0E                     	ror	$0x0E, %edx
+0000068E 31 D0                        	xor	%edx, %eax
+00000690 89 44 24 1C                  	movl	%eax, 0x1C(%esp)
+00000694 8B 44 24 34                  	movl	0x34(%esp), %eax
+00000698 8B 4C 24 30                  	movl	0x30(%esp), %ecx
+0000069C 8B 54 24 2C                  	movl	0x2C(%esp), %edx
+000006A0 01 CA                        	add	%ecx, %edx
+000006A2 C1 CA 19                     	ror	$0x19, %edx
+000006A5 31 D0                        	xor	%edx, %eax
+000006A7 89 44 24 34                  	movl	%eax, 0x34(%esp)
+000006AB 8B 44 24 38                  	movl	0x38(%esp), %eax
+000006AF 8B 4C 24 34                  	movl	0x34(%esp), %ecx
+000006B3 8B 54 24 30                  	movl	0x30(%esp), %edx
+000006B7 01 CA                        	add	%ecx, %edx
+000006B9 C1 CA 17                     	ror	$0x17, %edx
+000006BC 31 D0                        	xor	%edx, %eax
+000006BE 89 44 24 38                  	movl	%eax, 0x38(%esp)
+000006C2 8B 44 24 2C                  	movl	0x2C(%esp), %eax
+000006C6 8B 4C 24 38                  	movl	0x38(%esp), %ecx
+000006CA 8B 54 24 34                  	movl	0x34(%esp), %edx
+000006CE 01 CA                        	add	%ecx, %edx
+000006D0 C1 CA 13                     	ror	$0x13, %edx
+000006D3 31 D0                        	xor	%edx, %eax
+000006D5 89 44 24 2C                  	movl	%eax, 0x2C(%esp)
+000006D9 8B 44 24 30                  	movl	0x30(%esp), %eax
+000006DD 8B 4C 24 2C                  	movl	0x2C(%esp), %ecx
+000006E1 8B 54 24 38                  	movl	0x38(%esp), %edx
+000006E5 01 CA                        	add	%ecx, %edx
+000006E7 C1 CA 0E                     	ror	$0x0E, %edx
+000006EA 31 D0                        	xor	%edx, %eax
+000006EC 89 44 24 30                  	movl	%eax, 0x30(%esp)
+000006F0 8B 44 24 48                  	movl	0x48(%esp), %eax
+000006F4 8B 4C 24 44                  	movl	0x44(%esp), %ecx
+000006F8 8B 54 24 40                  	movl	0x40(%esp), %edx
+000006FC 01 CA                        	add	%ecx, %edx
+000006FE C1 CA 19                     	ror	$0x19, %edx
+00000701 31 D0                        	xor	%edx, %eax
+00000703 89 44 24 48                  	movl	%eax, 0x48(%esp)
+00000707 8B 44 24 3C                  	movl	0x3C(%esp), %eax
+0000070B 8B 4C 24 48                  	movl	0x48(%esp), %ecx
+0000070F 8B 54 24 44                  	movl	0x44(%esp), %edx
+00000713 01 CA                        	add	%ecx, %edx
+00000715 C1 CA 17                     	ror	$0x17, %edx
+00000718 31 D0                        	xor	%edx, %eax
+0000071A 89 44 24 3C                  	movl	%eax, 0x3C(%esp)
+0000071E 8B 44 24 40                  	movl	0x40(%esp), %eax
+00000722 8B 4C 24 3C                  	movl	0x3C(%esp), %ecx
+00000726 8B 54 24 48                  	movl	0x48(%esp), %edx
+0000072A 01 CA                        	add	%ecx, %edx
+0000072C C1 CA 13                     	ror	$0x13, %edx
+0000072F 31 D0                        	xor	%edx, %eax
+00000731 89 44 24 40                  	movl	%eax, 0x40(%esp)
+00000735 8B 44 24 44                  	movl	0x44(%esp), %eax
+00000739 8B 4C 24 40                  	movl	0x40(%esp), %ecx
+0000073D 8B 54 24 3C                  	movl	0x3C(%esp), %edx
+00000741 01 CA                        	add	%ecx, %edx
+00000743 C1 CA 0E                     	ror	$0x0E, %edx
+00000746 31 D0                        	xor	%edx, %eax
+00000748 89 44 24 44                  	movl	%eax, 0x44(%esp)
+0000074C 8B 44 24 4C                  	movl	0x4C(%esp), %eax
+00000750 8B 4C 24 58                  	movl	0x58(%esp), %ecx
+00000754 8B 54 24 54                  	movl	0x54(%esp), %edx
+00000758 01 CA                        	add	%ecx, %edx
+0000075A C1 CA 19                     	ror	$0x19, %edx
+0000075D 31 D0                        	xor	%edx, %eax
+0000075F 89 44 24 4C                  	movl	%eax, 0x4C(%esp)
+00000763 8B 44 24 50                  	movl	0x50(%esp), %eax
+00000767 8B 4C 24 4C                  	movl	0x4C(%esp), %ecx
+0000076B 8B 54 24 58                  	movl	0x58(%esp), %edx
+0000076F 01 CA                        	add	%ecx, %edx
+00000771 C1 CA 17                     	ror	$0x17, %edx
+00000774 31 D0                        	xor	%edx, %eax
+00000776 89 44 24 50                  	movl	%eax, 0x50(%esp)
+0000077A 8B 44 24 54                  	movl	0x54(%esp), %eax
+0000077E 8B 4C 24 50                  	movl	0x50(%esp), %ecx
+00000782 8B 54 24 4C                  	movl	0x4C(%esp), %edx
+00000786 01 CA                        	add	%ecx, %edx
+00000788 C1 CA 13                     	ror	$0x13, %edx
+0000078B 31 D0                        	xor	%edx, %eax
+0000078D 89 44 24 54                  	movl	%eax, 0x54(%esp)
+00000791 8B 44 24 58                  	movl	0x58(%esp), %eax
+00000795 8B 4C 24 54                  	movl	0x54(%esp), %ecx
+00000799 8B 54 24 50                  	movl	0x50(%esp), %edx
+0000079D 01 CA                        	add	%ecx, %edx
+0000079F C1 CA 0E                     	ror	$0x0E, %edx
+000007A2 31 D0                        	xor	%edx, %eax
+000007A4 89 44 24 58                  	movl	%eax, 0x58(%esp)
+000007A8 83 6C 24 04 02               	subl	$0x02, 0x4(%esp)
+000007AD 83 7C 24 04 00               	cmpl	$0x00, 0x4(%esp)
+000007B2 0F 8F 10 FD FF FF            	jg	0x000004C8
+000007B8 C7 44 24 04 00 00 00 00      	movl	$0x00000000, 0x4(%esp)
+000007C0 EB 23                        	ljmp	0x000007E5
+000007E5 83 7C 24 04 0F               	cmpl	$0x0F, 0x4(%esp)
+000007EA 7E D6                        	jle	0x000007C2
+000007C2 8B 44 24 04                  	movl	0x4(%esp), %eax
+000007C6 8B 4C 84 1C                  	movl	0x1C(%esp,%eax,4), %ecx
+000007CA 8B 44 24 18                  	movl	0x18(%esp), %eax
+000007CE 8B 54 24 04                  	movl	0x4(%esp), %edx
+000007D2 8B 04 90                     	movl	(%eax,%edx,4), %eax
+000007D5 8D 14 01                     	leal	(%ecx,%eax), %edx
+000007D8 8B 44 24 04                  	movl	0x4(%esp), %eax
+000007DC 89 54 84 1C                  	movl	%edx, 0x1C(%esp,%eax,4)
+000007E0 83 44 24 04 01               	addl	$0x01, 0x4(%esp)
+000007E5 83 7C 24 04 0F               	cmpl	$0x0F, 0x4(%esp)
+000007EA 7E D6                        	jle	0x000007C2
+000007EC C7 44 24 04 00 00 00 00      	movl	$0x00000000, 0x4(%esp)
+000007F4 EB 1C                        	ljmp	0x00000812
+00000812 83 7C 24 04 0F               	cmpl	$0x0F, 0x4(%esp)
+00000817 7E DD                        	jle	0x000007F6
+000007F6 8B 44 24 04                  	movl	0x4(%esp), %eax
+000007FA C1 E0 02                     	shl	$0x02, %eax
+000007FD 8D 54 24 5C                  	leal	0x5C(%esp), %edx
+00000801 01 C2                        	add	%eax, %edx
+00000803 8B 44 24 04                  	movl	0x4(%esp), %eax
+00000807 8B 44 84 1C                  	movl	0x1C(%esp,%eax,4), %eax
+0000080B 89 02                        	movl	%eax, (%edx)
+0000080D 83 44 24 04 01               	addl	$0x01, 0x4(%esp)
+00000812 83 7C 24 04 0F               	cmpl	$0x0F, 0x4(%esp)
+00000817 7E DD                        	jle	0x000007F6
+00000819 8B 44 24 18                  	movl	0x18(%esp), %eax
+0000081D 8B 40 20                     	movl	0x20(%eax), %eax
+00000820 8D 50 01                     	leal	0x1(%eax), %edx
+00000823 8B 44 24 18                  	movl	0x18(%esp), %eax
+00000827 89 50 20                     	movl	%edx, 0x20(%eax)
+0000082A 8B 44 24 18                  	movl	0x18(%esp), %eax
+0000082E 8B 40 20                     	movl	0x20(%eax), %eax
+00000831 85 C0                        	test	%eax, %eax
+00000833 75 11                        	jnz	0x00000846
+00000846 83 3C 24 40                  	cmpl	$0x40, (%esp)
+0000084A 77 42                        	ja	0x0000088E
+0000088E C7 44 24 04 00 00 00 00      	movl	$0x00000000, 0x4(%esp)
+00000896 EB 2D                        	ljmp	0x000008C5
+000008C5 83 7C 24 04 3F               	cmpl	$0x3F, 0x4(%esp)
+000008CA 7E CC                        	jle	0x00000898
+00000898 8B 54 24 04                  	movl	0x4(%esp), %edx
+0000089C 8B 44 24 0C                  	movl	0xC(%esp), %eax
+000008A0 01 C2                        	add	%eax, %edx
+000008A2 8B 4C 24 04                  	movl	0x4(%esp), %ecx
+000008A6 8B 44 24 08                  	movl	0x8(%esp), %eax
+000008AA 01 C8                        	add	%ecx, %eax
+000008AC 0F B6 08                     	movzxb	(%eax), %ecx
+000008AF 8D 5C 24 5C                  	leal	0x5C(%esp), %ebx
+000008B3 8B 44 24 04                  	movl	0x4(%esp), %eax
+000008B7 01 D8                        	add	%ebx, %eax
+000008B9 0F B6 00                     	movzxb	(%eax), %eax
+000008BC 31 C8                        	xor	%ecx, %eax
+000008BE 88 02                        	movb	%al, (%edx)
+000008C0 83 44 24 04 01               	addl	$0x01, 0x4(%esp)
+000008C5 83 7C 24 04 3F               	cmpl	$0x3F, 0x4(%esp)
+000008CA 7E CC                        	jle	0x00000898
+000008CC 83 2C 24 40                  	subl	$0x40, (%esp)
+000008D0 83 44 24 0C 40               	addl	$0x40, 0xC(%esp)
+000008D5 83 44 24 08 40               	addl	$0x40, 0x8(%esp)
+000008DA E9 B3 FB FF FF               	ljmp	0x00000492
+00000492 C7 44 24 04 00 00 00 00      	movl	$0x00000000, 0x4(%esp)
+0000049A EB 18                        	ljmp	0x000004B4
+000008CC 83 2C 24 40                  	subl	$0x40, (%esp)
+000008D0 83 44 24 0C 40               	addl	$0x40, 0xC(%esp)
+000008D5 83 44 24 08 40               	addl	$0x40, 0x8(%esp)
+000008DA E9 B3 FB FF FF               	ljmp	0x00000492
+0000084C C7 44 24 04 00 00 00 00      	movl	$0x00000000, 0x4(%esp)
+00000854 EB 2D                        	ljmp	0x00000883
+00000883 8B 44 24 04                  	movl	0x4(%esp), %eax
+00000887 3B 04 24                     	cmpl	(%esp), %eax
+0000088A 72 CA                        	jc	0x00000856
+00000856 8B 54 24 04                  	movl	0x4(%esp), %edx
+0000085A 8B 44 24 0C                  	movl	0xC(%esp), %eax
+0000085E 01 C2                        	add	%eax, %edx
+00000860 8B 4C 24 04                  	movl	0x4(%esp), %ecx
+00000864 8B 44 24 08                  	movl	0x8(%esp), %eax
+00000868 01 C8                        	add	%ecx, %eax
+0000086A 0F B6 08                     	movzxb	(%eax), %ecx
+0000086D 8D 5C 24 5C                  	leal	0x5C(%esp), %ebx
+00000871 8B 44 24 04                  	movl	0x4(%esp), %eax
+00000875 01 D8                        	add	%ebx, %eax
+00000877 0F B6 00                     	movzxb	(%eax), %eax
+0000087A 31 C8                        	xor	%ecx, %eax
+0000087C 88 02                        	movb	%al, (%edx)
+0000087E 83 44 24 04 01               	addl	$0x01, 0x4(%esp)
+00000883 8B 44 24 04                  	movl	0x4(%esp), %eax
+00000887 3B 04 24                     	cmpl	(%esp), %eax
+0000088A 72 CA                        	jc	0x00000856
+0000088C EB 51                        	ljmp	0x000008DF
+000008DF 8B B4 24 9C 01 00 00         	movl	0x19C(%esp), %esi
+000008E6 65 33 35 14 00 00 00         	xorl	%gs:0x14, %esi
+000008ED 74 05                        	jz	0x000008F4
+000008F4 8D 65 F8                     	leal	-0x8(%ebp), %esp
+000008F7 5B                           	pop	%ebx
+000008F8 5E                           	pop	%esi
+000008F9 5D                           	pop	%ebp
+000008FA C3                           	ret	
+000008EF E8 1C FA FF FF               	lcall	0x00000310
+00000310 FF 25 0C A0 04 08            	ljmp	*0x804A00C
+000008F4 8D 65 F8                     	leal	-0x8(%ebp), %esp
+000008F7 5B                           	pop	%ebx
+000008F8 5E                           	pop	%esi
+000008F9 5D                           	pop	%ebp
+000008FA C3                           	ret	
+0000088C EB 51                        	ljmp	0x000008DF
+00000835 8B 44 24 18                  	movl	0x18(%esp), %eax
+00000839 8B 40 24                     	movl	0x24(%eax), %eax
+0000083C 8D 50 01                     	leal	0x1(%eax), %edx
+0000083F 8B 44 24 18                  	movl	0x18(%esp), %eax
+00000843 89 50 24                     	movl	%edx, 0x24(%eax)
+00000846 83 3C 24 40                  	cmpl	$0x40, (%esp)
+0000084A 77 42                        	ja	0x0000088E
+0000084C C7 44 24 04 00 00 00 00      	movl	$0x00000000, 0x4(%esp)
+00000854 EB 2D                        	ljmp	0x00000883
+00000819 8B 44 24 18                  	movl	0x18(%esp), %eax
+0000081D 8B 40 20                     	movl	0x20(%eax), %eax
+00000820 8D 50 01                     	leal	0x1(%eax), %edx
+00000823 8B 44 24 18                  	movl	0x18(%esp), %eax
+00000827 89 50 20                     	movl	%edx, 0x20(%eax)
+0000082A 8B 44 24 18                  	movl	0x18(%esp), %eax
+0000082E 8B 40 20                     	movl	0x20(%eax), %eax
+00000831 85 C0                        	test	%eax, %eax
+00000833 75 11                        	jnz	0x00000846
+00000835 8B 44 24 18                  	movl	0x18(%esp), %eax
+00000839 8B 40 24                     	movl	0x24(%eax), %eax
+0000083C 8D 50 01                     	leal	0x1(%eax), %edx
+0000083F 8B 44 24 18                  	movl	0x18(%esp), %eax
+00000843 89 50 24                     	movl	%edx, 0x24(%eax)
+00000846 83 3C 24 40                  	cmpl	$0x40, (%esp)
+0000084A 77 42                        	ja	0x0000088E
+0000084C C7 44 24 04 00 00 00 00      	movl	$0x00000000, 0x4(%esp)
+00000854 EB 2D                        	ljmp	0x00000883
+000007EC C7 44 24 04 00 00 00 00      	movl	$0x00000000, 0x4(%esp)
+000007F4 EB 1C                        	ljmp	0x00000812
+000007B8 C7 44 24 04 00 00 00 00      	movl	$0x00000000, 0x4(%esp)
+000007C0 EB 23                        	ljmp	0x000007E5
+000004BB C7 44 24 04 14 00 00 00      	movl	$0x00000014, 0x4(%esp)
+000004C3 E9 E5 02 00 00               	ljmp	0x000007AD
+0000048D E9 4D 04 00 00               	ljmp	0x000008DF
+000008DF 8B B4 24 9C 01 00 00         	movl	0x19C(%esp), %esi
+000008E6 65 33 35 14 00 00 00         	xorl	%gs:0x14, %esi
+000008ED 74 05                        	jz	0x000008F4
+000008EF E8 1C FA FF FF               	lcall	0x00000310
+000008F4 8D 65 F8                     	leal	-0x8(%ebp), %esp
+000008F7 5B                           	pop	%ebx
+000008F8 5E                           	pop	%esi
+000008F9 5D                           	pop	%ebp
+000008FA C3                           	ret	

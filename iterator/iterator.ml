@@ -226,7 +226,7 @@ module Make(A:ArchitectureAD.S) = struct
       | Skip -> ftrace (A.elapse inv time_skip)
       | FlagSet(f,b) -> ftrace (A.flagop inv (ADfset(f,b)))
       | Call _ | Jcc _ | Jmp _ | _ -> inv
-      ) with e -> (Format.fprintf Format.err_formatter "@[<v 2>Error while processing %a %a @, in environment %a@]@."
+      ) with e -> (Format.fprintf Format.err_formatter "@[<v 2>\nError while processing %a %a @, in environment %a@]@."
           pp_block_addr addr X86Print.pp_instr inst A.print inv;
           raise e) in
     interpret_instruction newInv (addr, inst)
