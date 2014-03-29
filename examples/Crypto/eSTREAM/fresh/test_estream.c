@@ -1,7 +1,10 @@
 // #include "Salsa20/ecrypt-sync.h"
 // #include "HC128/ecrypt-sync.h"
 // #include "Rabbit/code/ecrypt-sync.h"
-#include "Sosemanuk/ecrypt-sync.h"
+// #include "Sosemanuk/ecrypt-sync.h"
+
+
+#include ECRLIB
 
 int main()
 {

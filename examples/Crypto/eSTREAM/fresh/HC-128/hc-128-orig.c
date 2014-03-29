@@ -233,13 +233,8 @@ void ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
     
 	for (i = 0; i < 16;  i++)  ctx->T[i] = ctx->T[256+i];
 
-	for (i = 16; i < 1024; i++){
-		ctx->T[i] = f2(ctx->T[i-2]);
-		ctx->T[i] += ctx->T[i-7];
-		ctx->T[i] += f1(ctx->T[i-15]);
-		ctx->T[i] += ctx->T[i-16];
-		ctx->T[i] += 256+i;
-	}
+	for (i = 16; i < 1024; i++)
+		ctx->T[i] = f2(ctx->T[i-2]) + ctx->T[i-7] + f1(ctx->T[i-15]) + ctx->T[i-16]+256+i;
     
     /* initialize counter1024, X and Y */
 	ctx->counter1024 = 0;
@@ -298,3 +293,4 @@ void ECRYPT_process_bytes(
   }
 
 }
+

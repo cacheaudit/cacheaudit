@@ -128,7 +128,7 @@ possible, so it approximates Bottom *)
       }
   
   let print_addrsets fmt env = 
-      Format.fprintf fmt "Address sets:\n";
+      Format.fprintf fmt "\nAddress sets:\n";
       let cache_sets = Utils.partition (V.var_names env.value) env.pfn in
       IntMap.iter (fun _ addr_set ->
           Format.fprintf fmt "{ ";
