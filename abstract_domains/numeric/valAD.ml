@@ -125,13 +125,10 @@ module Make (O:VALADOPT) = struct
     res < lower_bound || res >= upper_bound
   let flag_carry_shift sop original result offset =
     let carry = match sop with
-      Shl -> Int64.logand result (Int64.shift_left Int64.one 32)
-    | Shr | Sar ->
+      Shl | Rol -> Int64.logand result (Int64.shift_left Int64.one 32)
+    | Shr | Sar | Ror ->
         let mask = Int64.shift_left Int64.one (offset - 1) in
         Int64.logand mask original
-    (* TODO: check if this is how the CF flag is set for ROL/ROR *)
-    | Ror -> Int64.logand original 1L
-    | Rol -> Int64.logand original (Int64.shift_left 1L 31)
     in
     carry <> Int64.zero
   let flag_zero res = ((precision 32 res) = 0L)
