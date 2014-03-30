@@ -134,6 +134,10 @@ let rec read_instr_body bits seg_override =
   | 0x3D ->
       let disp, bits = read_int32 bits 32 in
       Cmp (Reg EAX, Imm disp), bits
+  | 0x69 -> 
+    let src, bits, dst = read_rm32_with_spare bits seg_override in
+    let imm, bits = read_int32 bits 32 in
+      Imul ((int_to_reg32 dst), src, imm), bits
   | 0x68 ->
       let imm, bits = read_uint32 bits 32 in
       Push (Imm imm), bits

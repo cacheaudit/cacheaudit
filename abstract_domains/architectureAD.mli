@@ -59,6 +59,9 @@ sig
 
   (** Shift operation *)
   val shift : t -> shift_op -> op32 -> op8 -> t
+  
+  (** Signed multiply *)
+  val imul : t -> reg32 -> op32 -> int64 -> t
 
   (** Records the addresses of operations, which is required for instruction caches *)
   val read_instruction: t -> int -> t

@@ -39,6 +39,7 @@ module type S =
   val movzx : t -> op32 -> op8 -> t
   val flagop : t -> op32 flagop -> t
   val shift : t -> shift_op -> op32 -> op8 -> t
+  val imul : t -> reg32 -> op32 -> int64 -> t
   val touch : t -> int64 -> t
   val elapse : t -> int -> t
 end
@@ -398,7 +399,10 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
     list_join (List.concat (List.map doOp offlist))
   ) with Bottom -> failwith "MemAD.shift: bottom after an operation on non bottom environment"
     in {res with cache = C.elapse res.cache time_instr}
-
+  
+  let imul env dst src imm = failwith "IMUL not implemented"
+  
+  
   (** Determines a finite list of possible values given a [genop32] with each
     value associated with the environment that led to it.
     @return the list mentioned above or Top if there is no finite list. *)

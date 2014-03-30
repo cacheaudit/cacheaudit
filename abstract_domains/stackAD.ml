@@ -18,6 +18,7 @@ module type S =
     val flagop : t -> op32 flagop -> t
     val stackop : t -> stackop -> op32 -> t
     val shift : t -> shift_op -> op32 -> op8 -> t
+    val imul : t -> reg32 -> op32 -> int64 -> t
     val touch : t -> int64 -> t
     val elapse : t -> int -> t
   end
@@ -45,6 +46,7 @@ module Make (M: MemAD.S) = struct
   let flagop = M.flagop
   let load_address = M.load_address
   let shift = M.shift
+  let imul = M.imul
   let top_stack =  Address {  addrDisp = 0L;
                               addrBase = Some ESP;
                               addrIndex = None;

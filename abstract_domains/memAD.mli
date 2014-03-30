@@ -52,7 +52,10 @@ sig
 
   (** Shift operation *)
   val shift : t -> shift_op -> op32 -> op8 -> t
-    
+  
+  (** Signed multiply *)
+  val imul : t -> reg32 -> op32 -> int64 -> t
+  
   (** Signals to the cache that a memory location has been accessed *)  
   val touch : t -> int64 -> t
 
