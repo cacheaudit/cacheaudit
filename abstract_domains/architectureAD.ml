@@ -25,6 +25,7 @@ module type S =
     val flagop : t -> op32 flagop -> t
     val stackop : t -> stackop -> op32 -> t
     val shift : t -> shift_op -> op32 -> op8 -> t
+    val imul : t -> reg32 -> op32 -> int64 -> t
     val read_instruction: t -> int -> t
     val elapse : t -> int -> t
   end
@@ -80,6 +81,7 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
   let flagop env fop = subs_e env (ST.flagop env.call_ad fop)
   let load_address env reg add = subs_e env (ST.load_address env.call_ad reg add)
   let shift env sop op1 op2 = subs_e env (ST.shift env.call_ad sop op1 op2)
+  let imul env op1 op2 op3 = subs_e env (ST.imul env.call_ad op1 op2 op3)
   let stackop env sop op1 = subs_e env (ST.stackop env.call_ad sop op1) 
   let call env op n = subs_finite_set env (ST.call env.call_ad op n)
   let return env = subs_finite_set env (ST.return env.call_ad)
@@ -125,6 +127,7 @@ module MakeShared (ST: StackAD.S) = struct
   let flagop = ST.flagop
   let load_address = ST.load_address
   let shift = ST.shift
+  let imul = ST.imul
   let stackop = ST.stackop
   let call = ST.call
   let return = ST.return

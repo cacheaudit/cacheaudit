@@ -204,6 +204,7 @@ module Make(A:ArchitectureAD.S) = struct
       | Leave -> 
           let inv = interpret_instruction inv (addr,Mov(Reg ESP, Reg EBP)) in
           interpret_instruction inv (addr,Pop(Reg EBP))
+      | Imul(dst,src,imm) -> ftrace (A.imul inv dst src imm)
       | Mov(x,y) -> ftrace (A.memop inv ADmov x y)
       | Movb(x,y) -> ftrace (A.memopb inv ADmov x y)
       | Movzx(x,y) -> ftrace (A.movzx inv x y)

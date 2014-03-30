@@ -156,6 +156,7 @@ let pp_instr fmt = function
   | Jcc (cc, imm) -> fprintf fmt "@[@ J%a@ %a@]" pp_cc cc pp_addr imm
   | Jmp dst -> fprintf fmt "@[@ JMP@ %a@]" pp_genop_addr32 dst
   (* | Div src -> fprintf fmt "@[@ DIV@ %a@]" pp_genop_addr32 src *)
+  | Imul (dst, src, imm) -> fprintf fmt "@[@ IMUL@ %a,@ %a,@ %a@]" pp_reg32 dst pp_op32 src pp_addr imm
   | Lea (dst, src) -> fprintf fmt "@[@ LEA@ %a,@ %a@]" pp_reg32 dst pp_address src
   | Leave -> fprintf fmt "@[ LEAVE@]"
   | Mov (dst, src) -> fprintf fmt "@[@ MOV@ %a,@ %a@]" pp_op32 dst pp_op32 src

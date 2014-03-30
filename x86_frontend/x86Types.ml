@@ -246,6 +246,7 @@ type instr =
   | Jmp of op32
   | Lea of reg32 * address
   (* | Div of op32 *)
+  | Imul of reg32 * op32 * int64
   | Leave
   | Mov of op32 * op32
   | Movb of op8 * op8
