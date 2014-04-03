@@ -18,6 +18,7 @@ module type S =
   val meet : t -> t -> t (*TODO: should be add_bottom *)
   val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
+  val interpret_instruction : t -> X86Types.instr -> t
   val flagop : t -> cons_var flagop -> t
   val shift : t -> shift_op -> var -> cons_var -> mask -> t
   end
@@ -266,7 +267,9 @@ module Make (V: NumAD.S) = struct
      test_bot {st with tt = Bot; ft = Bot}
   | _ -> failwith "Unsupported flag in test"
 
-    
+ 
+ let interpret_instruction env i = failwith "Not implemented yet"
+
  let flagop st fo =
    match localjoin st with
      Bot -> failwith "Bottom in falgAD.flagop"

@@ -1,9 +1,4 @@
-// #include "Salsa20/ecrypt-sync.h"
-// #include "HC128/ecrypt-sync.h"
-// #include "Rabbit/code/ecrypt-sync.h"
-// #include "Sosemanuk/ecrypt-sync.h"
-
-
+// the ECRLIB macro holds the path to the cipher's implementation of ecrypt-sync.h
 #include ECRLIB
 
 int main()
@@ -15,7 +10,7 @@ int main()
 	const u32 ivsize = ECRYPT_IVSIZE(0);
 	const u8 iv[ECRYPT_IVSIZE(0)];
 	
-#define MSGLEN 128
+#define MSGLEN 256
 	u32 msglen = MSGLEN;
 	const u8 plaintext[MSGLEN];
 	u8 ciphertext[MSGLEN];

@@ -39,6 +39,10 @@ sig
   (** Records a return (and its effect on the stack). *)
   val return : t -> (int,t) finite_set
 
+  (** Interpret an instruction, if the particular instruction cannot be handled 
+      here, pass it to the next module *)
+  val interpret_instruction : t -> X86Types.instr -> t
+  
   (** 32 bit memory operation *)
   val memop : t -> memop -> op32 -> op32 -> t
 

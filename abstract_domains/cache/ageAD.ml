@@ -127,20 +127,11 @@ possible, so it approximates Bottom *)
                      (NumMap.remove v1 vm) value1
       }
   
-  let print_addrsets fmt env = 
-      Format.fprintf fmt "\nAddress sets:\n";
-      let cache_sets = Utils.partition (V.var_names env.value) env.pfn in
-      IntMap.iter (fun _ addr_set ->
-          Format.fprintf fmt "{ ";
-          NumSet.iter (fun addr -> Format.fprintf fmt "%Lx " addr) addr_set;
-          Format.fprintf fmt "}\n"
-          ) cache_sets 
 
   let print_delta env1 fmt env2 = V.print_delta env1.value fmt env2.value
   let print fmt env = 
-    V.print fmt env.value;
-    if (get_log_level AgeLL) = Debug then print_addrsets fmt env
-        
+    V.print fmt env.value
+
   let subseteq env1 env2= 
     assert (env1.max_age = env2.max_age);
     (V.subseteq env1.value env2.value)

@@ -33,6 +33,7 @@ module type S =
   *)
   val get_vals: t -> op32 -> (int,t) finite_set
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
+  val interpret_instruction : t -> X86Types.instr -> t
   val memop : t -> memop -> op32 -> op32 -> t
   val memopb : t -> memop -> op8 -> op8 -> t
   val load_address : t -> reg32 -> address -> t
@@ -175,7 +176,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   (* get_reg32 : t -> X86Types.reg32 -> (int64, F.t) finite_set *)
   (** @return the finite set of possible values or top corresponding to a register *)
   let get_reg32 env r = 
-    let regvar = reg_to_var r in F.get_var env.vals regvar
+    F.get_var env.vals (reg_to_var r)
 
   exception Is_Top
   let unFinite = function
@@ -218,8 +219,6 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
         let read (n,e) = 
           let new_cache = 
             C.touch env.cache n in (* touch the cache on read and on write *)
-          (*let new_cache = match rw with Read -> T.touch env.cache n 
-                                      | Write -> env.cache in*)
             let (new_n,new_env) = match rw with
               | Read -> 
 		let env = {env with vals =e} in
@@ -290,6 +289,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
     | _, Address _ -> es
     | _, _ -> ed
 
+  
   (* memop : t -> memop -> op32 -> op32 -> t *)
     (** Does the memory operation given by [AbstractInstr.memop] on the enviroment.
      This operation can be a move, an arithmetic operation or an exchange.
@@ -444,7 +444,32 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
           let fsList = List.map read addrList in
           Finite (List.fold_left appendLists [] fsList)
         ) with Is_Top -> Top env)
-
+  
+  let interpret_instruction env instr = match instr with
+  | Arith(op, x, y) -> begin
+      match op with
+        CmpOp -> flagop env (ADcmp(x,y))
+      | _ -> memop env (ADarith op) x y
+    end
+  | Arithb(op, x, y) -> begin
+          match op with
+            CmpOp -> failwith "8-bit CMP not implemented"
+          | _ -> memopb env (ADarith op) x y
+    end
+  | Mov(x,y) -> memop env ADmov x y
+  | Movb(x,y) -> memopb env ADmov x y
+  | Exchange(x,y) -> memop env ADexchg (Reg x) (Reg y)
+  | Lea(r,a) -> load_address env r a
+  | Imul(dst,src,imm) -> imul env dst src imm
+  | Movzx(x,y) -> movzx env x y
+  | Shift(op,x,y) -> shift env op x y
+  | Cmp(x, y) -> flagop env (ADcmp(x,y))
+  | Test(x, y) -> flagop env (ADtest(x,y))
+  | FlagSet(f,b) -> flagop env (ADfset(f,b))
+  | i -> Format.printf "@[Unexpected instruction %a @, in MemAD->interpret_instruction@]@." X86Print.pp_instr i;
+    failwith ""
+  
+  
   (* we pass the elapsed time to the cache domain, the only one keeping track of it so far *)
   let elapse env d = {env with cache = C.elapse env.cache d}
 
