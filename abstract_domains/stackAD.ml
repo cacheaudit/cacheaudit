@@ -11,6 +11,7 @@ module type S =
     val test : t -> condition -> t add_bottom * t add_bottom
     val call : t -> op32 -> int -> (int, t) finite_set
     val return : t -> (int, t) finite_set
+    val interpret_instruction : t -> X86Types.instr -> t
     val memop : t -> memop -> op32 -> op32 -> t
     val memopb : t -> memop -> op8 -> op8 -> t
     val movzx : t -> op32 -> op8 -> t
@@ -51,6 +52,20 @@ module Make (M: MemAD.S) = struct
                               addrBase = Some ESP;
                               addrIndex = None;
                               segBase = None;}
+  
+  let interpret_instruction mem instr = match instr with
+  | Pop x ->  (* POP: return top of stack, *then* increment ESP *)
+    (* Move top of stack to address/register gop *)
+	  let mem1 = memop mem ADmov x top_stack in
+	  (* Increment ESP by 4 -- Stack grows downwards *)
+	  memop mem1 (ADarith Add) (Reg ESP) (Imm 4L)
+  | Push x -> (* PUSH: decrement ESP, *then* store content *)
+    (* Decrement ESP by 4 *)
+  	let mem1 = memop mem (ADarith Sub) (Reg ESP) (Imm 4L) in
+  	(* Move gop to top of stack *)
+  	memop mem1 ADmov top_stack x
+  | i -> M.interpret_instruction mem i
+
   let stackop mem operation gop = 
     match operation with 
       (* POP: return top, *then* increment ESP *)

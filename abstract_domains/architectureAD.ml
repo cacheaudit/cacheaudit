@@ -18,6 +18,7 @@ module type S =
     val test : t -> condition -> (t add_bottom)*(t add_bottom)
     val call : t -> op32 -> int -> (int,t) finite_set 
     val return : t -> (int,t) finite_set
+    val interpret_instruction : t -> X86Types.instr -> t
     val memop : t -> memop -> op32 -> op32 -> t
     val memopb : t -> memop -> op8 -> op8 -> t
     val movzx : t -> op32 -> op8 -> t
@@ -75,6 +76,7 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
 
   (* Redirect all usual stack calls to the stackAD *)
   let get_vals env op = subs_finite_set env (ST.get_vals env.call_ad op)
+  let interpret_instruction env i = subs_e env (ST.interpret_instruction env.call_ad i)
   let memop env mop op1 op2 = subs_e env (ST.memop env.call_ad mop op1 op2)
   let memopb  env mop op1 op2 = subs_e env (ST.memopb env.call_ad mop op1 op2)
   let movzx env op1 op2 = subs_e env (ST.movzx env.call_ad op1 op2)
@@ -121,6 +123,7 @@ module MakeShared (ST: StackAD.S) = struct
   let subseteq = ST.subseteq
   let get_vals = ST.get_vals
   let test = ST.test
+  let interpret_instruction = ST.interpret_instruction
   let memop = ST.memop
   let memopb = ST.memopb
   let movzx = ST.movzx

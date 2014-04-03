@@ -34,6 +34,10 @@ sig
   (** Returns an overapproximation of the environments in which the condition holds,
       followed by an overapproximation of the environments in which it doesn't. *)
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
+  
+  (** Interpret an instruction, if the particular instruction cannot be handled 
+    here, pass it to the next module *)
+  val interpret_instruction : t -> X86Types.instr -> t
 
   (** 32 bit memory operation *)
   val memop : t -> memop -> op32 -> op32 -> t

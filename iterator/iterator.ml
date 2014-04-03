@@ -186,47 +186,18 @@ module Make(A:ArchitectureAD.S) = struct
                pp_block_addr addr X86Print.pp_instr inst (A.print_delta inv) inv2;
                inv2 in
       match inst with
-        Arith(op, x, y) -> ftrace (
-          match op with
-            CmpOp -> A.flagop inv (ADcmp(x,y))
-          | _ -> A.memop inv (ADarith op) x y
-        )
-      | Arithb(op, x, y) -> ftrace (
-              match op with
-                CmpOp -> failwith "8-bit CMP not implemented"
-              | _ -> A.memopb inv (ADarith op) x y
-        )
-      | Cmp(x, y) -> ftrace (A.flagop inv (ADcmp(x,y)))
-      | Test(x, y) -> ftrace (A.flagop inv (ADtest(x,y)))
-      | Inc x -> interpret_instruction inv (addr,Arith(Add, x, op32_one)) (*TODO: check that the effect on flags is correct *)
-      | Dec x -> interpret_instruction inv (addr,Arith(Sub, x, op32_one))
-      | Lea(r,a) -> ftrace (A.load_address inv r a)
-      | Leave -> 
-          let inv = interpret_instruction inv (addr,Mov(Reg ESP, Reg EBP)) in
-          interpret_instruction inv (addr,Pop(Reg EBP))
-      | Imul(dst,src,imm) -> ftrace (A.imul inv dst src imm)
-      | Mov(x,y) -> ftrace (A.memop inv ADmov x y)
-      | Movb(x,y) -> ftrace (A.memopb inv ADmov x y)
-      | Movzx(x,y) -> ftrace (A.movzx inv x y)
-      | Exchange(x,y) -> ftrace (A.memop inv ADexchg (Reg x) (Reg y))
-      (*
-      (* DIV (unsigned divide): makes (1) EAX = EAX / operand;
-                                      (2) EDX = EAX % operand;
-        we translate it into EDX = EAX; EAX /= operand; EDX %= operand *)
-      | Div x -> 
-        let inv = interpret_instruction inv (addr,Mov(Reg EDX, Reg EAX)) in
-        let inv = interpret_instruction inv (addr,Arith(ADiv, Reg EAX,x)) in
-        interpret_instruction inv (addr,Arith(ARem, Reg EDX,x))
-      *)
-      | Pop x -> ftrace (A.stackop inv ADpop x)
-      | Push x -> ftrace (A.stackop inv ADpush x)
-      | Shift(op,x,y) -> ftrace (A.shift inv op x y)
+      | Call _ | Jcc _ | Jmp _ -> inv
+      | Skip -> ftrace (A.elapse inv time_skip)
       | Halt -> if get_log_level IteratorLL <> Quiet then 
               Format.printf "Just before Halt, we have %a\n" A.print inv;
               raise Bottom
-      | Skip -> ftrace (A.elapse inv time_skip)
-      | FlagSet(f,b) -> ftrace (A.flagop inv (ADfset(f,b)))
-      | Call _ | Jcc _ | Jmp _ | _ -> inv
+      | Leave -> 
+          let inv = interpret_instruction inv (addr,Mov(Reg ESP, Reg EBP)) in
+          interpret_instruction inv (addr,Pop(Reg EBP))
+      | Inc x -> interpret_instruction inv (addr,Arith(Add, x, op32_one)) (*TODO: check that the effect on flags is correct *)
+      | Dec x -> interpret_instruction inv (addr,Arith(Sub, x, op32_one))
+      | Ret -> inv
+      | i -> ftrace (A.interpret_instruction inv i)
       ) with e -> (Format.fprintf Format.err_formatter "@[<v 2>\nError while processing %a %a @, in environment %a@]@."
           pp_block_addr addr X86Print.pp_instr inst A.print inv;
           raise e) in

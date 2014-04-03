@@ -50,7 +50,11 @@ sig
   (** Returns a pair of environments overapproximating the
       true/false cases of condition *)
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
-
+  
+    (** Interpret an instruction, if the particular instruction cannot be handled 
+      here, raise an error *)
+  val interpret_instruction : t -> X86Types.instr -> t
+  
   (** [flagop env op var1 var2] performs [op] between [var1] and
       [var2]. *)
   val flagop : t -> cons_var flagop -> t
