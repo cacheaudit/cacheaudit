@@ -19,7 +19,7 @@ module type S =
   val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val interpret_instruction : t -> X86Types.instr -> t
-  val flagop : t -> cons_var flagop -> t
+  val flagop : t -> flagop -> cons_var -> cons_var -> t
   val shift : t -> shift_op -> var -> cons_var -> mask -> t
   end
 
@@ -270,13 +270,12 @@ module Make (V: NumAD.S) = struct
  
  let interpret_instruction env i = failwith "Not implemented yet"
 
- let flagop st fo =
+ let flagop st fo v1 v2 =
    match localjoin st with
      Bot -> failwith "Bottom in falgAD.flagop"
    | Nb x -> (match fo with
-       ADfset _  -> failwith "FlagAD.flagop: Setting of flags not yet supported"
-     | ADtest(v1,v2) -> wrap (V.flagop x And v1 v2)
-     | ADcmp(v1,v2) -> wrap (V.flagop x Sub v1 v2)
+     | ADtest -> wrap (V.flagop x And v1 v2)
+     | ADcmp -> wrap (V.flagop x Sub v1 v2)
      )
 
 

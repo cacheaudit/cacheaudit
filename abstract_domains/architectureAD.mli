@@ -55,8 +55,6 @@ sig
   (** Load operation *)
   val load_address : t -> reg32 -> address -> t
 
-  (** Flag operation *)
-  val flagop : t -> op32 flagop -> t
 
   (** Stack operation *)
   val stackop : t -> stackop -> op32 -> t

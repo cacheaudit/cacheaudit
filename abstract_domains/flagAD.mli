@@ -57,7 +57,7 @@ sig
   
   (** [flagop env op var1 var2] performs [op] between [var1] and
       [var2]. *)
-  val flagop : t -> cons_var flagop -> t
+  val flagop : t -> flagop -> cons_var -> cons_var -> t
  
   (** [shift env op dst src msk] performs [op] between [src] and
       [dst].*)

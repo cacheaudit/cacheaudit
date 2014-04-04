@@ -16,7 +16,6 @@ module type S =
     val memopb : t -> memop -> op8 -> op8 -> t
     val movzx : t -> op32 -> op8 -> t
     val load_address : t -> reg32 -> address -> t
-    val flagop : t -> op32 flagop -> t
     val stackop : t -> stackop -> op32 -> t
     val shift : t -> shift_op -> op32 -> op8 -> t
     val imul : t -> reg32 -> op32 -> int64 -> t
@@ -44,7 +43,6 @@ module Make (M: MemAD.S) = struct
   let memop = M.memop
   let memopb  = M.memopb
   let movzx = M.movzx
-  let flagop = M.flagop
   let load_address = M.load_address
   let shift = M.shift
   let imul = M.imul

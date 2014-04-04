@@ -38,7 +38,6 @@ module type S =
   val memopb : t -> memop -> op8 -> op8 -> t
   val load_address : t -> reg32 -> address -> t
   val movzx : t -> op32 -> op8 -> t
-  val flagop : t -> op32 flagop -> t
   val shift : t -> shift_op -> op32 -> op8 -> t
   val imul : t -> reg32 -> op32 -> int64 -> t
   val touch : t -> int64 -> t
@@ -210,8 +209,8 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   (** @return the list of constants or variables corresponding to the constant, register or address passed *)
   let var_of_op env gop rw = 
     match gop with
-    | Imm x -> [(Cons x, env)]
-    | Reg r -> [(VarOp (reg_to_var r), env)]
+    | Imm x -> [(Cons x, NoMask, env)]
+    | Reg r -> [(VarOp (reg_to_var r), NoMask, env)]
     | Address addr -> 
       try(
         let addrList = address_list env addr in
@@ -237,7 +236,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
                       {env with vals = F.update_var env.vals n NoMask (Cons value) NoMask Move}
                     | None ->  env
               else (VarOp n, env) in
-          new_n, {new_env with cache = new_cache} in
+          new_n, NoMask, {new_env with cache = new_cache} in
         (* Get list of possible addresses and return either a var if it existed in the MemSet
         * or a cons (with the value) otherwise *)
           List.map read addrList) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
@@ -248,9 +247,9 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   (* var_of_op8 : t -> op8 -> rw_t -> (cons_var, mask_t, t) list *)
   (** Same as [var_of_op32] with the exception that we also return the position of the 8 bits in a 32-bit data as a mask *)
   let var_of_op8 env gop rw = match gop with
-    | Imm x -> [(Cons x, LL, env)]
+    | Imm x -> [(Cons x, Mask LL, env)]
     | Reg r -> 
-        let address_mask = if X86Util.reg8_to_int r >= 4 then LH else LL in
+        let address_mask = Mask (if X86Util.reg8_to_int r >= 4 then LH else LL) in
         [VarOp (reg_to_var (r8_to_r32 r)), address_mask, env]
     | Address addr -> try(
         let addrList = address_list env addr in
@@ -277,103 +276,72 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
                     Some value -> {env with vals = F.update_var env.vals n NoMask (Cons value) NoMask Move}
                   | None -> env
               else (VarOp n, env) in
-          new_n, address_mask, {new_env with cache = new_cache}
+          new_n, Mask address_mask, {new_env with cache = new_cache}
         in
         List.map read addrList) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
 
-  (** @return the enviroment that corresponds to a memory access *)
-  let decide_env d s ed es = 
+  (** return the enviroment that corresponds to a memory access *)
+  let get_access_env d s ed es = 
     match d,s with
     | Address _, Address _ -> failwith "Memory-to-memory operation not supported" (* would currently record only one cache access *)
     | Address _, _ -> ed
     | _, Address _ -> es
     | _, _ -> ed
 
+  (* For every possible value of src and dst, we do dst = dst op src using the value AD function update_var.
+   * doOp, given a var or constant and an enviroment, generates a list of enviroments after updating each dst
+   * with the var/cons given and the operation. *)
+  let perform_op op dst dlist src slist =
+    let do_op (s,smask,es) = List.map (fun (d,dmask,ed) -> 
+      let access_env = (get_access_env dst src ed es) in
+       { access_env with vals = 
+        F.update_var access_env.vals (consvar_to_var d) dmask s smask op }
+      ) dlist in
+    list_join (List.concat (List.map do_op slist)) 
   
-  (* memop : t -> memop -> op32 -> op32 -> t *)
+
+  
     (** Does the memory operation given by [AbstractInstr.memop] on the enviroment.
      This operation can be a move, an arithmetic operation or an exchange.
      Transmits the fact that time passes to the cache domain
      @return a new enviroment or raises a Bottom
      exception if the resulting environment is bottom. *)
-  let memop m mop dst src = try (
-    let slist = var_of_op m src Read in
+  let memopfn m mop dst src v_o_op = try (
+    let slist = v_o_op m src Read in
     assert(slist <> []);
-    let dlist = var_of_op m dst Write in
+    let dlist = v_o_op m dst Write in
     assert(dlist <> []);
     let res = 
-    match mop with
-    | ADarith o -> let op = Op o in
-    (* For every possible value of src and dst, we do dst = dst op src using the value AD function update_var.
-     * doOp, given a var or constant and an enviroment, generates a list of enviroments after updating each dst
-     * with the var/cons given and the operation. *)
-        let doOp (s,es) = List.map (fun (d,ed) -> let joinds = decide_env dst src ed es in 
-          { joinds with vals = F.update_var joinds.vals (consvar_to_var d) NoMask s NoMask op }) dlist in
-        list_join (List.concat (List.map doOp slist)) 
-    | ADmov -> 
-        let doOp (s,es) = List.map (fun (d,ed) -> let joinds = decide_env dst src ed es in 
-          { joinds with vals = F.update_var joinds.vals (consvar_to_var d) NoMask s NoMask Move }) dlist in
-        list_join (List.concat (List.map doOp slist)) 
-    | ADexchg -> 
-        let doOpD (cv,ecv) =
-          List.map (fun (v,ev) -> let joinds = decide_env dst src ev ecv in 
-            { joinds with vals = F.update_var joinds.vals (consvar_to_var v) NoMask cv NoMask Move }) dlist in
-        let doOpS (cv,ecv) =
-          List.map (fun (v,ev) -> let joinds = decide_env dst src ecv ev in 
-            { joinds with vals = F.update_var joinds.vals (consvar_to_var v) NoMask cv NoMask Move }) slist in
-        let s_to_d_vals = list_join (List.concat (List.map doOpD slist)) in
-        let d_to_s_vals = list_join (List.concat (List.map doOpS dlist)) in
-        join s_to_d_vals d_to_s_vals
-
+      match mop with
+      | ADarith o -> let op = Op o in
+          perform_op op dst dlist src slist
+      | ADmov -> 
+          perform_op Move dst dlist src slist
+      | ADexchg -> 
+          let s_to_d_vals = perform_op Move dst dlist src slist in
+          let d_to_s_vals = perform_op Move dst slist src dlist in
+          join s_to_d_vals d_to_s_vals
     in {res with cache = C.elapse res.cache time_instr}
   ) with Bottom -> failwith "MemAD.memop: Bottom in memAD after an operation on non bottom env"
+  
 
-  (** Same as [memop] except that we deal with 8-bit instructions *)
-  let memopb m mop dst src = try (
-    let slist = var_of_op8 m src Read in
-    assert(slist <> []);
-    let dlist = var_of_op8 m dst Write in
-    assert(dlist <> []);
-    let res =
-    match mop with
-    | ADarith o -> let op = Op o in
-    (* For every possible value of src and dst, we do dst = dst op src using the value AD function update_var.
-     * doOp, given a var or constant and an enviroment, generates a list of enviroments after updating each dst
-     * with the var/cons given and the operation. *)
-        let doOp (s,mks,es) = List.map (fun (d,mkd,ed) -> let joinds = decide_env dst src ed es in { joinds with vals = F.update_var joinds.vals (consvar_to_var d) (Mask mkd) s (Mask mks) op }) dlist in
-        list_join (List.concat (List.map doOp slist)) 
-    | ADmov -> 
-        let doOp (s,mks,es) = List.map (fun (d,mkd,ed) -> let joinds = decide_env dst src ed es in { joinds with vals = F.update_var joinds.vals (consvar_to_var d) (Mask mkd) s (Mask mks) Move }) dlist in
-        list_join (List.concat (List.map doOp slist)) 
-    | ADexchg -> failwith "MemAD.memopb: XCGHB not implemented"
-    in {res with cache = C.elapse res.cache time_instr}
-  ) with Bottom -> failwith "MemAD.memopb: Bottom in memAD after an operation on non bottom env"
 
-  (** Performs the move with zero extend operation. @return a new environment or
-   raises Bottom. *)
+  (** Performs the move with zero extend operation  *)
   let movzx m dst32 src8 = try (
     let slist = var_of_op8 m src8 Read in
     let dlist = var_of_op m dst32 Write in
-    let doOp (s, msk, es) = List.map (fun (d,ed) -> let joinds = decide_env dst32 src8 ed es in { joinds with vals = F.update_var joinds.vals (consvar_to_var d) NoMask s (Mask msk) Move }) dlist in
-    let res = list_join (List.concat (List.map doOp slist)) in
+    let res = perform_op Move dst32 dlist src8 slist in
     {res with cache = C.elapse res.cache time_instr}
   ) with Bottom -> failwith "MemAD.movzx: bottom after an operation on non bottom environment"
 
-  (* flagop: missing ADfset in FlagAD *)
-  (** Passes down the flag operations to the Flag AD. @returns a new environment *)
-  let flagop env fop = let res = try (
-    match fop with
-    | ADcmp (dst, src) ->
-        let slist = var_of_op env src Read in
-        let dlist = var_of_op env dst Read in
-        let doOp (s,es) = List.map (fun (d,ed) -> let joinds = decide_env dst src ed es in { joinds with vals = F.flagop joinds.vals (ADcmp(d,s)) }) dlist in
-        list_join (List.concat (List.map doOp slist))
-    | ADtest (dst, src) ->
-        let slist = var_of_op env src Read in
-        let dlist = var_of_op env dst Read in
-        let doOp (s,es) = List.map (fun (d,ed) -> let joinds = decide_env dst src ed es in { joinds with vals = F.flagop joinds.vals (ADtest(d,s)) }) dlist in
-        list_join (List.concat (List.map doOp slist))
-    | ADfset (flg, truth) -> failwith "MemAD.flagop: ADfset not implemented"
+  (** Passes down the flag operations to the Flag AD *)
+  let flagop env fop dst src = let res = try (
+    let slist = var_of_op env src Read in
+    let dlist = var_of_op env dst Read in
+    let doOp (s,_,es) = List.map (fun (d,_,ed) -> 
+      let joinds = get_access_env dst src ed es in 
+      { joinds with vals = F.flagop joinds.vals fop d s }) dlist in
+      list_join (List.concat (List.map doOp slist))
   ) with Bottom -> failwith "MemAD.flagop: bottom after an operation on non bottom environment"
     in {res with cache = C.elapse res.cache time_instr}
   
@@ -395,7 +363,9 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   let shift m sop dst offset = let res = try (
     let offlist = var_of_op8 m offset Read in
     let dlist = var_of_op m dst Write in
-    let doOp (o, mk, eo) = List.map (fun (d,ed) -> let joinds = decide_env dst offset ed eo in { joinds with vals = (F.shift joinds.vals sop (consvar_to_var d) o (Mask mk))}) dlist in
+    let doOp (o, mk, eo) = List.map (fun (d,_,ed) -> 
+      let joinds = get_access_env dst offset ed eo in 
+      { joinds with vals = (F.shift joinds.vals sop (consvar_to_var d) o (mk))}) dlist in
     list_join (List.concat (List.map doOp offlist))
   ) with Bottom -> failwith "MemAD.shift: bottom after an operation on non bottom environment"
     in {res with cache = C.elapse res.cache time_instr}
@@ -445,10 +415,13 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
           Finite (List.fold_left appendLists [] fsList)
         ) with Is_Top -> Top env)
   
-  let interpret_instruction env instr = match instr with
+  let memop m mop dst src = memopfn m mop dst src var_of_op
+  let memopb m mop dst src = memopfn m mop dst src var_of_op8
+  
+  let rec interpret_instruction env instr = match instr with
   | Arith(op, x, y) -> begin
       match op with
-        CmpOp -> flagop env (ADcmp(x,y))
+        CmpOp -> interpret_instruction env (Cmp(x,y))
       | _ -> memop env (ADarith op) x y
     end
   | Arithb(op, x, y) -> begin
@@ -459,13 +432,12 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   | Mov(x,y) -> memop env ADmov x y
   | Movb(x,y) -> memopb env ADmov x y
   | Exchange(x,y) -> memop env ADexchg (Reg x) (Reg y)
+  | Movzx(x,y) -> movzx env x y
   | Lea(r,a) -> load_address env r a
   | Imul(dst,src,imm) -> imul env dst src imm
-  | Movzx(x,y) -> movzx env x y
   | Shift(op,x,y) -> shift env op x y
-  | Cmp(x, y) -> flagop env (ADcmp(x,y))
-  | Test(x, y) -> flagop env (ADtest(x,y))
-  | FlagSet(f,b) -> flagop env (ADfset(f,b))
+  | Cmp(x, y) -> flagop env ADcmp x y
+  | Test(x, y) -> flagop env ADtest x y
   | i -> Format.printf "@[Unexpected instruction %a @, in MemAD->interpret_instruction@]@." X86Print.pp_instr i;
     failwith ""
   
