@@ -221,8 +221,7 @@ type arith_op =
   | Sub
   | Subb (* Sub with borrow *)
   | Xor
-  (* | ADiv *)
-  (* | ARem *)
+
 
 (** Bitwise shift operations *)
 type shift_op =
@@ -245,7 +244,6 @@ type instr =
   | Jcc of cc * int64
   | Jmp of op32
   | Lea of reg32 * address
-  (* | Div of op32 *)
   | Imul of reg32 * op32 * int64
   | Leave
   | Mov of op32 * op32
@@ -258,5 +256,5 @@ type instr =
   | Shift of shift_op * op32 * op8
   | Halt
   | Skip
-  | FlagSet of flag*bool (*sets the flag to the bool value *)
+  (* | FlagSet of flag*bool (*sets the flag to the bool value *) *)
 

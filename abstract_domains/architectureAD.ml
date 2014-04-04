@@ -23,7 +23,6 @@ module type S =
     val memopb : t -> memop -> op8 -> op8 -> t
     val movzx : t -> op32 -> op8 -> t
     val load_address : t -> reg32 -> address -> t
-    val flagop : t -> op32 flagop -> t
     val stackop : t -> stackop -> op32 -> t
     val shift : t -> shift_op -> op32 -> op8 -> t
     val imul : t -> reg32 -> op32 -> int64 -> t
@@ -80,7 +79,6 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
   let memop env mop op1 op2 = subs_e env (ST.memop env.call_ad mop op1 op2)
   let memopb  env mop op1 op2 = subs_e env (ST.memopb env.call_ad mop op1 op2)
   let movzx env op1 op2 = subs_e env (ST.movzx env.call_ad op1 op2)
-  let flagop env fop = subs_e env (ST.flagop env.call_ad fop)
   let load_address env reg add = subs_e env (ST.load_address env.call_ad reg add)
   let shift env sop op1 op2 = subs_e env (ST.shift env.call_ad sop op1 op2)
   let imul env op1 op2 op3 = subs_e env (ST.imul env.call_ad op1 op2 op3)
@@ -127,7 +125,6 @@ module MakeShared (ST: StackAD.S) = struct
   let memop = ST.memop
   let memopb = ST.memopb
   let movzx = ST.movzx
-  let flagop = ST.flagop
   let load_address = ST.load_address
   let shift = ST.shift
   let imul = ST.imul

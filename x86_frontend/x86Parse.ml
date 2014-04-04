@@ -242,7 +242,7 @@ let rec read_instr_body bits seg_override =
       | 2 -> Arith(Xor, gop, Imm 0xFFFFFFFFL), bits
       | _ -> raise (Parse (Printf.sprintf "Unknown 0xF7 instruction 0x%x at position 0x%x" spare position))
       end
-  | 0xF9 -> FlagSet(CF, true), bits
+  (* | 0xF9 -> FlagSet(CF, true), bits *)
   | 0xFF ->
       let gop, bits, spare = read_rm32_with_spare bits seg_override in
       begin match spare with

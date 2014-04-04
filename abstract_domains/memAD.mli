@@ -51,8 +51,6 @@ sig
   (** Move with zero extend *)
   val movzx : t -> op32 -> op8 -> t
 
-  (** Flag operation *)
-  val flagop : t -> op32 flagop -> t
 
   (** Shift operation *)
   val shift : t -> shift_op -> op32 -> op8 -> t
