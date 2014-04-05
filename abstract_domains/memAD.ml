@@ -8,6 +8,8 @@ open AD.DS
 open NumAD.DS
 open Logger
 
+type op = Op8 of X86Types.op8 | Op32 of X86Types.op32
+
 (** List of initial values for registers. Register * lower bound * upper bound *)
 type reg_init_values = (X86Types.reg32 * int64 * int64) list
 
@@ -198,88 +200,74 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
     
   (** Create an unitialized variable; assume it is not already created. *) 
   let create_var env n addr = {env with vals = F.new_var env.vals n; memory = MemSet.add n env.memory}
-
-  (* var_of_op : t -> op32 -> rw_t -> (cons_var, t) list *)
-  (** @return the list of constants or variables corresponding to the constant, register or address passed *)
+  
+  (** return the 32-bit register that contains the given 8-bit register *)
+  let r8_to_r32 r = X86Util.int_to_reg32 ((X86Util.reg8_to_int r) mod 4)
+  
+  let op_to_op32 op = match op with
+    | Op32(Imm x) | Op8(Imm x) -> Imm x
+    | Op32(Reg r) -> Reg r
+    | Op8(Reg r) -> Reg (r8_to_r32 r)
+    | Op32(Address addr) | Op8(Address addr) -> Address addr
+  
+  (** return the list of constants or variables corresponding to the constant, register or address passed *)
   let var_of_op env gop rw = 
-    match gop with
-    | Imm x -> [(Cons x, NoMask, env)]
-    | Reg r -> [(VarOp (reg_to_var r), NoMask, env)]
+    let operand = op_to_op32 gop in
+    match operand with
+    | Imm x -> 
+      let get_mask op = match op with
+        | Op8(Imm _) -> Mask LL 
+        | Op32(Imm _) -> NoMask | _ -> assert false in
+      [(Cons x, get_mask gop, env)]
+    | Reg r -> 
+      let get_mask op = match op with
+        | Op8(Reg r) -> Mask (if X86Util.reg8_to_int r >= 4 then LH else LL) 
+        | Op32(Reg _) -> NoMask | _ -> assert false in
+      [(VarOp (reg_to_var r), get_mask gop, env)]
     | Address addr -> 
       try(
         let addrList = address_list env addr in
         assert(addrList<>[]);
+        let get_n_mask op n = match op with
+          | Op8(Address _) -> 
+            let new_n = Int64.logand n (Int64.lognot 3L) in
+            let mask = Mask (rem_to_mask (Int64.logand (Int64.lognot n) 3L)) in
+            new_n, mask
+          | Op32(Address _) -> n,NoMask | _ -> assert false in
         let read (n,e) = 
-          let new_cache = 
-            C.touch env.cache n in (* touch the cache on read and on write *)
-            let (new_n,new_env) = match rw with
-              | Read -> 
-		let env = {env with vals =e} in
-		if not (MemSet.mem n env.memory) then 
-                  match env.initial_values n with
-                      Some v -> Cons v, env
-                    | None -> VarOp n, create_var env n n
-		else VarOp n, env
-              | Write -> 
-              if not (MemSet.mem n env.memory) then 
-                VarOp n,
-                  let env = create_var env n n in
-                  let env = {env with memory = MemSet.add n env.memory } in
-                  match  env.initial_values n with
-                    Some value -> 
-                      {env with vals = F.update_val env.vals n NoMask (Cons value) NoMask Amov}
-                    | None ->  env
-              else (VarOp n, env) in
-          new_n, NoMask, {new_env with cache = new_cache} in
+          let new_cache = C.touch env.cache n in
+          let n,mask = get_n_mask gop n in
+          let (new_n,new_env) = match rw with
+          | Read -> 
+            let env = {env with vals =e} in
+            if not (MemSet.mem n env.memory) then 
+              match env.initial_values n with
+                Some v -> Cons v, env
+              | None -> VarOp n, create_var env n n
+            else VarOp n, env
+          | Write -> 
+            if not (MemSet.mem n env.memory) then 
+              VarOp n,
+                let env = create_var env n n in
+                let env = {env with memory = MemSet.add n env.memory } in
+                match  env.initial_values n with
+                  Some value -> 
+                    {env with vals = F.update_val env.vals n NoMask (Cons value) NoMask Amov}
+                  | None ->  env
+            else (VarOp n, env) in
+          new_n, mask, {new_env with cache = new_cache} in
         (* Get list of possible addresses and return either a var if it existed in the MemSet
         * or a cons (with the value) otherwise *)
-          List.map read addrList) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
-
-  (** @return the 32-bit register that contains the given 8-bit register *)
-  let r8_to_r32 r = X86Util.int_to_reg32 ((X86Util.reg8_to_int r) mod 4)
-
-  (* var_of_op8 : t -> op8 -> rw_t -> (cons_var, mask_t, t) list *)
-  (** Same as [var_of_op32] with the exception that we also return the position of the 8 bits in a 32-bit data as a mask *)
-  let var_of_op8 env gop rw = match gop with
-    | Imm x -> [(Cons x, Mask LL, env)]
-    | Reg r -> 
-        let address_mask = Mask (if X86Util.reg8_to_int r >= 4 then LH else LL) in
-        [VarOp (reg_to_var (r8_to_r32 r)), address_mask, env]
-    | Address addr -> try(
-        let addrList = address_list env addr in
-        let read (un,e) =
-          let new_cache = C.touch env.cache un in
-          (*let new_cache = match rw with Read -> TR.touch env.cache un 
-                                      | Write -> env.cache in*)
-          let n = Int64.logand un (Int64.lognot 3L) in
-          let address_mask = rem_to_mask (Int64.logand (Int64.lognot un) 3L) in
-          let (new_n, new_env) = match rw with
-          | Read ->
-              let env = {env with vals = e} in
-              if not (MemSet.mem n env.memory) then
-                match env.initial_values n with
-                  Some v -> Cons v, env
-                | None -> VarOp n, create_var env n n
-              else VarOp n, env
-          | Write ->
-              if not (MemSet.mem n env.memory) then
-                VarOp n,
-                  let env = create_var env n n in
-                  let env = {env with memory = MemSet.add n env.memory} in
-                  match env.initial_values n with
-                    Some value -> {env with vals = F.update_val env.vals n NoMask (Cons value) NoMask Amov}
-                  | None -> env
-              else (VarOp n, env) in
-          new_n, Mask address_mask, {new_env with cache = new_cache}
-        in
-        List.map read addrList) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
+          List.map read addrList
+      ) with Is_Top -> failwith "Top in a set of values referencing addresses, cannot continue"
 
   (** return the enviroment that corresponds to a memory access *)
   let get_access_env d s ed es = 
     match d,s with
-    | Address _, Address _ -> failwith "Memory-to-memory operation not supported" (* would currently record only one cache access *)
-    | Address _, _ -> ed
-    | _, Address _ -> es
+    | Op32(Address _), Op32(Address _) | Op8(Address _), Op8(Address _) ->
+      failwith "Memory-to-memory operation not supported" (* would currently record only one cache access *)
+    | Op32(Address _), _ | Op8(Address _), _ -> ed
+    | _, Op32(Address _) | _, Op8(Address _) -> es
     | _, _ -> ed
 
   (* For every possible value of src and dst, we do dst = dst op src using the value AD function update_val.
@@ -299,11 +287,11 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
      Transmits the fact that time passes to the cache domain
      @return a new enviroment or raises a Bottom
      exception if the resulting environment is bottom. *)
-  let memopfn m mop dst src v_o_op_dst v_o_op_src = try (
+  let memopfn m mop dst src = try (
     let read_or_write = match mop with Aflag _ -> Read | _ -> Write in
-    let dlist = v_o_op_dst m dst read_or_write in
+    let dlist = var_of_op m dst read_or_write in
     assert(dlist <> []);
-    let slist = v_o_op_src m src Read in
+    let slist = var_of_op m src Read in
     assert(slist <> []);
     let res = 
       match mop with
@@ -372,11 +360,11 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
           Finite (List.fold_left appendLists [] fsList)
         ) with Is_Top -> Top env)
   
-  let memop env mop dst src = memopfn env mop dst src var_of_op var_of_op
-  let memopb env mop dst src = memopfn env mop dst src var_of_op8 var_of_op8
-  let movzx env dst32 src8 = memopfn env Amov dst32 src8 var_of_op var_of_op8
-  let shift env op dst32 offset8 = memopfn env op dst32 offset8 var_of_op var_of_op8
-  let flagop env fop dst src = memopfn env fop dst src var_of_op var_of_op
+  let memop env mop dst src = memopfn env mop (Op32 dst) (Op32 src)
+  let memopb env mop dst src = memopfn env mop (Op8 dst) (Op8 src)
+  let movzx env dst32 src8 = memopfn env Amov (Op32 dst32) (Op8 src8)
+  let shift env op dst32 offset8 = memopfn env op (Op32 dst32) (Op8 offset8)
+  let flagop env fop dst src = memopfn env fop (Op32 dst) (Op32 src)
   
   let imul env dst src imm = failwith "IMUL not implemented"
   
