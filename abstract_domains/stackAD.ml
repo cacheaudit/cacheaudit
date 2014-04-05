@@ -12,13 +12,6 @@ module type S =
     val call : t -> op32 -> int -> (int, t) finite_set
     val return : t -> (int, t) finite_set
     val interpret_instruction : t -> X86Types.instr -> t
-    val memop : t -> memop -> op32 -> op32 -> t
-    val memopb : t -> memop -> op8 -> op8 -> t
-    val movzx : t -> op32 -> op8 -> t
-    val load_address : t -> reg32 -> address -> t
-    val stackop : t -> stackop -> op32 -> t
-    val shift : t -> shift_op -> op32 -> op8 -> t
-    val imul : t -> reg32 -> op32 -> int64 -> t
     val touch : t -> int64 -> t
     val elapse : t -> int -> t
   end
@@ -40,12 +33,6 @@ module Make (M: MemAD.S) = struct
   let subseteq = M.subseteq 
   let get_vals  = M.get_vals
   let test = M.test
-  let memop = M.memop
-  let memopb  = M.memopb
-  let movzx = M.movzx
-  let load_address = M.load_address
-  let shift = M.shift
-  let imul = M.imul
   let top_stack =  Address {  addrDisp = 0L;
                               addrBase = Some ESP;
                               addrIndex = None;
@@ -54,37 +41,37 @@ module Make (M: MemAD.S) = struct
   let interpret_instruction mem instr = match instr with
   | Pop x ->  (* POP: return top of stack, *then* increment ESP *)
     (* Move top of stack to address/register gop *)
-	  let mem1 = memop mem ADmov x top_stack in
+	  let mem1 = M.interpret_instruction mem (Mov(x,top_stack)) in
 	  (* Increment ESP by 4 -- Stack grows downwards *)
-	  memop mem1 (ADarith Add) (Reg ESP) (Imm 4L)
+	  M.interpret_instruction mem1 (Arith(Add, (Reg ESP), (Imm 4L)))
   | Push x -> (* PUSH: decrement ESP, *then* store content *)
     (* Decrement ESP by 4 *)
-  	let mem1 = memop mem (ADarith Sub) (Reg ESP) (Imm 4L) in
+  	let mem1 = M.interpret_instruction mem (Arith(Sub, (Reg ESP), (Imm 4L))) in
   	(* Move gop to top of stack *)
-  	memop mem1 ADmov top_stack x
+  	M.interpret_instruction mem1 (Mov(top_stack, x))
   | i -> M.interpret_instruction mem i
 
   let stackop mem operation gop = 
     match operation with 
       (* POP: return top, *then* increment ESP *)
-      | ADpop -> 
+      | Apop -> 
 	(* Move top of stack to address/register gop *)
-	let mem1 = memop mem ADmov gop top_stack in
+	let mem1 = M.interpret_instruction mem (Mov(gop, top_stack)) in
 	(* Increment ESP by 4 -- Stack grows downwards *)
-	memop mem1 (ADarith Add) (Reg ESP) (Imm 4L)
+	M.interpret_instruction mem1 (Arith(Add, (Reg ESP), (Imm 4L)))
 	  
       (* PUSH: decrement ESP, *then* store content *)
-      | ADpush ->
+      | Apush ->
 	(* Decrement ESP by 4 *)
-	let mem1 = memop mem (ADarith Sub) (Reg ESP) (Imm 4L) in
+	let mem1 = M.interpret_instruction mem (Arith (Sub, (Reg ESP), (Imm 4L))) in
 	(* Move gop to top of stack *)
-	memop mem1 ADmov top_stack gop
+	M.interpret_instruction mem1 (Mov(top_stack, gop))
 	 
 
    (* Notice: We push/pop offsets to the stack, not absolute addresses.*) 
   let call mem tgt ret =  
     (* push target address to stack *)
-    let mem1 = stackop mem ADpush (Imm (Int64.of_int ret))
+    let mem1 = stackop mem Apush (Imm (Int64.of_int ret))
     (* return list of possible call targets and their environments *)
     in get_vals mem1 tgt 
  
@@ -92,7 +79,7 @@ module Make (M: MemAD.S) = struct
    (* Return top of stack and increment ESP by 4. We do not reuse
       the stackop function because POP stores its value in an
       op32 *)
-    let mem1 = memop mem (ADarith Add) (Reg ESP) (Imm 4L) in
+    let mem1 = M.interpret_instruction mem (Arith (Add, (Reg ESP), (Imm 4L))) in
     get_vals mem1 (Address {  addrDisp = -4L;addrBase = Some ESP; addrIndex = None;segBase = None;})
       
      

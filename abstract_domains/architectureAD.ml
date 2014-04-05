@@ -19,13 +19,6 @@ module type S =
     val call : t -> op32 -> int -> (int,t) finite_set 
     val return : t -> (int,t) finite_set
     val interpret_instruction : t -> X86Types.instr -> t
-    val memop : t -> memop -> op32 -> op32 -> t
-    val memopb : t -> memop -> op8 -> op8 -> t
-    val movzx : t -> op32 -> op8 -> t
-    val load_address : t -> reg32 -> address -> t
-    val stackop : t -> stackop -> op32 -> t
-    val shift : t -> shift_op -> op32 -> op8 -> t
-    val imul : t -> reg32 -> op32 -> int64 -> t
     val read_instruction: t -> int -> t
     val elapse : t -> int -> t
   end
@@ -76,13 +69,6 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
   (* Redirect all usual stack calls to the stackAD *)
   let get_vals env op = subs_finite_set env (ST.get_vals env.call_ad op)
   let interpret_instruction env i = subs_e env (ST.interpret_instruction env.call_ad i)
-  let memop env mop op1 op2 = subs_e env (ST.memop env.call_ad mop op1 op2)
-  let memopb  env mop op1 op2 = subs_e env (ST.memopb env.call_ad mop op1 op2)
-  let movzx env op1 op2 = subs_e env (ST.movzx env.call_ad op1 op2)
-  let load_address env reg add = subs_e env (ST.load_address env.call_ad reg add)
-  let shift env sop op1 op2 = subs_e env (ST.shift env.call_ad sop op1 op2)
-  let imul env op1 op2 op3 = subs_e env (ST.imul env.call_ad op1 op2 op3)
-  let stackop env sop op1 = subs_e env (ST.stackop env.call_ad sop op1) 
   let call env op n = subs_finite_set env (ST.call env.call_ad op n)
   let return env = subs_finite_set env (ST.return env.call_ad)
   let print form env = (*match get_log_level ArchitectureLL with
@@ -122,13 +108,6 @@ module MakeShared (ST: StackAD.S) = struct
   let get_vals = ST.get_vals
   let test = ST.test
   let interpret_instruction = ST.interpret_instruction
-  let memop = ST.memop
-  let memopb = ST.memopb
-  let movzx = ST.movzx
-  let load_address = ST.load_address
-  let shift = ST.shift
-  let imul = ST.imul
-  let stackop = ST.stackop
   let call = ST.call
   let return = ST.return
   let elapse = ST.elapse

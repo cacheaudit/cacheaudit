@@ -65,7 +65,7 @@ possible, so it approximates Bottom *)
 
   (* Compute x<c in V, where x is a variable and c an int. Should be extended to the case where c is a var *)
   (* the first result is x<c, the second one x=c and the last one x>c *)
-  let vguard venv x c = vcomp venv (VarOp x) (Cons(Int64.of_int c))
+  let vguard venv x c = vcomp venv x (Cons(Int64.of_int c))
 
   let inc_var env v = 
     let young,nyoung,_ = vguard env.value v env.max_age in
@@ -74,7 +74,7 @@ possible, so it approximates Bottom *)
       match young with
       | Bot -> env.value
       | Nb yenv ->
-        let yenv = flatten (V.update_var yenv v NoMask (Cons 1L) NoMask (AbstractInstr.Op X86Types.Add)) in
+        let yenv = flatten (V.update_val yenv v NoMask (Cons 1L) NoMask (AbstractInstr.Aarith X86Types.Add)) in
         match nyoung with
         | Bot -> yenv
         | Nb nyenv -> V.join yenv nyenv
@@ -84,12 +84,12 @@ possible, so it approximates Bottom *)
 
   let set_var env v a = 
       if a > env.max_age then
-        failwith "simpleValAD: set_var cannot set to values greater than the maximal value"
+        failwith "ageAD: set_var cannot set to values greater than the maximal value"
       else
         let value = if not (is_var env v) then 
                     V.new_var env.value v
                   else env.value
-        in let value = flatten(V.update_var value v NoMask (Cons(Int64.of_int a)) NoMask AbstractInstr.Move) in
+        in let value = flatten(V.update_val value v NoMask (Cons(Int64.of_int a)) NoMask AbstractInstr.Amov) in
         {env with value = value}
   
   
@@ -103,7 +103,7 @@ possible, so it approximates Bottom *)
   (* the first result is approximates the cases when x1 < x2 and
      the second one when x1 > x2 *)
   let comp env x1 x2 = 
-    let smaller, _, bigger = vcomp env.value (VarOp x1) (VarOp x2) in
+    let smaller, _, bigger = vcomp env.value x1 (VarOp x2) in
     vNewEnv env smaller, vNewEnv env bigger
 
   let comp_with_val env x v =
