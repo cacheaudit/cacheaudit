@@ -45,7 +45,7 @@ sig
   (** [update_var env dst mskdst src msksrc op] performs operation
       [op] on [dst] and [src], where the masks [mskdst] and [msksrc]
       specify whether 8 or 32 bit of the operand are involved. *)
-  val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
+  val update_val : t -> var -> mask -> cons_var -> mask -> abstr_op -> t
     
   (** Returns a pair of environments overapproximating the
       true/false cases of condition *)
@@ -55,13 +55,7 @@ sig
       here, raise an error *)
   val interpret_instruction : t -> X86Types.instr -> t
   
-  (** [flagop env op var1 var2] performs [op] between [var1] and
-      [var2]. *)
-  val flagop : t -> flagop -> cons_var -> cons_var -> t
  
-  (** [shift env op dst src msk] performs [op] between [src] and
-      [dst].*)
-  val shift : t -> shift_op -> var -> cons_var -> mask -> t
 end
 
 (** Creates a flag abstract domain from a numeric abstract domain *)

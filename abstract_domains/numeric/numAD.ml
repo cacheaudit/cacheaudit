@@ -83,11 +83,11 @@ module type S = sig
   (** Meet operation *)
   val meet : t -> t -> t add_bottom 
 
-  (** [update_var env dst mskdst src msksrc op] performs operation
+  (** [update_val env dst mskdst src msksrc op] performs operation
       [op] on [dst] and [src], where the masks [mskdst] and [msksrc]
       specify whether 8 or 32 bit of the operand are involved. Returns
       one environment per value combination of CF and ZF. *)
-  val update_var : t -> var -> mask -> cons_var -> mask -> AbstractInstr.varop ->
+  val update_val : t -> var -> mask -> cons_var -> mask -> AbstractInstr.abstr_op ->
     (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom) 
   (* This interface should be changed to allow flags as argument and
       return a tree *)
@@ -96,7 +96,7 @@ module type S = sig
   (** [flagop env op var1 var2] performs [op] between [var1] and
       [var2]. Returns one environment per value combination of CF and
       ZF *)
-  val flagop : t -> arith_op -> cons_var -> cons_var ->
+  val flagop : t -> arith_op -> var -> cons_var ->
     (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom)
       
   (** [shift env op dst src msk] performs [op] between [src] and

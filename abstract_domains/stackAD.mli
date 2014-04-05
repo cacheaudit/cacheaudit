@@ -39,28 +39,7 @@ sig
   (** Interpret an instruction, if the particular instruction cannot be handled 
     here, pass it to the next module *)
   val interpret_instruction : t -> X86Types.instr -> t
-  
-  (** 32 bit memory operation *)
-  val memop : t -> memop -> op32 -> op32 -> t
 
-  (** 8 bit memory operation *)
-  val memopb : t -> memop -> op8 -> op8 -> t
-  
-  (** Move with zero extend *)
-  val movzx : t -> op32 -> op8 -> t
-
-  (** Load operation *)
-  val load_address : t -> reg32 -> address -> t
-
-
-  (** Stack operation *)
-  val stackop : t -> stackop -> op32 -> t
-
-  (** Shift operation *)
-  val shift : t -> shift_op -> op32 -> op8 -> t
-  
-  (** Signed multiply *)
-  val imul : t -> reg32 -> op32 -> int64 -> t
     
   (** Signal to the cache that a memory location has been accessed *)  
   val touch : t -> int64 -> t

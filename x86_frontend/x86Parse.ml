@@ -157,9 +157,6 @@ let rec read_instr_body bits seg_override =
   | 0x83 ->
       let dst, bits, spare = read_rm32_with_spare bits seg_override in
       let disp, bits = read_int32 bits 8 in
-(*      if spare = 7 then
-        Cmp (dst, Imm disp), bits
-      else*)
         let aop = int_to_arith_op spare in
         Arith (aop, dst, Imm disp), bits
   | 0x85 ->

@@ -16,11 +16,9 @@ module type S =
   val set_var : t -> var -> int64 -> int64 -> t
   val is_var : t -> var -> bool
   val meet : t -> t -> t (*TODO: should be add_bottom *)
-  val update_var : t -> var -> mask -> cons_var -> mask -> varop -> t
+  val update_val : t -> var -> mask -> cons_var -> mask -> abstr_op -> t
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val interpret_instruction : t -> X86Types.instr -> t
-  val flagop : t -> flagop -> cons_var -> cons_var -> t
-  val shift : t -> shift_op -> var -> cons_var -> mask -> t
   end
 
 
@@ -210,27 +208,39 @@ module Make (V: NumAD.S) = struct
       Bot -> failwith "Bottom in FladAD.get_var"
     | Nb x -> x
 
-  (* For operations that do not change flags (e.g. Mov) update_var treats states independently and joins after update.
-     For operations that do change flags, update_var joins before the operations 
+  (* For operations that do not change flags (e.g. Mov) update_val treats states independently and joins after update.
+     For operations that do change flags, update_val joins before the operations 
      Further precision could be gained by separately treating operations (Inc) that leave some flags untouched *)
  
-  let update_var st var mkvar cvar mkcvar varop = 
-    match varop with
-      | Move -> tmap (fun env -> 
-          let tt,tf,ft,ff = V.update_var env var mkvar cvar mkcvar varop in
+  let update_val st var mkvar cvar mkcvar op = 
+    match op with
+    | Amov -> tmap (fun env -> 
+        let tt,tf,ft,ff = V.update_val env var mkvar cvar mkcvar op in
 (* This is inneffficient en should be redisgned, but we assume all results are the same here *)
           assert (tt==tf && tf==ft && ft==ff); 
-          match tt with Bot -> failwith "Bottom in update_var of falAD"
+          match tt with Bot -> failwith "Bottom in update_val of falAD"
           | Nb x -> x) st
-      | Op _ -> (
-	match localjoin st with
-	  | Bot -> raise Bottom
-	  | Nb x -> wrap (V.update_var x var mkvar cvar mkcvar varop))
+    | Aarith _ -> begin
+        match localjoin st with
+        | Bot -> raise Bottom
+        | Nb x -> wrap (V.update_val x var mkvar cvar mkcvar op)
+      end
+    | Ashift sop -> begin
+        match localjoin st with
+        | Bot -> raise Bottom
+        | Nb a -> wrap (V.shift a sop var cvar mkcvar)
+      end
+    | Aflag fop -> 
+      match localjoin st with
+        Bot -> failwith "Bottom in falgAD.flagop"
+      | Nb x -> begin
+          match fop with
+          | Atest -> wrap (V.flagop x And var cvar)
+          | Acmp -> wrap (V.flagop x Sub var cvar)
+        end
 
-    
 (* is_var returns true iff variable exists in *all* non-Bottom value domains *)
-(* Makes sense? *)
- 
+(* Makes sense? *) 
   let is_var st name = 
     List.fold_left 
       (fun x y -> match y with
@@ -269,20 +279,6 @@ module Make (V: NumAD.S) = struct
 
  
  let interpret_instruction env i = failwith "Not implemented yet"
-
- let flagop st fo v1 v2 =
-   match localjoin st with
-     Bot -> failwith "Bottom in falgAD.flagop"
-   | Nb x -> (match fo with
-     | ADtest -> wrap (V.flagop x And v1 v2)
-     | ADcmp -> wrap (V.flagop x Sub v1 v2)
-     )
-
-
-  let shift st sop var cvar mk =
-    match localjoin st with
-    | Bot -> raise Bottom
-    | Nb a -> wrap (V.shift a sop var cvar mk)
 
 
 end
