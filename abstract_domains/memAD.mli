@@ -35,8 +35,7 @@ sig
       followed by an overapproximation of the environments in which it doesn't. *)
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   
-  (** Interpret an instruction, if the particular instruction cannot be handled 
-    here, pass it to the next module *)
+  (** Interpret an instruction, passing its effects to CacheAD and FlagAD *)
   val interpret_instruction : t -> X86Types.instr -> t
     
   (** Signals to the cache that a memory location has been accessed *)  
