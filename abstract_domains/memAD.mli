@@ -25,9 +25,9 @@ sig
   *)
   val init: (int64 -> int64 option) -> mem_param -> CacheAD.cache_param -> t
     
- (** [get_vals env op] returns a finite list of possible values for an op32 
-      operand (which is an register/memory address/immediate), and the 
-      respective environments.  In case no finite list can be determied, 
+ (** [get_vals env op] returns a finite set of possible values for an op32 
+      operand (which is a register/memory address/immediate), and the 
+      respective environments.  In case no finite set can be determied, 
       returns Top. *)
   val get_vals: t -> op32 -> (int,t) finite_set
 
