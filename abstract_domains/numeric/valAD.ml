@@ -252,10 +252,6 @@ module Make (O:VALADOPT) = struct
     | Xor -> Int64.logxor
 
 
-  let add_CF y cf = function
-    | Addc | Subb -> Int64.add y cf
-    | _ -> y
-
   let make_set_from_list = List.fold_left (fun s x -> NumSet.add x s) NumSet.empty
 
   let go_to_interval s = if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
@@ -413,7 +409,7 @@ module Make (O:VALADOPT) = struct
     | FSet s -> (set_to_interval s)
     | i -> i
   
-  (** Implements the effects of MOV and arithmetic operations *)
+  (* Implements the effects of MOV and arithmetic operations *)
   let mov_arith m dstvar mkvar srcvar mkcvar op = match op with
     | Aarith Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)
               Bot, Bot, Nb(VarMap.add dstvar zero m), Bot
@@ -427,9 +423,11 @@ module Make (O:VALADOPT) = struct
           match op with
             Amov -> Nb (VarMap.add dstvar src_vals m)
           | Aarith o ->
-              let oper = arithop_to_int64op o in
               (* Add carry flag value to operation if it's either Addc or Subb *)
-              let oper = fun x y -> oper x (add_CF y cf o) in
+              let oper x y = let y = match o with   
+                | Addc | Subb -> Int64.add y cf
+                | _ -> y in
+                arithop_to_int64op o x y in
               begin
                 match dst_vals, src_vals with
                 | FSet ds, FSet ss ->
@@ -491,10 +489,9 @@ module Make (O:VALADOPT) = struct
     in
     (* When we are passed the environment we don't know anything about the carry flag,
      * so when we have an Addc or Subb we need to consider two cases: CF set and CF not set *) 
-    let noFlag_m = create_m FF 0L (fun _ -> true) in (* flag position doesn't matter *)
     let final_m flg test = 
       match op with
-      | Amov -> noFlag_m
+      | Amov -> create_m FF 0L (fun _ -> true) (* flag position doesn't matter *)
       | Aarith Subb | Aarith Addc -> lift_combine join (create_m flg 1L test) (create_m flg 0L test)
       | _ -> create_m flg 0L test
     in
@@ -635,8 +632,7 @@ module Make (O:VALADOPT) = struct
               Ror | Rol -> Nb (VarMap.add dst top m)
             | _ -> if ub < lb then Bot else Nb (VarMap.add dst (Interval(lb,ub)) m)
           end
-      | Interval(l1,h1), Interval(l2,h2) -> Nb (VarMap.add dst top m)
-      | FSet d, Interval(l,h) -> Nb (VarMap.add dst top m)
+      | _, _ -> Nb (VarMap.add dst top m)
     in
     (
       create_m (fun sop rs og os -> flag_carry_shift sop rs og os && flag_zero rs),
