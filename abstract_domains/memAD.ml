@@ -1,13 +1,13 @@
-(* times added to the time for memory accesses *)
-let time_instr = 1 (* number of cycles of one instriction *)
-let time_test = 1 (* number of cycles for a test *)
-let time_effective_load = 0; 
-
 open X86Types
 open AbstractInstr
 open AD.DS
 open NumAD.DS
 open Logger
+
+(* times added to the time for memory accesses *)
+let time_instr = 1 (* number of cycles of one instriction *)
+let time_test = 1 (* number of cycles for a test *)
+let time_effective_load = 0; 
 
 (* Operand type, which may be a 8 or 32-bit operand*)
 type op_t = Op8 of X86Types.op8 | Op32 of X86Types.op32
@@ -99,13 +99,17 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
 
   (* Adds variables and values for the registers in the value domain *)
   let initRegs v regList = 
-    let varsadded = List.fold_left (fun vt x -> let r,_,_ = x in F.new_var vt (reg_to_var r)) v regList in
-    List.fold_left (fun vt x -> let r,l,h = x in F.set_var vt (reg_to_var r) l h) varsadded regList
+    let varsadded = List.fold_left (fun vt x -> 
+      let r,_,_ = x in F.new_var vt (reg_to_var r)) v regList in
+    List.fold_left (fun vt x -> 
+      let r,l,h = x in F.set_var vt (reg_to_var r) l h) varsadded regList
 
   (* Sets the initial values for certain addresses in the value domain *)
   let initVals v memList =
-    let addresses_added = List.fold_left (fun vt x -> let var,_,_ = x in F.new_var vt var) v memList in
-    List.fold_left (fun vt x -> let addr,l,h = x in F.set_var vt addr l h) addresses_added memList
+    let addresses_added = List.fold_left (fun vt x -> 
+      let var,_,_ = x in F.new_var vt var) v memList in
+    List.fold_left (fun vt x -> 
+      let addr,l,h = x in F.set_var vt addr l h) addresses_added memList
 
   let initMemory m memList =
     List.fold_left (fun m x -> let addr,_,_ = x in MemSet.add addr m) m memList
@@ -269,16 +273,20 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
     | Op32(Address _), _ | Op8(Address _), _ -> ed
     | _, Op32(Address _) | _, Op8(Address _) -> es
     | _, _ -> ed
-
+  
+  let is_reg op = match op with
+  | Op32(Reg _) | Op8(Reg _) -> true
+  | _ -> false
   
   (* Updates the memory according to the actions perscribed by op; *)
   (* get the possible sources and destitnations and pass further changes *)
   (* to FlagAD and CacheAD *)
-  let update_mem m op dst src = try (
+  let update_mem env op dst src op3 = try (
+    if op <> Aimul then assert (op3 = None);
     let read_or_write = match op with Aflag _ -> Read | _ -> Write in
-    let dlist = get_consvars m dst read_or_write in
+    let dlist = get_consvars env dst read_or_write in
     assert(dlist <> []);
-    let slist = get_consvars m src Read in
+    let slist = get_consvars env src Read in
     assert(slist <> []);
     (* For every possible value of src and dst, do dst = dst op src, updating *)
     (* the values by passing the operation to update_val from FlagAD. *)
@@ -297,7 +305,22 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
           let s_to_d_vals = perform_op Amov dst dlist src slist in
           let d_to_s_vals = perform_op Amov src slist dst dlist in
           join s_to_d_vals d_to_s_vals
-    in {res with cache = C.elapse res.cache time_instr}
+      | Aimul ->
+        let src2,imm = match op3 with
+        | Some x -> begin 
+            match x with 
+            | (Op32(Imm i)) -> x,i 
+            | _ -> failwith "Only 32-bit immediates supported for imul"
+          end
+        | None -> failwith "2-operand imul not implemented" in
+        (* first move immediate to dst, then do dst = src * dst *)
+        (* to extend this to 2-operand imul, skip the first step *)
+        let env = perform_op Amov dst dlist src2 [(Cons imm,NoMask,env)] in
+        assert (is_reg dst); (* make sure we are accessing a register, because
+        if it were the memory, this would record a second access to the cache *)
+        let dlist = get_consvars env dst Read in
+        perform_op Aimul dst dlist src slist in
+     {res with cache = C.elapse res.cache time_instr}
   ) with Bottom -> failwith 
     "MemAD.update_mem: Bottom in memAD after an operation on non bottom env"
   
@@ -306,18 +329,16 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
     address in the variable correspoding to the register.
     @return an environment or raises Bottom *)
   let load_address env reg addr = let res = try( try (
-    let addrList = get_addresses env addr in
-    let regVar = reg_to_var reg in
-    let envList = List.map (fun (x,e) -> { env with vals = 
-      F.update_val e regVar NoMask (Cons x) NoMask Amov }) addrList in
-    list_join envList
-  ) with Bottom -> failwith 
-    "MemAD.load_address: bottom after an operation on non bottom environment"
-  ) with Is_Top -> let regVar = reg_to_var reg in 
-    {env with vals = F.set_var env.vals regVar 0L 0xffffffffL} 
-  in {res with cache = C.elapse res.cache time_effective_load}
-  
-  let imul env dst src imm = failwith "IMUL not implemented"
+      let addrList = get_addresses env addr in
+      let regVar = reg_to_var reg in
+      let envList = List.map (fun (x,e) -> { env with vals = 
+        F.update_val e regVar NoMask (Cons x) NoMask Amov }) addrList in
+      list_join envList
+    ) with Bottom -> failwith 
+      "MemAD.load_address: bottom after an operation on non bottom environment"
+    ) with Is_Top -> let regVar = reg_to_var reg in 
+      {env with vals = F.set_var env.vals regVar 0L 0xffffffffL} 
+    in {res with cache = C.elapse res.cache time_effective_load}
   
   
   (*** Public functions ***)
@@ -326,23 +347,25 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   | Arith(op, dst, src) -> begin
       match op with
         CmpOp -> interpret_instruction env (Cmp(dst,src))
-      | _ -> update_mem env (Aarith op) (Op32 dst) (Op32 src)
+      | _ -> update_mem env (Aarith op) (Op32 dst) (Op32 src) None
     end
   | Arithb(op, dst, src) -> begin
           match op with
             CmpOp -> failwith "8-bit CMP not implemented"
-          | _ -> update_mem env (Aarith op) (Op8 dst) (Op8 src)
+          | _ -> update_mem env (Aarith op) (Op8 dst) (Op8 src) None
     end
-  | Mov(dst,src) -> update_mem env Amov (Op32 dst) (Op32 src)
-  | Movb(dst,src) -> update_mem env Amov (Op8 dst) (Op8 src)
-  | Exchange(dst,src) -> update_mem env Aexchg (Op32 (Reg dst)) (Op32 (Reg src))
-  | Movzx(dst32,src8) -> update_mem env Amov (Op32 dst32) (Op8 src8)
+  | Mov(dst,src) -> update_mem env Amov (Op32 dst) (Op32 src) None
+  | Movb(dst,src) -> update_mem env Amov (Op8 dst) (Op8 src) None
+  | Exchange(dst,src) -> 
+    update_mem env Aexchg (Op32 (Reg dst)) (Op32 (Reg src)) None
+  | Movzx(dst32,src8) -> update_mem env Amov (Op32 dst32) (Op8 src8) None
   | Lea(r,a) -> load_address env r a
-  | Imul(dst,src,imm) -> imul env dst src imm
+  | Imul(dst,src,imm) -> 
+    update_mem env Aimul (Op32 (Reg dst)) (Op32 src) (Some (Op32 (Imm imm)))
   | Shift(sop,dst32,offst8) -> 
-    update_mem env (Ashift sop) (Op32 dst32) (Op8 offst8)
-  | Cmp(dst, src) -> update_mem env (Aflag Acmp) (Op32 dst) (Op32 src)
-  | Test(dst, src) -> update_mem env (Aflag Atest) (Op32 dst) (Op32 src)
+    update_mem env (Ashift sop) (Op32 dst32) (Op8 offst8) None
+  | Cmp(dst, src) -> update_mem env (Aflag Acmp) (Op32 dst) (Op32 src) None
+  | Test(dst, src) -> update_mem env (Aflag Atest) (Op32 dst) (Op32 src) None
   | i -> Format.printf "@[Unexpected instruction %a @, 
     in MemAD->interpret_instruction@]@." X86Print.pp_instr i;
     failwith ""

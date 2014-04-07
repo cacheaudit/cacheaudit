@@ -468,6 +468,7 @@ module Make (O:VALADOPT) = struct
                       Nb (VarMap.add dstvar new_dst m)
                     ) with Bottom -> Bot)
               end
+          | _ -> assert false
         end
       (* 8 -> 32 : MOVZX *)
     | NoMask, Mask msk ->
@@ -500,6 +501,7 @@ module Make (O:VALADOPT) = struct
                 | _, _ -> Nb (VarMap.add dstvar top m)
               end
           | Aarith o -> failwith "ValAD.update_val: operations between 8-bit values not implemented"
+          | _ -> assert false
         end
     | _, _ -> failwith "ValAD.update_val: operation from 32 bits to 8 bits"
     in

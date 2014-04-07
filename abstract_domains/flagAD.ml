@@ -14,11 +14,10 @@ module type S =
   val log_var : t -> var -> unit
   val get_var : t -> var -> (t NumMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
-  val is_var : t -> var -> bool
+  (* val is_var : t -> var -> bool *)
   val meet : t -> t -> t (*TODO: should be add_bottom *)
   val update_val : t -> var -> mask -> cons_var -> mask -> abstr_op -> t
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
-  val interpret_instruction : t -> X86Types.instr -> t
   end
 
 
@@ -212,41 +211,44 @@ module Make (V: NumAD.S) = struct
      For operations that do change flags, update_val joins before the operations 
      Further precision could be gained by separately treating operations (Inc) that leave some flags untouched *)
  
-  let update_val st var mkvar cvar mkcvar op = 
+  let update_val env var mkvar cvar mkcvar op = 
     match op with
     | Amov -> tmap (fun env -> 
         let tt,tf,ft,ff = V.update_val env var mkvar cvar mkcvar op in
-(* This is inneffficient en should be redisgned, but we assume all results are the same here *)
+(* This is inefficient, but we assume all results are the same here *)
           assert (tt==tf && tf==ft && ft==ff); 
           match tt with Bot -> failwith "Bottom in update_val of falAD"
-          | Nb x -> x) st
+          | Nb x -> x) env
     | Aarith _ -> begin
-        match localjoin st with
+        match localjoin env with
         | Bot -> raise Bottom
         | Nb x -> wrap (V.update_val x var mkvar cvar mkcvar op)
       end
     | Ashift sop -> begin
-        match localjoin st with
+        match localjoin env with
         | Bot -> raise Bottom
         | Nb a -> wrap (V.shift a sop var cvar mkcvar)
       end
-    | Aflag fop -> 
-      match localjoin st with
-        Bot -> failwith "Bottom in falgAD.flagop"
-      | Nb x -> begin
-          match fop with
-          | Atest -> wrap (V.flagop x And var cvar)
-          | Acmp -> wrap (V.flagop x Sub var cvar)
-        end
+    | Aflag fop -> begin
+        match localjoin env with
+          Bot -> raise Bottom
+        | Nb x -> begin
+            match fop with
+            | Atest -> wrap (V.flagop x And var cvar)
+            | Acmp -> wrap (V.flagop x Sub var cvar)
+          end
+      end
+    | Aimul -> failwith "not implemented yet"
+    | _ -> assert false
 
-(* is_var returns true iff variable exists in *all* non-Bottom value domains *)
-(* Makes sense? *) 
-  let is_var st name = 
-    List.fold_left 
-      (fun x y -> match y with
-	| Bot -> true
-	| Nb a -> (x && V.is_var a name))
-      true [st.tt;st.tf;st.ft;st.ff]
+(* (* is_var returns true iff variable exists in *all* non-Bottom value domains *) *)
+(* (* Makes sense? *)                                                              *)
+(*   let is_var st name =                                                          *)
+(*     List.fold_left                                                              *)
+(*       (fun x y -> match y with                                                  *)
+(* 	| Bot -> true                                                                 *)
+(* 	| Nb a -> (x && V.is_var a name))                                             *)
+(*       true [st.tt;st.tf;st.ft;st.ff]                                            *)
 
       
 
@@ -276,9 +278,5 @@ module Make (V: NumAD.S) = struct
      test_bot {st with tf=Bot; ff=Bot},
      test_bot {st with tt = Bot; ft = Bot}
   | _ -> failwith "Unsupported flag in test"
-
- 
- let interpret_instruction env i = failwith "Not implemented yet"
-
 
 end
