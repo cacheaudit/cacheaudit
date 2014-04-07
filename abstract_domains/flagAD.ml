@@ -1,5 +1,5 @@
 open X86Types
-open AbstractInstr
+open AbstrInstr
 open AD.DS
 open NumAD.DS
 open Logger
@@ -215,31 +215,16 @@ module Make (V: NumAD.S) = struct
     match op with
     | Amov -> tmap (fun env -> 
         let tt,tf,ft,ff = V.update_val env var mkvar cvar mkcvar op in
-(* This is inefficient, but we assume all results are the same here *)
+        (* This is inefficient, but we assume all results are the same here *)
           assert (tt==tf && tf==ft && ft==ff); 
           match tt with Bot -> failwith "Bottom in update_val of falAD"
           | Nb x -> x) env
-    | Aarith _ -> begin
+    | _ -> begin
         match localjoin env with
         | Bot -> raise Bottom
         | Nb x -> wrap (V.update_val x var mkvar cvar mkcvar op)
       end
-    | Ashift sop -> begin
-        match localjoin env with
-        | Bot -> raise Bottom
-        | Nb a -> wrap (V.shift a sop var cvar mkcvar)
-      end
-    | Aflag fop -> begin
-        match localjoin env with
-          Bot -> raise Bottom
-        | Nb x -> begin
-            match fop with
-            | Atest -> wrap (V.flagop x And var cvar)
-            | Acmp -> wrap (V.flagop x Sub var cvar)
-          end
-      end
-    | Aimul -> failwith "not implemented yet"
-    | _ -> assert false
+
 
 (* (* is_var returns true iff variable exists in *all* non-Bottom value domains *) *)
 (* (* Makes sense? *)                                                              *)

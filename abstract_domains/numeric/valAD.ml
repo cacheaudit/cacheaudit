@@ -1,5 +1,5 @@
 open X86Types
-open AbstractInstr
+open AbstrInstr
 open AD.DS
 open NumAD.DS
 open Logger
@@ -420,8 +420,8 @@ module Make (O:VALADOPT) = struct
         | _,_,_ -> raise Bottom)
     | CmpOp -> failwith "interval_update: CmpOp"
 
-  (** Arguments: environment, destination var., dest. var. mask, source var., src. var. mask *)
-  let update_val m dstvar mkvar srcvar mkcvar op = match op with
+  (** Implements the effects of MOV and arithmetic operations *)
+  let mov_arith m dstvar mkvar srcvar mkcvar op = match op with
     | Aarith Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)
               Bot, Bot, Nb(VarMap.add dstvar zero m), Bot
     | _ ->
@@ -680,6 +680,19 @@ module Make (O:VALADOPT) = struct
       create_m (fun sop rs og os -> not (flag_carry_shift sop rs og os) && flag_zero rs),
       create_m (fun sop rs og os -> not (flag_carry_shift sop rs og os) && not (flag_zero rs))
     )
+  
+  let update_val env dstvar mkvar srcvar mkcvar op = match op with
+  | Amov | Aarith _ -> mov_arith env dstvar mkvar srcvar mkcvar op
+  | Ashift sop -> shift env sop dstvar srcvar mkcvar
+  | Aflag fop -> begin
+      match fop with
+      | Atest -> flagop env And dstvar srcvar
+      | Acmp -> flagop env Sub dstvar srcvar
+    end
+  | Aimul -> failwith "not implemented yet"
+  | _ -> assert false
 
+  
+  
 end
 

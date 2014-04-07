@@ -1,5 +1,5 @@
 open X86Types
-open AbstractInstr
+open AbstrInstr
 open AD.DS
 
 (** Stack abstract domain: keeps track of stack operations, 
