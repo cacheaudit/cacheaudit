@@ -36,8 +36,8 @@ sig
       interval [l,h] *)
   val set_var : t -> var -> int64 -> int64 -> t
 
-  (** Checks if a variable is represented by the domain *)
-  val is_var : t -> var -> bool
+  (* (** Checks if a variable is represented by the domain *) *)
+  (* val is_var : t -> var -> bool                            *)
 
   (** Meet operation *)
   val meet : t -> t -> t 
@@ -51,11 +51,6 @@ sig
       true/false cases of condition *)
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   
-    (** Interpret an instruction, if the particular instruction cannot be handled 
-      here, raise an error *)
-  val interpret_instruction : t -> X86Types.instr -> t
-  
- 
 end
 
 (** Creates a flag abstract domain from a numeric abstract domain *)
