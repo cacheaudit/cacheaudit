@@ -1,5 +1,4 @@
 open X86Types
-open AbstractInstr
 open AD.DS
 
 (** Architecture abstract domain: keeps track of the global state (currently:

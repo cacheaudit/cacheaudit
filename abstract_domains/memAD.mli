@@ -1,5 +1,5 @@
 open X86Types
-open AbstractInstr
+open AbstrInstr
 open AD.DS
 
 (** Memory abstract domain: maps machine operations to operations on integer variables *)
