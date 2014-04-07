@@ -216,7 +216,7 @@ module Make (V: NumAD.S) = struct
     | Amov -> tmap (fun env -> 
         let tt,tf,ft,ff = V.update_val env var mkvar cvar mkcvar op in
         (* This is inefficient, but we assume all results are the same here *)
-          assert (tt==tf && tf==ft && ft==ff); 
+          assert (tt=tf && tf=ft && ft=ff); 
           match tt with Bot -> failwith "Bottom in update_val of falAD"
           | Nb x -> x) env
     | _ -> begin

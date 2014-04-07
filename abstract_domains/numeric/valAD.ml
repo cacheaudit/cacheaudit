@@ -489,9 +489,11 @@ module Make (O:VALADOPT) = struct
     in
     (* When we are passed the environment we don't know anything about the carry flag,
      * so when we have an Addc or Subb we need to consider two cases: CF set and CF not set *) 
+    let noFlag_m = create_m FF 0L (fun _ -> true) in (* flag position doesn't matter *)
+    
     let final_m flg test = 
       match op with
-      | Amov -> create_m FF 0L (fun _ -> true) (* flag position doesn't matter *)
+      | Amov -> noFlag_m (* flag position doesn't matter *)
       | Aarith Subb | Aarith Addc -> lift_combine join (create_m flg 1L test) (create_m flg 0L test)
       | _ -> create_m flg 0L test
     in
