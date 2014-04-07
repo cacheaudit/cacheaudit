@@ -392,34 +392,27 @@ module Make (O:VALADOPT) = struct
           | _,_,_,_ -> raise Bottom)
         end
     (* Bitwise operations can only set the zero flag *)
-    | And -> 
-        let nint = interval_and di si in
+    | And | Or | Xor ->
+        let nint = begin match aop with 
+        | And -> interval_and di si
+        | Or -> interval_or di si
+        | Xor -> (* a xor b = (a & not b) or (b & not a) *)
+          let f a b = interval_and a (interval_not b) in
+          interval_or (f di si) (f si di) 
+        | _ -> assert false 
+        end in
         let meetZero = var_meet_ab nint (FSet (NumSet.singleton min_elt)) in
         let meetNormal = var_meet_ab nint (Interval (Int64.succ min_elt, max_elt)) in
         (match flg,meetZero,meetNormal with
         | FT,Nb z,_ -> z
         | FF,_,Nb n -> n
         | _,_,_ -> raise Bottom) 
-    | Or -> 
-        let nint = interval_or di si in
-        let meetZero = var_meet_ab nint (FSet (NumSet.singleton min_elt)) in
-        let meetNormal = var_meet_ab nint (Interval (Int64.succ min_elt, max_elt)) in
-        (match flg,meetZero,meetNormal with
-        | FT,Nb z,_ -> z
-        | FF,_,Nb n -> n
-        | _,_,_ -> raise Bottom)
-    | Xor ->
-        (* a xor b = (a & not b) or (b & not a) *)
-        let f a b = interval_and a (interval_not b) in
-        let nint = interval_or (f di si) (f si di) in
-        let meetZero = var_meet_ab nint (FSet (NumSet.singleton min_elt)) in
-        let meetNormal = var_meet_ab nint (Interval (Int64.succ min_elt, max_elt)) in
-        (match flg,meetZero,meetNormal with
-        | FT,Nb z,_ -> z
-        | FF,_,Nb n -> n
-        | _,_,_ -> raise Bottom)
     | CmpOp -> failwith "interval_update: CmpOp"
-
+    
+  let to_interval = function 
+    | FSet s -> (set_to_interval s)
+    | i -> i
+  
   (** Implements the effects of MOV and arithmetic operations *)
   let mov_arith m dstvar mkvar srcvar mkcvar op = match op with
     | Aarith Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)
@@ -452,19 +445,9 @@ module Make (O:VALADOPT) = struct
                        else Nb (VarMap.add dstvar (go_to_interval finalSet) m)
                 (* We convert sets into intervals in order to perform the operations;
                  * interval_update may return either FSet or Interval *)
-                | Interval (l,h), FSet s ->
+                | _, _ ->
                     (try (
-                      let new_dst = interval_update flg o oper (Interval (l,h)) (set_to_interval s) in
-                      Nb (VarMap.add dstvar new_dst m)
-                    ) with Bottom -> Bot)
-                | FSet s, Interval(l,h) ->
-                    (try (
-                      let new_dst = interval_update flg o oper (set_to_interval s) (Interval (l,h)) in
-                      Nb (VarMap.add dstvar new_dst m)
-                    ) with Bottom -> Bot)
-                | Interval (dl,dh), Interval (sl,sh) ->
-                    (try (
-                      let new_dst = interval_update flg o oper (Interval (dl,dh)) (Interval (sl,sh)) in
+                      let new_dst = interval_update flg o oper (to_interval dst_vals) (to_interval src_vals) in
                       Nb (VarMap.add dstvar new_dst m)
                     ) with Bottom -> Bot)
               end
@@ -472,6 +455,7 @@ module Make (O:VALADOPT) = struct
         end
       (* 8 -> 32 : MOVZX *)
     | NoMask, Mask msk ->
+        if op <> Amov then failwith "Unexpected 8 -> 32 bit instruction";
         let src_vals = mask_vals msk src_vals in
         Nb (VarMap.add dstvar src_vals m)
       (* 8 -> 8 : only MOVB *)
@@ -588,29 +572,9 @@ module Make (O:VALADOPT) = struct
           create_m (fun x -> not (flag_carry x) && flag_zero x),
           create_m (fun x -> not (flag_carry x) && not (flag_zero x))
         )
-    | Interval(dl,dh), FSet s -> 
-        let ift pos = interval_flag_test pos fop dvals (set_to_interval s) in
-        let newm pos = VarMap.add dst (fst (ift pos)) m in
-        let create_m pos = 
-          (match src with
-          | VarOp x -> VarMap.add x (snd (ift pos)) (newm pos)
-          | Cons _ -> newm pos)
-        in
-        let finalm pos = try (Nb (create_m pos)) with Bottom -> Bot in
-        (finalm TT, finalm TF, finalm FT, finalm FF)
-    | FSet s, Interval (sl,sh) -> 
-        let ift pos = interval_flag_test pos fop (set_to_interval s) svals in
-        let newm pos = VarMap.add dst (fst (ift pos)) m in
-        let create_m pos = 
-          (match src with
-          | VarOp x -> VarMap.add x (snd (ift pos)) (newm pos)
-          | Cons _ -> newm pos)
-        in
-        let finalm pos = try (Nb (create_m pos)) with Bottom -> Bot in
-        (finalm TT, finalm TF, finalm FT, finalm FF)
-    | Interval(dl,dh), Interval (sl,sh) -> 
-        (* interval_flag_test returns the two intervals *)
-        let ift pos = interval_flag_test pos fop dvals svals in
+    | _,_ ->
+        let ift pos = 
+          interval_flag_test pos fop (to_interval dvals) (to_interval svals) in
         (* Add the interval of dst to the enviroment *)
         let newm pos = VarMap.add dst (fst (ift pos)) m in
         (* If src is a variable, add interval of src to env *)
@@ -619,9 +583,9 @@ module Make (O:VALADOPT) = struct
           | VarOp x -> VarMap.add x (snd (ift pos)) (newm pos)
           | Cons _ -> newm pos)
         in
-        (* If not bottom, we return the enviroment *)
         let finalm pos = try (Nb (create_m pos)) with Bottom -> Bot in
         (finalm TT, finalm TF, finalm FT, finalm FF)
+
 
   let rotate_left value offset =
     let bin = Int64.shift_left value offset in
@@ -691,7 +655,6 @@ module Make (O:VALADOPT) = struct
     end
   | Aimul -> failwith "not implemented yet"
   | _ -> assert false
-
   
   
 end
