@@ -105,7 +105,9 @@ module Make (O:VALADOPT) = struct
   let apply_mask mask shift x =
     Int64.shift_right (Int64.logand mask x) shift
 
-  let mask_vals msk v = 
+  let mask_vals mask v = match mask with
+  | NoMask -> v
+  | Mask msk ->
    let (cv_mask, cv_shift) = mask_to_intoff msk in
    let am = apply_mask cv_mask cv_shift in
    match v with
@@ -409,20 +411,18 @@ module Make (O:VALADOPT) = struct
     | FSet s -> (set_to_interval s)
     | i -> i
   
-  (* Implements the effects of MOV and arithmetic operations *)
-  let mov_arith m dstvar mkvar srcvar mkcvar op = match op with
-    | Aarith Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)
+  (* Implements the effects of arithmetic operations *)
+  let arith m dstvar mkvar dst_vals srcvar mkcvar src_vals aop = 
+    match aop with
+    | Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)
               Bot, Bot, Nb(VarMap.add dstvar zero m), Bot
     | _ ->
-    let src_vals = get_vals srcvar m in
-    let dst_vals = VarMap.find dstvar m in
     let create_m flg cf test = match mkvar, mkcvar with
       (* 32 bits -> 32 bits : MOV & Arith *)
       NoMask, NoMask ->
         begin
-          match op with
-            Amov -> Nb (VarMap.add dstvar src_vals m)
-          | Aarith o ->
+          match aop with
+          | o ->
               (* Add carry flag value to operation if it's either Addc or Subb *)
               let oper x y = let y = match o with   
                 | Addc | Subb -> Int64.add y cf
@@ -441,27 +441,48 @@ module Make (O:VALADOPT) = struct
                     if NumSet.is_empty finalSet 
                        then Bot
                        else Nb (VarMap.add dstvar (go_to_interval finalSet) m)
+                | _, _ ->
                 (* We convert sets into intervals in order to perform the operations;
                  * interval_update may return either FSet or Interval *)
-                | _, _ ->
                     (try (
                       let new_dst = interval_update flg o oper (to_interval dst_vals) (to_interval src_vals) in
                       Nb (VarMap.add dstvar new_dst m)
                     ) with Bottom -> Bot)
               end
-          | _ -> assert false
         end
-      (* 8 -> 32 : MOVZX *)
+      (* 8 -> 32 *)
     | NoMask, Mask msk ->
-        if op <> Amov then failwith "Unexpected 8 -> 32 bit instruction";
-        let src_vals = mask_vals msk src_vals in
-        Nb (VarMap.add dstvar src_vals m)
+        failwith "Unexpected 8 -> 32 bit instruction";
       (* 8 -> 8 : only MOVB *)
     | Mask mkv, Mask mkc ->
-        begin
-          match op with
-            Amov -> 
-              begin
+       failwith "ValAD.update_val: operations between 8-bit values not implemented"
+    | _, _ -> failwith "ValAD.update_val: operation from 32 bits to 8 bits"
+    in (* end of create_m *)
+    (* When we are passed the environment we don't know anything about the carry flag,
+     * so when we have an Addc or Subb we need to consider two cases: CF set and CF not set *) 
+    
+    let final_m flg test = 
+      match aop with
+      | Subb | Addc -> lift_combine join (create_m flg 1L test) (create_m flg 0L test)
+      | _ -> create_m flg 0L test
+    in
+    (
+      final_m TT (fun x -> flag_carry x && flag_zero x),
+      final_m TF (fun x -> flag_carry x && not (flag_zero x)),
+      final_m FT (fun x -> not (flag_carry x) && flag_zero x),
+      final_m FF (fun x -> not (flag_carry x) && not (flag_zero x))
+    )
+
+(* Implements the effects of MOV *)
+  let mov m dstvar mkvar dst_vals srcvar mkcvar src_vals =
+    let new_m = match mkvar, mkcvar with
+    (* 32 bits -> 32 bits MOV and 8 -> 32 : MOVZX *)
+    | NoMask, msk ->
+        let src_vals = mask_vals msk src_vals in
+        Nb (VarMap.add dstvar src_vals m)
+    (* 8 -> 8 : MOVB *)
+    | Mask mkv, Mask mkc ->
+            begin
                 match dst_vals, src_vals with
                 | FSet ds, FSet ss_unmasked ->
                     let (c_mask, c_shift) = mask_to_intoff mkc in
@@ -482,27 +503,8 @@ module Make (O:VALADOPT) = struct
                     Nb (VarMap.add dstvar (go_to_interval finalSet) m)
                 | _, _ -> Nb (VarMap.add dstvar top m)
               end
-          | Aarith o -> failwith "ValAD.update_val: operations between 8-bit values not implemented"
-          | _ -> assert false
-        end
-    | _, _ -> failwith "ValAD.update_val: operation from 32 bits to 8 bits"
-    in
-    (* When we are passed the environment we don't know anything about the carry flag,
-     * so when we have an Addc or Subb we need to consider two cases: CF set and CF not set *) 
-    let noFlag_m = create_m FF 0L (fun _ -> true) in (* flag position doesn't matter *)
-    
-    let final_m flg test = 
-      match op with
-      | Amov -> noFlag_m (* flag position doesn't matter *)
-      | Aarith Subb | Aarith Addc -> lift_combine join (create_m flg 1L test) (create_m flg 0L test)
-      | _ -> create_m flg 0L test
-    in
-    (
-      final_m TT (fun x -> flag_carry x && flag_zero x),
-      final_m TF (fun x -> flag_carry x && not (flag_zero x)),
-      final_m FT (fun x -> not (flag_carry x) && flag_zero x),
-      final_m FF (fun x -> not (flag_carry x) && not (flag_zero x))
-    )
+    | _, _ -> failwith "ValAD.update_val: operation from 32 bits to 8 bits" in 
+  ( new_m, new_m, new_m, new_m )
 
   (* interval_flag_test takes two intervals and a flag combination and returns
    * the corresponding intervals *)
@@ -536,9 +538,7 @@ module Make (O:VALADOPT) = struct
     | _ -> failwith "interval_flag_test: TEST instruction for intervals not implemented yet"
 
   (* flagop *)
-  let flagop m fop dst src =
-    let dvals = VarMap.find dst m in
-    let svals = get_vals src m in
+  let flagop m fop dst dvals src svals =
     match dvals,svals with
       FSet dvals, FSet svals ->
         let op = arithop_to_int64op fop in
@@ -606,10 +606,8 @@ module Make (O:VALADOPT) = struct
   
   (* shift *)
   (* Shift the values of the variable dst using the offsets given by soff *)
-  let shift m sop dst soff mk = 
-    let vals = VarMap.find dst m in
-    let off_vals = get_vals soff m in
-    let offsets = (match mk with NoMask -> off_vals | Mask msk -> mask_vals msk off_vals) in
+  let shift m sop dst vals soff off_vals mk = 
+    let offsets = mask_vals mk off_vals in
     let operator = shift_operator sop in
     let create_m test = 
       match vals, offsets with
@@ -643,16 +641,20 @@ module Make (O:VALADOPT) = struct
       create_m (fun sop rs og os -> not (flag_carry_shift sop rs og os) && not (flag_zero rs))
     )
   
-  let update_val env dstvar mkvar srcvar mkcvar op = match op with
-  | Amov | Aarith _ -> mov_arith env dstvar mkvar srcvar mkcvar op
-  | Ashift sop -> shift env sop dstvar srcvar mkcvar
-  | Aflag fop -> begin
-      match fop with
-      | Atest -> flagop env And dstvar srcvar
-      | Acmp -> flagop env Sub dstvar srcvar
-    end
-  | Aimul -> failwith "not implemented yet"
-  | _ -> assert false
+  let update_val env dstvar mkvar srcvar mkcvar op = 
+    let dvals = VarMap.find dstvar env in
+    let svals = get_vals srcvar env in
+    match op with
+    | Aarith aop -> arith env dstvar mkvar dvals srcvar mkcvar svals aop
+    | Amov -> mov env dstvar mkvar dvals srcvar mkcvar svals
+    | Ashift sop -> shift env sop dstvar dvals srcvar svals mkcvar
+    | Aflag fop -> begin
+        match fop with
+        | Atest -> flagop env And dstvar dvals srcvar svals
+        | Acmp -> flagop env Sub dstvar dvals srcvar svals
+      end
+    | Aimul -> failwith "not implemented yet"
+    | _ -> assert false
   
   
 end
