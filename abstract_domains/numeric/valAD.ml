@@ -344,9 +344,9 @@ module Make (O:VALADOPT) = struct
     (* a & b = not (not a | not b) *)
     interval_not (interval_or (interval_not a) (interval_not b))
 
-  (* interval_update takes a flg : position = {TT,...,FF}, an arith_op aop,
+  (* interval_arith takes a flg : position = {TT,...,FF}, an arith_op aop,
    * the Int64 operation oper and two intervals *)
-  let interval_update flg aop oper di si = 
+  let interval_arith flg aop oper di si = 
     match aop with
       Add | Addc ->
         begin
@@ -405,7 +405,7 @@ module Make (O:VALADOPT) = struct
         | FT,Nb z,_ -> z
         | FF,_,Nb n -> n
         | _,_,_ -> raise Bottom) 
-    | CmpOp -> failwith "interval_update: CmpOp"
+    | CmpOp -> failwith "interval_arith: CmpOp"
     
   let to_interval = function 
     | FSet s -> (set_to_interval s)
@@ -418,45 +418,38 @@ module Make (O:VALADOPT) = struct
               Bot, Bot, Nb(VarMap.add dstvar zero m), Bot
     | _ ->
     let create_m flg cf test = match mkvar, mkcvar with
-      (* 32 bits -> 32 bits : MOV & Arith *)
-      NoMask, NoMask ->
-        begin
-          match aop with
-          | o ->
+      (* 32 bits -> 32 bits *)
+    | NoMask, NoMask ->
               (* Add carry flag value to operation if it's either Addc or Subb *)
-              let oper x y = let y = match o with   
+              let oper x y = let y = match aop with   
                 | Addc | Subb -> Int64.add y cf
                 | _ -> y in
-                arithop_to_int64op o x y in
+                arithop_to_int64op aop x y in
               begin
                 match dst_vals, src_vals with
                 | FSet ds, FSet ss ->
-                    let doOp x = NumSet.fold 
-                    (fun y r -> 
-                      let result = oper x y in
+                  (* returns a set of dst op src for one dst and all possible *)
+                  (* src in ss, which produce a particular flag combination *)
+                  (* (test checks whether this result produces the flag combinatoin ) *)
+                  let compute_op dst = NumSet.fold (fun src r -> 
+                      let result = oper dst src in
                       if test result then NumSet.add (precision 32 (result)) r else r
-                    ) ss NumSet.empty
-                    in
-                    let finalSet = NumSet.fold (fun x s -> NumSet.fold NumSet.add (doOp x) s) ds NumSet.empty in
-                    if NumSet.is_empty finalSet 
-                       then Bot
-                       else Nb (VarMap.add dstvar (go_to_interval finalSet) m)
+                    ) ss NumSet.empty in
+                  (* for all possible dst, make a union of sets of *)
+                  (* possible evaluations of the operation *)
+                  let finalSet = NumSet.fold (fun dst s -> NumSet.union (compute_op dst) s) ds NumSet.empty in
+                  if NumSet.is_empty finalSet 
+                     then Bot
+                     else Nb (VarMap.add dstvar (go_to_interval finalSet) m)
                 | _, _ ->
                 (* We convert sets into intervals in order to perform the operations;
-                 * interval_update may return either FSet or Interval *)
+                 * interval_arith may return either FSet or Interval *)
                     (try (
-                      let new_dst = interval_update flg o oper (to_interval dst_vals) (to_interval src_vals) in
+                      let new_dst = interval_arith flg aop oper (to_interval dst_vals) (to_interval src_vals) in
                       Nb (VarMap.add dstvar new_dst m)
                     ) with Bottom -> Bot)
               end
-        end
-      (* 8 -> 32 *)
-    | NoMask, Mask msk ->
-        failwith "Unexpected 8 -> 32 bit instruction";
-      (* 8 -> 8 : only MOVB *)
-    | Mask mkv, Mask mkc ->
-       failwith "ValAD.update_val: operations between 8-bit values not implemented"
-    | _, _ -> failwith "ValAD.update_val: operation from 32 bits to 8 bits"
+    | _, _ -> failwith "ValAD.arith: only 32-bit arithmetic is implemented"
     in (* end of create_m *)
     (* When we are passed the environment we don't know anything about the carry flag,
      * so when we have an Addc or Subb we need to consider two cases: CF set and CF not set *) 
@@ -503,7 +496,7 @@ module Make (O:VALADOPT) = struct
                     Nb (VarMap.add dstvar (go_to_interval finalSet) m)
                 | _, _ -> Nb (VarMap.add dstvar top m)
               end
-    | _, _ -> failwith "ValAD.update_val: operation from 32 bits to 8 bits" in 
+    | _, _ -> failwith "ValAD.move: operation from 32 bits to 8 bits" in 
   ( new_m, new_m, new_m, new_m )
 
   (* interval_flag_test takes two intervals and a flag combination and returns
