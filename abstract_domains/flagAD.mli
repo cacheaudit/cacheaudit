@@ -36,9 +36,6 @@ sig
       interval [l,h] *)
   val set_var : t -> var -> int64 -> int64 -> t
 
-  (* (** Checks if a variable is represented by the domain *) *)
-  (* val is_var : t -> var -> bool                            *)
-
   (** Meet operation *)
   val meet : t -> t -> t 
 
