@@ -98,33 +98,6 @@ module Make (V: ValAD.S) = struct
        (print_delta_flag false true st1.ft) st2.ft
        (print_delta_flag false false st1.ff) st2.ff
 
-
-(* Maps a function to the components of a state *) 
-  let tmap f st = 
-    { 
-      tt = (match st.tt with
-	| Nb x -> Nb (f x)
-	| Bot -> Bot);
-      tf = (match st.tf with
-	| Nb x -> Nb (f x)
-	| Bot -> Bot);
-      ft = (match st.ft with
-	| Nb x -> Nb (f x)
-	| Bot -> Bot);
-      ff = (match st.ff with
-	| Nb x -> Nb (f x)
-	| Bot -> Bot);
-    }
-      
-(* Returns the join of the components of a state *)
-  let localjoin st = 
-    List.fold_left (fun x y ->
-      match (x,y) with 
-	| (Bot,Bot) -> Bot
-	| (Nb a, Bot) -> Nb a
-	| (Bot, Nb a) -> Nb a
-	| (Nb a, Nb b) -> Nb (V.join a b)) Bot [st.tt;st.tf;st.ft;st.ff]
-
   let initial_flags = {cf = false; zf = false}
   (* Assumption: Initially no flag is set *)
   let init v2s = FlagMap.add initial_flags (V.init v2s) FlagMap.empty
@@ -192,29 +165,39 @@ let flmap_combine fm1 fm2 fn = FlagMap.merge (fun _ a b ->
     Nt res
   ) with Is_Top -> Tp
     
+    
+  (* Returns the join of the components of a state *)
+  let localjoin st = 
+    List.fold_left (fun x y ->
+      match (x,y) with 
+	| (Bot,Bot) -> Bot
+	| (Nb a, Bot) -> Nb a
+	| (Bot, Nb a) -> Nb a
+	| (Nb a, Nb b) -> Nb (V.join a b)) Bot [st.tt;st.tf;st.ft;st.ff]
 
   (* For operations that do not change flags (e.g. Mov) update_val treats states independently and joins after update.
      For operations that do change flags, update_val joins before the operations 
      Further precision could be gained by separately treating operations (Inc) that leave some flags untouched *)
- 
   let update_val env var mkvar cvar mkcvar op = 
-    let env = fmap_to_old env in
-    let res = 
     match op with
-    | Amov -> tmap (fun env -> 
-        let tt,tf,ft,ff = V.update_val env var mkvar cvar mkcvar op in
+    | Amov -> FlagMap.map (fun vals -> 
+        let tt,tf,ft,ff = V.update_val vals var mkvar cvar mkcvar op in
         (* This is inefficient, but we assume all results are the same here *)
           assert (tt=tf && tf=ft && ft=ff); 
           match tt with Bot -> failwith "Bottom in update_val of falAD"
           | Nb x -> x) env
     | _ -> begin
+        let env = fmap_to_old env in
         match localjoin env with
         | Bot -> raise Bottom
-        | Nb x -> let wrap (a,b,c,d) =
+        | Nb x -> 
+          let res = 
+          let wrap (a,b,c,d) =
           {tt = a; tf = b; ft = c; ff = d} in
           wrap (V.update_val x var mkvar cvar mkcvar op)
+          in old_to_fmap res
       end
-    in old_to_fmap res
+    
 
 
  let subseteq st1 st2 = 
