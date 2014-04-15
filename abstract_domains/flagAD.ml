@@ -14,31 +14,55 @@ module type S =
   val log_var : t -> var -> unit
   val get_var : t -> var -> (t NumMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
-  (* val is_var : t -> var -> bool *)
   val meet : t -> t -> t (*TODO: should be add_bottom *)
   val update_val : t -> var -> mask -> cons_var -> mask -> abstr_op -> t
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   end
 
+type flags_t = { cf : bool; zf : bool; }
+module FlagMap = Map.Make(struct 
+    type t = flags_t 
+    let compare = Pervasives.compare 
+  end)
 
 module Make (V: ValAD.S) = struct
   
   (* Handles invariants corresponding to combinations of flags.
      For now only supports CF, ZF *)
-
-  type t = { 
+  
+  type t = V.t FlagMap.t
+  
+  (* for handling legacy functions *)
+  type old_t = {
     tt : V.t add_bottom; (* CF true and ZF true *)
     tf : V.t add_bottom; (* CF true and ZF false *)
     ft : V.t add_bottom; (* CF false and ZF true *)
     ff : V.t add_bottom; (* CF false and ZF false *)
   }
-     
-  let is_bottom st = st.tt=Bot && st.tf=Bot && st.ft=Bot && st.ff=Bot
+  
+  let fmap_to_old fmap =
+    let get_values flgs = try( 
+        Nb (FlagMap.find flgs fmap)
+      ) with Not_found -> Bot in
+    { tt = get_values {cf = true; zf = true};
+      tf = get_values {cf = true; zf = false};
+      ft = get_values {cf = false; zf = true};
+      ff = get_values {cf = false; zf = false} }
+  let old_to_fmap old = let fmap = FlagMap.empty in
+    let set_vals_nobot flgs vals fmap = match vals with 
+    | Bot -> fmap
+    | Nb x -> FlagMap.add flgs x fmap in
+    let fmap = set_vals_nobot {cf = true; zf = true} old.tt fmap in
+    let fmap = set_vals_nobot {cf = true; zf = false} old.tf fmap in
+    let fmap = set_vals_nobot {cf = false; zf = true} old.ft fmap in
+    set_vals_nobot {cf = false; zf = false} old.ff fmap
+  
+  
+  let is_bottom env = FlagMap.is_empty env
 
-  let print_flag cf zf fmt = function 
-    Bot -> ()
-  | Nb env -> Format.fprintf fmt "@[<2>When CF is %B and ZF is %B, @,%a@]"
-              cf zf V.print env
+  let print_flag flgs fmt env = 
+    Format.fprintf fmt "@[<2>When CF is %B and ZF is %B, @,%a@]"
+              flgs.cf flgs.zf V.print env
 
   let print_delta_flag cf zf st1 fmt st2 = match st1,st2 with
     | Bot, Bot -> ()
@@ -61,15 +85,14 @@ module Make (V: ValAD.S) = struct
 
   let print fmt st =
     if is_bottom st then Format.fprintf fmt "Flag domain is empty!@."
-    else Format.fprintf fmt "@[%a @; %a @; %a @; %a@]@;"
-       (print_flag true true) st.tt
-       (print_flag true false) st.tf
-       (print_flag false true) st.ft
-       (print_flag false false) st.ff
+    else 
+      Format.fprintf fmt "@[<hov 0>";
+      FlagMap.iter (fun flgs vals -> print_flag flgs fmt vals) st;
+      Format.fprintf fmt "@]"
 
   let print_delta st1 fmt st2 = 
+    let st1,st2 = fmap_to_old st1, fmap_to_old st2 in
     Format.fprintf fmt "@[%a @; %a @; %a @; %a@]"
-
        (print_delta_flag true true st1.tt) st2.tt
        (print_delta_flag true false st1.tf) st2.tf
        (print_delta_flag false true st1.ft) st2.ft
@@ -102,116 +125,81 @@ module Make (V: ValAD.S) = struct
 	| (Bot, Nb a) -> Nb a
 	| (Nb a, Nb b) -> Nb (V.join a b)) Bot [st.tt;st.tf;st.ft;st.ff]
 
-  type position = TT | TF | FT | FF
-
-  let one_flag pos nenv = match pos with
-    TT -> { tt = Nb nenv; tf = Bot; ft = Bot; ff = Bot }
-  | TF -> { tf = Nb nenv; tt = Bot; ft = Bot; ff = Bot }
-  | FT -> { ft = Nb nenv; tf = Bot; tt = Bot; ff = Bot }
-  | FF -> { ff = Nb nenv; tf = Bot; ft = Bot; tt = Bot }
-
-  let set_pos st pos env = match pos with
-    TT -> {st with tt=Nb env}
-  | TF -> {st with tf=Nb env}
-  | FT -> {st with ft=Nb env}
-  | FF -> {st with ff=Nb env}
-      
+  let initial_flags = {cf = false; zf = false}
   (* Assumption: Initially no flag is set *)
-  let init v2s = {
-    tt = Bot;
-    tf = Bot;
-    ft = Bot;
-    ff = Nb (V.init v2s)
-  }	       
-          
-  let wrap (a,b,c,d) =
-    {tt = a; tf = b; ft = c; ff = d}
+  let init v2s = FlagMap.add initial_flags (V.init v2s) FlagMap.empty
 
-
-
+let flmap_combine fm1 fm2 fn = FlagMap.merge (fun _ a b -> 
+  match a,b with None,None -> None
+  | Some x, None -> Some x | None, Some y -> Some y
+  | Some x, Some y -> Some (V.join x y)) fm1 fm2
 
 (* Component-wise join *)
-
-  let join st1 st2 = 
-    let compjoin c1 c2 = match (c1,c2) with
-      | (Bot,Bot) -> Bot
-      | (Nb a, Bot) -> Nb a
-      | (Bot, Nb b) -> Nb b
-      | (Nb a, Nb b) -> Nb (V.join a b)
-    in { 
-      tt=compjoin st1.tt st2.tt;
-      tf=compjoin st1.tf st2.tf;
-      ft=compjoin st1.ft st2.ft;
-      ff=compjoin st1.ff st2.ff;}
+  
+  (* combine two flag maps, *)
+  (* for keys present in only one of them return the respective values, *)
+  (* if keys are defined in both, apply function [fn] to values *)
+  let fmap_combine fm1 fm2 fn = FlagMap.merge (fun _ a b -> 
+  match a,b with None,None -> None
+  | Some x, None -> Some x | None, Some y -> Some y
+  | Some x, Some y -> Some (fn x y)) fm1 fm2
+  
+  let join env1 env2 = fmap_combine env1 env2 V.join
 
 (* Component-wise meet *)
 
-  let meet st1 st2 = 
-    let compmeet c1 c2 = match (c1,c2) with
-      | (Bot,Bot) -> Bot
-      | (Nb a, Bot) -> Bot
-      | (Bot, Nb b) -> Bot
-      | (Nb a, Nb b) -> V.meet a b
-    in { 
-      tt=compmeet st1.tt st2.tt;
-      tf=compmeet st1.tf st2.tf;
-      ft=compmeet st1.ft st2.ft;
-      ff=compmeet st1.ff st2.ff;}
+  let meet env1 env2 = let res = 
+    FlagMap.merge (fun _ a b -> 
+        match a,b with 
+        | _ , None | None, _ -> None
+        | Some x, Some y -> 
+          begin match V.meet x y with
+          | Bot -> None
+          | Nb nenv -> Some nenv
+          end
+      ) env1 env2 in
+    if is_bottom res then raise Bottom
+    else res
       
 
 (* Component-wise widening. *)
- let widen st1 st2 = 
-    let compwiden c1 c2 = match (c1,c2) with
-      | (Bot,Bot) -> Bot
-      | (Nb a, Bot) -> Nb a
-      | (Bot, Nb b) -> Nb b
-      | (Nb a, Nb b) -> Nb (V.widen a b)
-    in { 
-      tt=compwiden st1.tt st2.tt;
-      tf=compwiden st1.tf st2.tf;
-      ft=compwiden st1.ft st2.ft;
-      ff=compwiden st1.ff st2.ff;}
+ let widen env1 env2 = fmap_combine env1 env2 V.widen
 
 
-  let new_var st var = tmap (fun x -> V.new_var x var) st
+  let new_var st var = FlagMap.map (fun x -> V.new_var x var) st
 
-  let delete_var st var = tmap (fun x -> V.delete_var x var) st
+  let delete_var st var = FlagMap.map (fun x -> V.delete_var x var) st
 
-  let set_var st var l h = tmap (fun x -> V.set_var x var l h) st
+  let set_var st var l h = FlagMap.map (fun x -> V.set_var x var l h) st
  
-  let log_var env v = let _ = tmap (fun x -> V.log_var v x; x) env in ()
+  let log_var env v = let _ = FlagMap.map (fun x -> V.log_var v x; x) env in ()
 
-
-  let get_var st var = 
-    (* from a possibly bottom component, the set of values *)
-    let extract comp = match comp with
-      Bot -> Bot
-    | Nb env -> Nb(V.get_var env var) in
-    let lift pos venv = match venv with
-      Bot -> Bot
-    | Nb Tp -> Nb Tp
-    | Nb(Nt vmap) -> Nb(Nt(NumMap.map (one_flag pos) vmap)) in
-    let merge fenv venv pos = match fenv, venv with
-      _, Bot -> fenv
-    | Bot, _ -> lift pos venv
-    | Nb Tp, _ | _, Nb Tp -> Nb Tp
-    | Nb(Nt fenv), Nb(Nt venv) -> 
-        Nb(Nt(NumMap.merge (fun _ fe ve -> match fe, ve with
-          Some st, Some v -> Some(set_pos st pos v)
-        | Some st, None -> Some st
-        | None, Some v -> Some(one_flag pos v) 
-        | None, None -> None
-        ) fenv venv)) in
-    match merge(merge (merge (lift TT (extract st.tt)) (extract st.tf) TF)
-                      (extract st.ft) FT) (extract st.ff) FF with
-      Bot -> failwith "Bottom in FladAD.get_var"
-    | Nb x -> x
+  
+  exception Is_Top
+  let get_var st var = try(
+    let res = 
+      FlagMap.fold (fun flgs vals f_nmap -> 
+        let v_nmap = match V.get_var vals var with 
+        | Tp -> raise Is_Top 
+        | Nt v_nmap -> v_nmap in
+        NumMap.fold (fun num num_venv f_nmap -> 
+          let f_nmap = if (NumMap.mem num f_nmap) then f_nmap 
+            else (NumMap.add num FlagMap.empty f_nmap) in
+          let flgenv = NumMap.find num f_nmap in
+          NumMap.add num (FlagMap.add flgs num_venv flgenv) f_nmap 
+        ) v_nmap f_nmap
+      ) st NumMap.empty in
+    Nt res
+  ) with Is_Top -> Tp
+    
 
   (* For operations that do not change flags (e.g. Mov) update_val treats states independently and joins after update.
      For operations that do change flags, update_val joins before the operations 
      Further precision could be gained by separately treating operations (Inc) that leave some flags untouched *)
  
   let update_val env var mkvar cvar mkcvar op = 
+    let env = fmap_to_old env in
+    let res = 
     match op with
     | Amov -> tmap (fun env -> 
         let tt,tf,ft,ff = V.update_val env var mkvar cvar mkcvar op in
@@ -222,46 +210,28 @@ module Make (V: ValAD.S) = struct
     | _ -> begin
         match localjoin env with
         | Bot -> raise Bottom
-        | Nb x -> wrap (V.update_val x var mkvar cvar mkcvar op)
+        | Nb x -> let wrap (a,b,c,d) =
+          {tt = a; tf = b; ft = c; ff = d} in
+          wrap (V.update_val x var mkvar cvar mkcvar op)
       end
+    in old_to_fmap res
 
-
-(* (* is_var returns true iff variable exists in *all* non-Bottom value domains *) *)
-(* (* Makes sense? *)                                                              *)
-(*   let is_var st name =                                                          *)
-(*     List.fold_left                                                              *)
-(*       (fun x y -> match y with                                                  *)
-(* 	| Bot -> true                                                                 *)
-(* 	| Nb a -> (x && V.is_var a name))                                             *)
-(*       true [st.tt;st.tf;st.ft;st.ff]                                            *)
-
-      
 
  let subseteq st1 st2 = 
-   let compsubseteq c1 c2 = match (c1,c2) with
-   | (Bot,Bot) -> true
-   | (Nb a, Bot) -> false
-   | (Bot, Nb b) -> true
-   | (Nb a, Nb b) -> V.subseteq a b
-   in (compsubseteq st1.tt st2.tt) && (compsubseteq st1.tf st2.tf) &&
-   (compsubseteq st1.ft st2.ft) && (compsubseteq st1.ff st2.ff)
+  FlagMap.for_all (fun flgs vals -> 
+    FlagMap.mem flgs st2 && V.subseteq vals (FlagMap.find flgs st2)) st1
 
+  let test_bot st = if is_bottom st then Bot else Nb st
 
- let test_bot st = if is_bottom st then Bot else Nb st
-
- let test st cond = match cond with
-   (* B <-> CF set *)
-   | B -> 
-     test_bot {st with ft=Bot; ff= Bot},   (* case: true *)
-     test_bot {st with tt=Bot; tf= Bot}    (* case: false *)
-   (* BE <-> CF or ZF set *)
-   | BE ->
-     test_bot {st with ff=Bot},
-     test_bot {st with tt=Bot; tf=Bot; ft=Bot}
-  (* Z <-> ZF set *)  
-   | Z -> 
-     test_bot {st with tf=Bot; ff=Bot},
-     test_bot {st with tt = Bot; ft = Bot}
-  | _ -> failwith "Unsupported flag in test"
+  let test st cond = 
+    let part1,part2 = match cond with
+    (* B <-> CF set *)
+    | B -> FlagMap.partition (fun flgs _ -> flgs.cf) st
+    (* BE <-> CF or ZF set *)
+    | BE -> FlagMap.partition (fun flgs _ -> flgs.cf || flgs.zf) st
+    (* Z <-> ZF set *)  
+    | Z -> FlagMap.partition (fun flgs _ -> flgs.zf) st
+    | _ -> failwith "Unsupported flag in test" in
+    test_bot part1, test_bot part2
 
 end
