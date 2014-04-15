@@ -75,5 +75,5 @@ end
 
 (** Functor creating the age abstract domain given a value abstract domain *)
 module Make :
-  functor (V : NumAD.S) -> S
+  functor (V : ValAD.S) -> S
 

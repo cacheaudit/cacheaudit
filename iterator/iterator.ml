@@ -16,7 +16,7 @@ let instructions_interpreted = ref 0
 let trace = ref false
 
 open Cfg
-open AbstractInstr
+open AbstrInstr
 open AD.DS
 open Logger
 

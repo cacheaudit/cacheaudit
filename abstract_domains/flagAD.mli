@@ -55,4 +55,4 @@ end
 
 (** Creates a flag abstract domain from a numeric abstract domain *)
 module Make :
-  functor (V : NumAD.S) -> S
+  functor (V : ValAD.S) -> S

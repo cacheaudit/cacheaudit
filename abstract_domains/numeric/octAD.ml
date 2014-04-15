@@ -192,7 +192,7 @@ module Oct64 (Oct:OCT) : OCT64 = struct
       | Some x -> Int64.of_int (- x)
 end
 
-module OctagoNumAD (Oct: OCT64): NumAD.S = struct
+module OctagoNumAD (Oct: OCT64): ValAD.S = struct
   (* oct = The Octagon; map = Mapping from variables to their position in the octagon *)
   type t = {oct : Oct.oct; map : int VarMap.t; max : int64; v2s : var -> string}
 

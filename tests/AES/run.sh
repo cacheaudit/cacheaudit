@@ -6,7 +6,7 @@ createResult
 
 cmp correct.txt result.txt
 result=$?
-rm -f result.txt log.*
+#rm -f result.txt log.*
 if [ $result -eq 0 ]; then
 	echo "test ok" 1>&2;
 else
