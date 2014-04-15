@@ -14,7 +14,7 @@ function runCacheCow {
 		exit 1;
 	fi
 	if [ ! -f log.txt ]; then
-		echo "Log.txt not found."
+		echo "log.txt not found."
 	    exit 1;
 	fi
 }

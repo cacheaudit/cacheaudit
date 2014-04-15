@@ -17,6 +17,22 @@ end
 
 let logFile = ref None
 
+module type S = sig 
+  include AD.S
+  val init : (var->string) -> t
+  val new_var : t -> var -> t
+  val delete_var : t -> var -> t
+  val log_var : var -> t -> unit
+  val get_var : t -> var -> (t NumMap.t) add_top
+  val set_var : t -> var -> int64 -> int64 -> t
+  val is_var : t -> var -> bool
+  val var_names : t -> NumSet.t
+  val meet : t -> t -> t add_bottom 
+  val update_val : t -> var -> mask -> cons_var -> mask -> AbstrInstr.abstr_op ->
+    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom) 
+end
+
+
 module Make (O:VALADOPT) = struct
 (* A basic variable contains a 32 bits unsigned integer. *)
 
@@ -466,13 +482,13 @@ module Make (O:VALADOPT) = struct
       final_m FF (fun x -> not (flag_carry x) && not (flag_zero x))
     )
 
-(* Implements the effects of MOV *)
-  let mov m dstvar mkvar dst_vals srcvar mkcvar src_vals =
-    let new_m = match mkvar, mkcvar with
+  (* Implements the effects of MOV *)
+  let mov env dstvar mkvar dst_vals srcvar mkcvar src_vals =
+    let new_env = match mkvar, mkcvar with
     (* 32 bits -> 32 bits MOV and 8 -> 32 : MOVZX *)
     | NoMask, msk ->
         let src_vals = mask_vals msk src_vals in
-        Nb (VarMap.add dstvar src_vals m)
+        Nb (VarMap.add dstvar src_vals env)
     (* 8 -> 8 : MOVB *)
     | Mask mkv, Mask mkc ->
             begin
@@ -493,11 +509,11 @@ module Make (O:VALADOPT) = struct
                     let setList = NumSet.fold (fun x r -> doOp x :: r) cvSet [] in
                     (* Unite all the sets *)
                     let finalSet = List.fold_left NumSet.union NumSet.empty setList in
-                    Nb (VarMap.add dstvar (go_to_interval finalSet) m)
-                | _, _ -> Nb (VarMap.add dstvar top m)
+                    Nb (VarMap.add dstvar (go_to_interval finalSet) env)
+                | _, _ -> Nb (VarMap.add dstvar top env)
               end
     | _, _ -> failwith "ValAD.move: operation from 32 bits to 8 bits" in 
-  ( new_m, new_m, new_m, new_m )
+  ( new_env, new_env, new_env, new_env )
 
   (* interval_flag_test takes two intervals and a flag combination and returns
    * the corresponding intervals *)
