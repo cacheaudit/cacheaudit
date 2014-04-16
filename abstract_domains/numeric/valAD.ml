@@ -28,8 +28,8 @@ module type S = sig
   val is_var : t -> var -> bool
   val var_names : t -> NumSet.t
   val meet : t -> t -> t add_bottom 
-  val update_val : t -> var -> mask -> cons_var -> mask -> AbstrInstr.abstr_op ->
-    (t add_bottom)*(t add_bottom)*(t add_bottom)*(t add_bottom) 
+  val update_val : t -> flags_t -> var -> mask -> cons_var -> mask -> 
+    AbstrInstr.abstr_op -> t FlagMap.t 
 end
 
 
@@ -427,68 +427,122 @@ module Make (O:VALADOPT) = struct
     | FSet s -> (set_to_interval s)
     | i -> i
   
+  let set_default key value map = if (FlagMap.mem key map) then map else (FlagMap.add key value map)
+  let pos_to_flags = function
+    | TT -> {cf = true; zf = true} | TF -> {cf = true; zf = false}
+    | FT -> {cf = false; zf = true} | FF -> {cf = false; zf = false}
+  let flags_to_pos flgs = match flgs.cf,flgs.zf with
+    | true,true -> TT | true,false -> TF | false,true -> FT | false,false -> FF
+  let bool_to_int64 = function true -> 1L | false -> 0L
+  
   (* Implements the effects of arithmetic operations *)
-  let arith m dstvar mkvar dst_vals srcvar mkcvar src_vals aop = 
+  let arith m flgs_init dstvar mkvar dst_vals srcvar mkcvar src_vals aop = 
     match aop with
     | Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)
-              Bot, Bot, Nb(VarMap.add dstvar zero m), Bot
+              tupleold_to_fmap(Bot, Bot, Nb(VarMap.add dstvar zero m), Bot)
     | _ ->
-    let create_m flg cf test = match mkvar, mkcvar with
-      (* 32 bits -> 32 bits *)
-    | NoMask, NoMask ->
+    if (mkvar, mkcvar) <> (NoMask,NoMask) then 
+      failwith "ValAD.arith: only 32-bit arithmetic is implemented";
               (* Add carry flag value to operation if it's either Addc or Subb *)
-              let oper x y = let y = match aop with   
-                | Addc | Subb -> Int64.add y cf
+              let oper x y = let y = match aop with 
+                | Addc | Subb -> 
+                  Int64.add y (bool_to_int64 flgs_init.cf)
                 | _ -> y in
                 arithop_to_int64op aop x y in
               begin
                 match dst_vals, src_vals with
                 | FSet ds, FSet ss ->
-                  (* returns a set of dst op src for one dst and all possible *)
-                  (* src in ss, which produce a particular flag combination *)
-                  (* (test checks whether this result produces the flag combinatoin ) *)
-                  let compute_op dst = NumSet.fold (fun src r -> 
+                (* returns a set of dst op src for one dst and all possible *)
+                (* src in ss, which produce a particular flag combination *)
+                  let compute_op dst = NumSet.fold (fun src fm -> 
                       let result = oper dst src in
-                      if test result then NumSet.add (precision 32 (result)) r else r
-                    ) ss NumSet.empty in
-                  (* for all possible dst, make a union of sets of *)
-                  (* possible evaluations of the operation *)
-                  let finalSet = NumSet.fold (fun dst s -> NumSet.union (compute_op dst) s) ds NumSet.empty in
-                  if NumSet.is_empty finalSet 
-                     then Bot
-                     else Nb (VarMap.add dstvar (go_to_interval finalSet) m)
+                      let flags = {cf = flag_carry result; zf = flag_zero result} in
+                      let fm = set_default flags NumSet.empty fm in
+                      let vals = FlagMap.find flags fm in
+                      FlagMap.add flags (NumSet.add (precision 32 (result)) vals) fm
+                    ) ss FlagMap.empty in
+                  let finalSetMap = NumSet.fold (fun dst s -> 
+                    fmap_combine (compute_op dst) s NumSet.union) ds FlagMap.empty in
+                  FlagMap.map (fun nums -> 
+                      VarMap.add dstvar (go_to_interval nums) m
+                    ) finalSetMap
                 | _, _ ->
                 (* We convert sets into intervals in order to perform the operations;
                  * interval_arith may return either FSet or Interval *)
+                    let create_m flgs =
                     (try (
-                      let new_dst = interval_arith flg aop oper (to_interval dst_vals) (to_interval src_vals) in
+                      let new_dst = interval_arith (flags_to_pos flgs) aop oper (to_interval dst_vals) (to_interval src_vals) in
                       Nb (VarMap.add dstvar new_dst m)
                     ) with Bottom -> Bot)
+                    in tupleold_to_fmap (create_m (pos_to_flags TT), create_m (pos_to_flags TF), 
+      create_m (pos_to_flags FT), create_m (pos_to_flags FF))
               end
-    | _, _ -> failwith "ValAD.arith: only 32-bit arithmetic is implemented"
-    in (* end of create_m *)
-    (* When we are passed the environment we don't know anything about the carry flag,
-     * so when we have an Addc or Subb we need to consider two cases: CF set and CF not set *) 
+
+
+  
+  
+  (* (* Implements the effects of arithmetic operations *)                                                          *)
+  (* let arith m flags dstvar mkvar dst_vals srcvar mkcvar src_vals aop =                                           *)
+  (*   match aop with                                                                                               *)
+  (*   | Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)                                              *)
+  (*             tupleold_to_fmap(Bot, Bot, Nb(VarMap.add dstvar zero m), Bot)                                      *)
+  (*   | _ ->                                                                                                       *)
+  (*   let create_m flg cf test = match mkvar, mkcvar with                                                          *)
+  (*     (* 32 bits -> 32 bits *)                                                                                   *)
+  (*   | NoMask, NoMask ->                                                                                          *)
+  (*             (* Add carry flag value to operation if it's either Addc or Subb *)                                *)
+  (*             let oper x y = let y = match aop with                                                              *)
+  (*               | Addc | Subb -> Int64.add y cf                                                                  *)
+  (*               | _ -> y in                                                                                      *)
+  (*               arithop_to_int64op aop x y in                                                                    *)
+  (*             begin                                                                                              *)
+  (*               match dst_vals, src_vals with                                                                    *)
+  (*               | FSet ds, FSet ss ->                                                                            *)
+  (*                 (* returns a set of dst op src for one dst and all possible *)                                 *)
+  (*                 (* src in ss, which produce a particular flag combination *)                                   *)
+  (*                 (* (test checks whether this result produces the flag combinatoin ) *)                         *)
+  (*                 let compute_op dst = NumSet.fold (fun src r ->                                                 *)
+  (*                     let result = oper dst src in                                                               *)
+  (*                     if test result then NumSet.add (precision 32 (result)) r else r                            *)
+  (*                   ) ss NumSet.empty in                                                                         *)
+  (*                 (* for all possible dst, make a union of sets of *)                                            *)
+  (*                 (* possible evaluations of the operation *)                                                    *)
+  (*                 let finalSet = NumSet.fold (fun dst s -> NumSet.union (compute_op dst) s) ds NumSet.empty in   *)
+  (*                 if NumSet.is_empty finalSet                                                                    *)
+  (*                    then Bot                                                                                    *)
+  (*                    else Nb (VarMap.add dstvar (go_to_interval finalSet) m)                                     *)
+  (*               | _, _ ->                                                                                        *)
+  (*               (* We convert sets into intervals in order to perform the operations;                            *)
+  (*                * interval_arith may return either FSet or Interval *)                                          *)
+  (*                   (try (                                                                                       *)
+  (*                     let new_dst = interval_arith flg aop oper (to_interval dst_vals) (to_interval src_vals) in *)
+  (*                     Nb (VarMap.add dstvar new_dst m)                                                           *)
+  (*                   ) with Bottom -> Bot)                                                                        *)
+  (*             end                                                                                                *)
+  (*   | _, _ -> failwith "ValAD.arith: only 32-bit arithmetic is implemented"                                      *)
+  (*   in (* end of create_m *)                                                                                     *)
+  (*   (* When we are passed the environment we don't know anything about the carry flag,                           *)
+  (*    * so when we have an Addc or Subb we need to consider two cases: CF set and CF not set *)                   *)
     
-    let final_m flg test = 
-      match aop with
-      | Subb | Addc -> lift_combine join (create_m flg 1L test) (create_m flg 0L test)
-      | _ -> create_m flg 0L test
-    in
-    (
-      final_m TT (fun x -> flag_carry x && flag_zero x),
-      final_m TF (fun x -> flag_carry x && not (flag_zero x)),
-      final_m FT (fun x -> not (flag_carry x) && flag_zero x),
-      final_m FF (fun x -> not (flag_carry x) && not (flag_zero x))
-    )
+  (*   let final_m flg test =                                                                                       *)
+  (*     match aop with                                                                                             *)
+  (*     | Subb | Addc -> lift_combine join (create_m flg 1L test) (create_m flg 0L test)                           *)
+  (*     | _ -> create_m flg 0L test                                                                                *)
+  (*   in                                                                                                           *)
+  (*   tupleold_to_fmap (                                                                                           *)
+  (*     final_m TT (fun x -> flag_carry x && flag_zero x),                                                         *)
+  (*     final_m TF (fun x -> flag_carry x && not (flag_zero x)),                                                   *)
+  (*     final_m FT (fun x -> not (flag_carry x) && flag_zero x),                                                   *)
+  (*     final_m FF (fun x -> not (flag_carry x) && not (flag_zero x))                                              *)
+  (*   )                                                                                                            *)
 
   (* Implements the effects of MOV *)
-  let mov env dstvar mkvar dst_vals srcvar mkcvar src_vals =
+  let mov env flags dstvar mkvar dst_vals srcvar mkcvar src_vals =
     let new_env = match mkvar, mkcvar with
     (* 32 bits -> 32 bits MOV and 8 -> 32 : MOVZX *)
     | NoMask, msk ->
         let src_vals = mask_vals msk src_vals in
-        Nb (VarMap.add dstvar src_vals env)
+        (VarMap.add dstvar src_vals env)
     (* 8 -> 8 : MOVB *)
     | Mask mkv, Mask mkc ->
             begin
@@ -509,11 +563,11 @@ module Make (O:VALADOPT) = struct
                     let setList = NumSet.fold (fun x r -> doOp x :: r) cvSet [] in
                     (* Unite all the sets *)
                     let finalSet = List.fold_left NumSet.union NumSet.empty setList in
-                    Nb (VarMap.add dstvar (go_to_interval finalSet) env)
-                | _, _ -> Nb (VarMap.add dstvar top env)
+                    (VarMap.add dstvar (go_to_interval finalSet) env)
+                | _, _ -> (VarMap.add dstvar top env)
               end
     | _, _ -> failwith "ValAD.move: operation from 32 bits to 8 bits" in 
-  ( new_env, new_env, new_env, new_env )
+  FlagMap.singleton flags new_env
 
   (* interval_flag_test takes two intervals and a flag combination and returns
    * the corresponding intervals *)
@@ -547,7 +601,7 @@ module Make (O:VALADOPT) = struct
     | _ -> failwith "interval_flag_test: TEST instruction for intervals not implemented yet"
 
   (* flagop *)
-  let flagop m fop dst dvals src svals =
+  let flagop m flags fop dst dvals src svals =
     match dvals,svals with
       FSet dvals, FSet svals ->
         let op = arithop_to_int64op fop in
@@ -574,7 +628,7 @@ module Make (O:VALADOPT) = struct
               | Cons _ -> new_m)
             )
         in 
-        (
+        tupleold_to_fmap (
           create_m (fun x -> flag_carry x && flag_zero x),
           create_m (fun x -> flag_carry x && not (flag_zero x)),
           create_m (fun x -> not (flag_carry x) && flag_zero x),
@@ -592,7 +646,7 @@ module Make (O:VALADOPT) = struct
           | Cons _ -> newm pos)
         in
         let finalm pos = try (Nb (create_m pos)) with Bottom -> Bot in
-        (finalm TT, finalm TF, finalm FT, finalm FF)
+        tupleold_to_fmap (finalm TT, finalm TF, finalm FT, finalm FF)
 
 
   let rotate_left value offset =
@@ -615,7 +669,7 @@ module Make (O:VALADOPT) = struct
   
   (* shift *)
   (* Shift the values of the variable dst using the offsets given by soff *)
-  let shift m sop dst vals soff off_vals mk = 
+  let shift m flags sop dst vals soff off_vals mk = 
     let offsets = mask_vals mk off_vals in
     let operator = shift_operator sop in
     let create_m test = 
@@ -643,28 +697,27 @@ module Make (O:VALADOPT) = struct
           end
       | _, _ -> Nb (VarMap.add dst top m)
     in
-    (
+    tupleold_to_fmap (
       create_m (fun sop rs og os -> flag_carry_shift sop rs og os && flag_zero rs),
       create_m (fun sop rs og os -> flag_carry_shift sop rs og os && not (flag_zero rs)),
       create_m (fun sop rs og os -> not (flag_carry_shift sop rs og os) && flag_zero rs),
       create_m (fun sop rs og os -> not (flag_carry_shift sop rs og os) && not (flag_zero rs))
     )
   
-  let update_val env dstvar mkvar srcvar mkcvar op = 
+  let update_val env flags dstvar mkvar srcvar mkcvar op = 
     let dvals = VarMap.find dstvar env in
     let svals = get_vals srcvar env in
     match op with
-    | Aarith aop -> arith env dstvar mkvar dvals srcvar mkcvar svals aop
-    | Amov -> mov env dstvar mkvar dvals srcvar mkcvar svals
-    | Ashift sop -> shift env sop dstvar dvals srcvar svals mkcvar
+    | Aarith aop -> arith env flags dstvar mkvar dvals srcvar mkcvar svals aop
+    | Amov -> mov env flags dstvar mkvar dvals srcvar mkcvar svals
+    | Ashift sop -> shift env flags sop dstvar dvals srcvar svals mkcvar
     | Aflag fop -> begin
         match fop with
-        | Atest -> flagop env And dstvar dvals srcvar svals
-        | Acmp -> flagop env Sub dstvar dvals srcvar svals
+        | Atest -> flagop env flags And dstvar dvals srcvar svals
+        | Acmp -> flagop env flags Sub dstvar dvals srcvar svals
       end
-    | Aimul -> failwith "not implemented yet"
+    | Aimul -> failwith "IMUL not implemented yet"
     | _ -> assert false
-  
   
 end
 
