@@ -108,12 +108,12 @@ module Make (O:VALADOPT) = struct
            Format.fprintf fmt "@]"
     | _ -> ()
 
-  (* precision : int64 -> int64, returns the 32 least significant bits of a number *)
-  let precision by n = 
-    match by with
-      | 32 -> Int64.logand n 0xFFFFFFFFL
-      | 8 -> Int64.logand n 0xFFL
-      | _ -> failwith "precision: wrong argument"
+  (* truncate a [number] to its [numbits] least significant bits *)
+  let truncate numbits number = 
+    match numbits with
+      | 32 -> Int64.logand number 0xFFFFFFFFL
+      | 8 -> Int64.logand number 0xFFL
+      | _ -> failwith "truncate: wrong argument"
 
   let set_map f set = NumSet.fold (fun x -> NumSet.add (f x)) set NumSet.empty
 
@@ -149,7 +149,7 @@ module Make (O:VALADOPT) = struct
         Int64.logand mask original
     in
     carry <> Int64.zero
-  let flag_zero res = ((precision 32 res) = 0L)
+  let flag_zero res = ((truncate 32 res) = 0L)
 
   (* set_or_interval given two bounds either returns an interval or a set if its size is less than O.max_set_size *)
   let set_or_interval l h = if range_over (l,h) O.max_set_size then Interval(l,h) else FSet (interval_to_set l h)
@@ -175,7 +175,7 @@ module Make (O:VALADOPT) = struct
   let set_var m v l h = VarMap.add v (set_or_interval l h) m
 
   let get_vals c m = match c with
-    Cons cs -> FSet (NumSet.singleton (precision 32 cs))
+    Cons cs -> FSet (NumSet.singleton (truncate 32 cs))
   | VarOp v -> try VarMap.find v m
                with Not_found -> failwith "valAD.get_vals: inexistent variable"
 
@@ -345,7 +345,7 @@ module Make (O:VALADOPT) = struct
   (* Bitwise not for intervals *)
   let interval_not = function
     | Interval(l,h) ->
-        let f x = precision 32 (Int64.lognot x) in
+        let f x = truncate 32 (Int64.lognot x) in
         Interval(f h, f l)
     | _ -> raise (Invalid_argument "interval_not")
 
@@ -425,13 +425,15 @@ module Make (O:VALADOPT) = struct
   let to_interval = function 
     | FSet s -> (set_to_interval s)
     | i -> i
-  
-  let pos_to_flags = function
-    | TT -> {cf = true; zf = true} | TF -> {cf = true; zf = false}
-    | FT -> {cf = false; zf = true} | FF -> {cf = false; zf = false}
-  let flags_to_pos flgs = match flgs.cf,flgs.zf with
-    | true,true -> TT | true,false -> TF | false,true -> FT | false,false -> FF
+
   let bool_to_int64 = function true -> 1L | false -> 0L
+  
+  (* let fmap_set_default key defval fm =  *)
+  (*   if (FlagMap.mem key fm) then fm     *)
+  (*   else (FlagMap.add key defval fm)    *)
+  let fmap_find_with_defval key defval fm = try(
+    FlagMap.find key fm) with Not_found -> defval
+
   
   (* Implements the effects of arithmetic operations *)
   let arith m flgs_init dstvar mkvar dst_vals srcvar mkcvar src_vals aop = 
@@ -454,10 +456,8 @@ module Make (O:VALADOPT) = struct
                   let compute_op_set dst sset = NumSet.fold (fun src fm -> 
                       let result = oper dst src in
                       let flags = {cf = flag_carry result; zf = flag_zero result} in
-                      let fm = if (FlagMap.mem flags fm) then fm 
-                        else (FlagMap.add flags NumSet.empty fm) in 
-                      let vals = FlagMap.find flags fm in
-                      FlagMap.add flags (NumSet.add (precision 32 (result)) vals) fm
+                      let vals = fmap_find_with_defval flags NumSet.empty fm in
+                      FlagMap.add flags (NumSet.add (truncate 32 (result)) vals) fm
                     ) sset FlagMap.empty in
                   let finalSetMap = 
                     match dst_vals, src_vals with
@@ -538,7 +538,6 @@ module Make (O:VALADOPT) = struct
         end
     | _ -> failwith "interval_flag_test: TEST instruction for intervals not implemented yet"
 
-  (* flagop *)
   let flagop m flags fop dst dvals src svals =
     match dvals,svals with
       FSet dvals, FSet svals ->
@@ -590,12 +589,12 @@ module Make (O:VALADOPT) = struct
   let rotate_left value offset =
     let bin = Int64.shift_left value offset in
     let bout = Int64.shift_right_logical value (32 - offset) in
-    Int64.logor (precision 32 bin) (precision 32 bout)
+    Int64.logor (truncate 32 bin) (truncate 32 bout)
 
   let rotate_right value offset =
     let bin = Int64.shift_right_logical value offset in
     let bout = Int64.shift_left value (32 - offset) in
-    Int64.logor (precision 32 bin) (precision 32 bout)
+    Int64.logor (truncate 32 bin) (truncate 32 bout)
 
   let shift_operator = function
     | Shl -> fun x o -> Int64.shift_left x (Int64.to_int o)
@@ -605,43 +604,44 @@ module Make (O:VALADOPT) = struct
     | Ror -> fun x o -> rotate_right x (Int64.to_int o)
     | Rol -> fun x o -> rotate_left x (Int64.to_int o)
   
-  (* shift *)
   (* Shift the values of the variable dst using the offsets given by soff *)
-  let shift m flags sop dst vals soff off_vals mk = 
+  let shift m flags sop dstvar vals soff off_vals mk = 
     let offsets = mask_vals mk off_vals in
     let operator = shift_operator sop in
-    let create_m test = 
+    let top_env = (VarMap.add dstvar top m) in
       match vals, offsets with
-      | FSet d, FSet o ->
-          let doOp x = NumSet.fold 
-          (fun y s -> 
-            let result = operator x y in
-            if test sop result x (Int64.to_int y)
-              then NumSet.add (precision 32 result) s
-              else s)
-          o NumSet.empty in
-          let finalSet = NumSet.fold (fun x s -> NumSet.fold NumSet.add (doOp x) s) d NumSet.empty in
-          if NumSet.is_empty finalSet
-            then Bot
-            else Nb (VarMap.add dst (lift_to_interval finalSet) m)
-      | Interval(l,h), FSet o -> (* This doesn't work with rotate; return Top if rotate *)
-          let bound f b e = NumSet.fold (fun x r -> f (operator b x) r) o e in
+      | FSet dset, FSet offs_set ->
+          let compute_op dst = NumSet.fold 
+          (fun offs fm -> 
+            let result = operator dst offs in
+            let flags = {cf = flag_carry_shift sop result dst (Int64.to_int offs); 
+              zf = flag_zero result} in
+            (* NumSet.add (flags,(truncate 32 result)) s *)
+            let vals = fmap_find_with_defval flags NumSet.empty fm in
+            FlagMap.add flags (NumSet.add (truncate 32 (result)) vals) fm
+            ) offs_set FlagMap.empty in
+          
+          let finalSetMap = NumSet.fold (fun dst s -> 
+            fmap_combine (compute_op dst) s NumSet.union) dset FlagMap.empty in
+          let finalSetMap = 
+            FlagMap.map (fun nums -> lift_to_interval nums) finalSetMap in
+          (* let finalSet = NumSet.fold (fun dst s -> NumSet.fold NumSet.add (perform_op dst) s) dset NumSet.empty in *)
+          FlagMap.map (fun nums -> VarMap.add dstvar nums m) finalSetMap
+      | Interval(l,h), FSet offs_set -> (* This doesn't work with rotate; return Top if rotate *)
+        let newenv =
+          let bound f b sup = NumSet.fold (fun offs r -> f (operator b offs) r) offs_set sup in
           let lb, ub = bound min l max_elt, bound max h min_elt in
           (* TODO : flag test *)
+          (* Flags are not changed at all which is not correct! *)
           begin
             match sop with
-              Ror | Rol -> Nb (VarMap.add dst top m)
-            | _ -> if ub < lb then Bot else Nb (VarMap.add dst (Interval(lb,ub)) m)
-          end
-      | _, _ -> Nb (VarMap.add dst top m)
-    in
-    tupleold_to_fmap (
-      create_m (fun sop rs og os -> flag_carry_shift sop rs og os && flag_zero rs),
-      create_m (fun sop rs og os -> flag_carry_shift sop rs og os && not (flag_zero rs)),
-      create_m (fun sop rs og os -> not (flag_carry_shift sop rs og os) && flag_zero rs),
-      create_m (fun sop rs og os -> not (flag_carry_shift sop rs og os) && not (flag_zero rs))
-    )
-  
+              Ror | Rol -> top_env
+            | _ -> if ub < lb then m else VarMap.add dstvar (Interval(lb,ub)) m
+          end in
+        FlagMap.singleton flags newenv
+      | _, _ -> 
+        tupleold_to_fmap (Nb top_env, Nb top_env, Nb top_env, Nb top_env)
+        
   let update_val env flags dstvar mkvar srcvar mkcvar op = 
     let dvals = VarMap.find dstvar env in
     let svals = get_vals srcvar env in
