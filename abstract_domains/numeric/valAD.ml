@@ -539,9 +539,11 @@ module Make (O:VALADOPT) = struct
     | _ -> failwith "interval_flag_test: TEST instruction for intervals not implemented yet"
 
   let flagop m flags fop dst dvals src svals =
+    let arith_op = match fop with
+    | Atest -> And | Acmp -> Sub in
     match dvals,svals with
       FSet dvals, FSet svals ->
-        let op = arithop_to_int64op fop in
+        let op = arithop_to_int64op arith_op in
         (* Combines two sets of values and only keeps those combinations that satisfy test;
          * returns the tuples with the values that satisfy test *)
         let setComb d s test =
@@ -573,7 +575,7 @@ module Make (O:VALADOPT) = struct
         )
     | _,_ ->
         let ift pos = 
-          interval_flag_test pos fop (to_interval dvals) (to_interval svals) in
+          interval_flag_test pos arith_op (to_interval dvals) (to_interval svals) in
         (* Add the interval of dst to the enviroment *)
         let newm pos = VarMap.add dst (fst (ift pos)) m in
         (* If src is a variable, add interval of src to env *)
@@ -649,11 +651,7 @@ module Make (O:VALADOPT) = struct
     | Aarith aop -> arith env flags dstvar mkvar dvals srcvar mkcvar svals aop
     | Amov -> mov env flags dstvar mkvar dvals srcvar mkcvar svals
     | Ashift sop -> shift env flags sop dstvar dvals srcvar svals mkcvar
-    | Aflag fop -> begin
-        match fop with
-        | Atest -> flagop env flags And dstvar dvals srcvar svals
-        | Acmp -> flagop env flags Sub dstvar dvals srcvar svals
-      end
+    | Aflag fop -> flagop env flags fop dstvar dvals srcvar svals
     | Aimul -> failwith "IMUL not implemented yet"
     | _ -> assert false
   
