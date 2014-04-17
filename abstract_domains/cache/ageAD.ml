@@ -63,7 +63,6 @@ module Make (V: ValAD.S) = struct
   (* the first result is x1<x2, the second one x1=x2 and the last one x1>x2 *)
   let vcomp venv x1 x2 =
     let _,tf,ft,ff= fmap_to_tupleold (V.update_val venv initial_flags x1 NoMask x2 NoMask (Aflag Acmp)) in
-    (* let _,tf,ft,ff= V.flagop venv X86Types.Sub x1 x2 in *)
     (* Since we only have positive values, when the carry flag is set, it means venv is strictly smaller than x2 *)
     (* The case where there is a carry and the result is zero should not be 
 possible, so it approximates Bottom *)
