@@ -538,49 +538,48 @@ module Make (O:VALADOPT) = struct
         end
     | _ -> failwith "interval_flag_test: TEST instruction for intervals not implemented yet"
 
-  let flagop m flags fop dst dvals src svals =
+  let flagop m flags fop dstvar dvals srcvar svals =
     let arith_op = match fop with
     | Atest -> And | Acmp -> Sub in
     match dvals,svals with
       FSet dvals, FSet svals ->
         let op = arithop_to_int64op arith_op in
-        (* Combines two sets of values and only keeps those combinations that satisfy test;
-         * returns the tuples with the values that satisfy test *)
-        let setComb d s test =
-          let doOp x = NumSet.fold (fun y r -> if test (op y x) then (y,x) :: r else r) d [] in
-          List.concat (NumSet.fold (fun x r -> (doOp x) :: r) s [])
-        in
         (* Create an environment given a test function *)
-        let create_m test =
+        
         (* Do all the possible combinations *)
-          let combs = setComb dvals svals test in
-          (* If combs is empty, it means that there are no values that satisfy test.
-           * Then we return Bottom *)
-          if combs = []
-            then Bot
-            else Nb (
-              (* Create the enviroment by adding the values obtained to the VarMap *)
-              let ld,ls = List.split combs in
-              let new_m = VarMap.add dst (FSet (make_set_from_list ld)) m in
-              (match src with
-              | VarOp x -> VarMap.add x (FSet (make_set_from_list ls)) new_m
-              | Cons _ -> new_m)
-            )
-        in 
-        tupleold_to_fmap (
-          create_m (fun x -> flag_carry x && flag_zero x),
-          create_m (fun x -> flag_carry x && not (flag_zero x)),
-          create_m (fun x -> not (flag_carry x) && flag_zero x),
-          create_m (fun x -> not (flag_carry x) && not (flag_zero x))
-        )
+          (* Combines two sets of values and only keeps those combinations that satisfy test;
+           * returns the tuples with the values that satisfy test *)
+          
+          let compute_op dst = NumSet.fold (fun src (dmap,smap) -> 
+            let result = op dst src in
+            let flags = {cf = flag_carry result; zf = flag_zero result} in
+            let dvals = fmap_find_with_defval flags NumSet.empty dmap in
+            let svals = fmap_find_with_defval flags NumSet.empty smap in
+            let dstmap = FlagMap.add flags (NumSet.add dst dvals) dmap in
+            let srcmap = FlagMap.add flags (NumSet.add src svals) smap in
+            (dstmap, srcmap)
+          ) svals (FlagMap.empty,FlagMap.empty) in
+          let dstmap,srcmap = NumSet.fold (fun dst (new_d,new_s) -> 
+            let dstvals, srcvals = compute_op dst in
+            fmap_combine dstvals new_d NumSet.union,
+            fmap_combine srcvals new_s NumSet.union
+            ) dvals (FlagMap.empty,FlagMap.empty) in
+          let dstmap = FlagMap.map (fun nums -> lift_to_interval nums) dstmap in
+          let srcmap = FlagMap.map (fun nums -> lift_to_interval nums) srcmap in
+          let resmap = FlagMap.map (fun nums -> VarMap.add dstvar nums m) dstmap in
+          begin match srcvar with
+            | VarOp x -> let sres = FlagMap.map (fun nums -> VarMap.add x nums m) srcmap in
+              fmap_combine resmap sres join
+            | Cons _ -> resmap
+          end
     | _,_ ->
         let ift pos = 
           interval_flag_test pos arith_op (to_interval dvals) (to_interval svals) in
         (* Add the interval of dst to the enviroment *)
-        let newm pos = VarMap.add dst (fst (ift pos)) m in
+        let newm pos = VarMap.add dstvar (fst (ift pos)) m in
         (* If src is a variable, add interval of src to env *)
         let create_m pos = 
-          (match src with
+          (match srcvar with
           | VarOp x -> VarMap.add x (snd (ift pos)) (newm pos)
           | Cons _ -> newm pos)
         in
