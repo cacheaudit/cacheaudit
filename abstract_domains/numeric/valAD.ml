@@ -137,11 +137,11 @@ module Make (O:VALADOPT) = struct
       Interval(ml,mh)
 
   (* Flag setting functions *)
-  let flag_carry res =
+  let is_cf res =
     let upper_bound = Int64.shift_left Int64.one 32 in
     let lower_bound = 0L in
     res < lower_bound || res >= upper_bound
-  let flag_carry_shift sop original result offset =
+  let is_cf_shift sop original result offset =
     let carry = match sop with
       Shl | Rol -> Int64.logand result (Int64.shift_left Int64.one 32)
     | Shr | Sar | Ror ->
@@ -149,7 +149,7 @@ module Make (O:VALADOPT) = struct
         Int64.logand mask original
     in
     carry <> Int64.zero
-  let flag_zero res = ((truncate 32 res) = 0L)
+  let is_zf res = ((truncate 32 res) = 0L)
 
   (* set_or_interval given two bounds either returns an interval or a set if its size is less than O.max_set_size *)
   let set_or_interval l h = if range_over (l,h) O.max_set_size then Interval(l,h) else FSet (interval_to_set l h)
@@ -257,7 +257,50 @@ module Make (O:VALADOPT) = struct
      in
      try (ignore (VarMap.merge f x y); true)
      with Not_included -> false
+  
+  
+  (* lifts to interval representation if needed *)
+  let lift_to_interval s = 
+    if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
 
+  
+  let fmap_find_with_defval key defval fm = try(
+    FlagMap.find key fm) with Not_found -> defval
+  
+  let perform_op op dstset srcset  = 
+    let compute_op dst = NumSet.fold (fun src (dmap,smap,rmap) -> 
+            let result = op dst src in
+            let flags = {cf = is_cf result; zf = is_zf result} in
+            let dvals = fmap_find_with_defval flags NumSet.empty dmap in
+            let dstmap = FlagMap.add flags (NumSet.add dst dvals) dmap in
+            let svals = fmap_find_with_defval flags NumSet.empty smap in
+            let srcmap = FlagMap.add flags (NumSet.add src svals) smap in
+            let rvals = fmap_find_with_defval flags NumSet.empty rmap in
+            let resmap = FlagMap.add flags (NumSet.add (truncate 32 (result)) rvals) rmap in
+            (dstmap, srcmap,resmap)
+          ) srcset (FlagMap.empty,FlagMap.empty,FlagMap.empty) in
+          let dstmap,srcmap,resmap = NumSet.fold (fun dst (new_d,new_s,new_r) -> 
+            let dstvals, srcvals, resvals = compute_op dst in
+            fmap_combine dstvals new_d NumSet.union,
+            fmap_combine srcvals new_s NumSet.union,
+            fmap_combine resvals new_r NumSet.union
+            ) dstset (FlagMap.empty,FlagMap.empty,FlagMap.empty) in
+          let dstmap = FlagMap.map (fun nums -> lift_to_interval nums) dstmap in
+          let srcmap = FlagMap.map (fun nums -> lift_to_interval nums) srcmap in
+          let resmap = FlagMap.map (fun nums -> lift_to_interval nums) resmap in
+          dstmap, srcmap,resmap
+          (* let resmap = FlagMap.map (fun nums -> VarMap.add dstvar nums m) dstmap in         *)
+          (* begin match srcvar with                                                           *)
+          (*   | VarOp x -> let sres = FlagMap.map (fun nums -> VarMap.add x nums m) srcmap in *)
+          (*     fmap_combine resmap sres join                                                 *)
+          (*   | Cons _ -> resmap                                                              *)
+          (* end                                                                               *)
+  
+  
+  
+  
+  
+  
   (* Functions used by update_val *)
   let arithop_to_int64op = function
     | Add -> Int64.add
@@ -272,10 +315,6 @@ module Make (O:VALADOPT) = struct
 
   let make_set_from_list = List.fold_left (fun s x -> NumSet.add x s) NumSet.empty
   
-  (* lifts to interval representation if needed *)
-  let lift_to_interval s = 
-    if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
-
   type position = TT | TF | FT | FF
 
 
@@ -428,18 +467,13 @@ module Make (O:VALADOPT) = struct
 
   let bool_to_int64 = function true -> 1L | false -> 0L
   
-  (* let fmap_set_default key defval fm =  *)
-  (*   if (FlagMap.mem key fm) then fm     *)
-  (*   else (FlagMap.add key defval fm)    *)
-  let fmap_find_with_defval key defval fm = try(
-    FlagMap.find key fm) with Not_found -> defval
 
   
   (* Implements the effects of arithmetic operations *)
-  let arith m flgs_init dstvar mkvar dst_vals srcvar mkcvar src_vals aop = 
+  let arith env flgs_init dstvar mkvar dst_vals srcvar mkcvar src_vals aop = 
     match aop with
     | Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)
-              FlagMap.singleton {cf = false; zf = true} (VarMap.add dstvar zero m)
+              FlagMap.singleton {cf = false; zf = true} (VarMap.add dstvar zero env)
     | _ ->
     if (mkvar, mkcvar) <> (NoMask,NoMask) then 
       failwith "ValAD.arith: only 32-bit arithmetic is implemented"
@@ -450,28 +484,20 @@ module Make (O:VALADOPT) = struct
                   Int64.add y (bool_to_int64 flgs_init.cf)
                 | _ -> y in
                 arithop_to_int64op aop x y in
-              begin
-                (* returns a set of dst op src for one dst and all possible *)
-                (* src in ss, which produce a particular flag combination *)
-                  let compute_op_set dst sset = NumSet.fold (fun src fm -> 
-                      let result = oper dst src in
-                      let flags = {cf = flag_carry result; zf = flag_zero result} in
-                      let vals = fmap_find_with_defval flags NumSet.empty fm in
-                      FlagMap.add flags (NumSet.add (truncate 32 (result)) vals) fm
-                    ) sset FlagMap.empty in
-                  let finalSetMap = 
-                    match dst_vals, src_vals with
-                    | FSet dset, FSet sset ->
-                      let fsmap = NumSet.fold (fun dst s -> 
-                        fmap_combine (compute_op_set dst sset) s NumSet.union) dset FlagMap.empty in
-                      FlagMap.map (fun nums -> lift_to_interval nums) fsmap
-                    | _, _ ->
-                  (* We convert sets into intervals in order to perform the operations;
-                   * interval_arith may return either FSet or Interval *)
-                      interval_arith aop oper (to_interval dst_vals) (to_interval src_vals)
-                    
-                  in FlagMap.map (fun nums -> VarMap.add dstvar nums m) finalSetMap
-              end
+              match dst_vals, src_vals with
+              | FSet dset, FSet sset ->
+                let _,srcmap,resmap = perform_op oper dset sset in
+                let resmap_src = FlagMap.empty in
+                  (* begin match srcvar with                                                 *)
+                  (* | VarOp var -> FlagMap.map (fun nums -> VarMap.add var nums env) srcmap *)
+                  (* | Cons _ -> FlagMap.empty end in                                        *)
+                let resmap_dst = FlagMap.map (fun nums -> VarMap.add dstvar nums env) resmap in
+                fmap_combine resmap_src resmap_dst join
+              | _, _ ->
+            (* We convert sets into intervals in order to perform the operations;
+             * interval_arith may return either FSet or Interval *)
+               let retmap = interval_arith aop oper (to_interval dst_vals) (to_interval src_vals) in
+               FlagMap.map (fun nums -> VarMap.add dstvar nums env) retmap
 
 
   (* Implements the effects of MOV *)
@@ -552,7 +578,7 @@ module Make (O:VALADOPT) = struct
           
           let compute_op dst = NumSet.fold (fun src (dmap,smap) -> 
             let result = op dst src in
-            let flags = {cf = flag_carry result; zf = flag_zero result} in
+            let flags = {cf = is_cf result; zf = is_zf result} in
             let dvals = fmap_find_with_defval flags NumSet.empty dmap in
             let svals = fmap_find_with_defval flags NumSet.empty smap in
             let dstmap = FlagMap.add flags (NumSet.add dst dvals) dmap in
@@ -615,8 +641,8 @@ module Make (O:VALADOPT) = struct
           let compute_op dst = NumSet.fold 
           (fun offs fm -> 
             let result = operator dst offs in
-            let flags = {cf = flag_carry_shift sop result dst (Int64.to_int offs); 
-              zf = flag_zero result} in
+            let flags = {cf = is_cf_shift sop result dst (Int64.to_int offs); 
+              zf = is_zf result} in
             (* NumSet.add (flags,(truncate 32 result)) s *)
             let vals = fmap_find_with_defval flags NumSet.empty fm in
             FlagMap.add flags (NumSet.add (truncate 32 (result)) vals) fm
