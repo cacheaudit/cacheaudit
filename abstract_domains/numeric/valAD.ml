@@ -137,15 +137,15 @@ module Make (O:VALADOPT) = struct
       Interval(ml,mh)
 
   (* Flag setting functions *)
-  let is_cf res =
+  let is_cf _ _ res =
     let upper_bound = Int64.shift_left Int64.one 32 in
     let lower_bound = 0L in
     res < lower_bound || res >= upper_bound
-  let is_cf_shift sop original result offset =
+  let is_cf_shift sop original offset result =
     let carry = match sop with
       Shl | Rol -> Int64.logand result (Int64.shift_left Int64.one 32)
     | Shr | Sar | Ror ->
-        let mask = Int64.shift_left Int64.one (offset - 1) in
+        let mask = Int64.shift_left Int64.one (Int64.to_int (Int64.pred offset)) in
         Int64.logand mask original
     in
     carry <> Int64.zero
@@ -267,10 +267,10 @@ module Make (O:VALADOPT) = struct
   let fmap_find_with_defval key defval fm = try(
     FlagMap.find key fm) with Not_found -> defval
   
-  let perform_op op dstset srcset  = 
+  let perform_op op dstset srcset cf_test = 
     let compute_op dst = NumSet.fold (fun src (dmap,smap,rmap) -> 
             let result = op dst src in
-            let flags = {cf = is_cf result; zf = is_zf result} in
+            let flags = {cf = cf_test dst src result; zf = is_zf result} in
             let dvals = fmap_find_with_defval flags NumSet.empty dmap in
             let dstmap = FlagMap.add flags (NumSet.add dst dvals) dmap in
             let svals = fmap_find_with_defval flags NumSet.empty smap in
@@ -486,13 +486,12 @@ module Make (O:VALADOPT) = struct
                 arithop_to_int64op aop x y in
               match dst_vals, src_vals with
               | FSet dset, FSet sset ->
-                let _,srcmap,resmap = perform_op oper dset sset in
-                let resmap_src = FlagMap.empty in
-                  (* begin match srcvar with                                                 *)
-                  (* | VarOp var -> FlagMap.map (fun nums -> VarMap.add var nums env) srcmap *)
-                  (* | Cons _ -> FlagMap.empty end in                                        *)
-                let resmap_dst = FlagMap.map (fun nums -> VarMap.add dstvar nums env) resmap in
-                fmap_combine resmap_src resmap_dst join
+                let _,srcmap,resmap = perform_op oper dset sset is_cf in
+                FlagMap.mapi (fun flgs dvals -> 
+                let env = begin match srcvar with
+                | VarOp var -> VarMap.add var (FlagMap.find flgs srcmap) env
+                | Cons _ -> env end in
+                VarMap.add dstvar dvals env) resmap
               | _, _ ->
             (* We convert sets into intervals in order to perform the operations;
              * interval_arith may return either FSet or Interval *)
@@ -564,45 +563,23 @@ module Make (O:VALADOPT) = struct
         end
     | _ -> failwith "interval_flag_test: TEST instruction for intervals not implemented yet"
 
-  let flagop m flags fop dstvar dvals srcvar svals =
+  let flagop env flags fop dstvar dvals srcvar svals =
     let arith_op = match fop with
     | Atest -> And | Acmp -> Sub in
     match dvals,svals with
-      FSet dvals, FSet svals ->
-        let op = arithop_to_int64op arith_op in
-        (* Create an environment given a test function *)
-        
-        (* Do all the possible combinations *)
-          (* Combines two sets of values and only keeps those combinations that satisfy test;
-           * returns the tuples with the values that satisfy test *)
-          
-          let compute_op dst = NumSet.fold (fun src (dmap,smap) -> 
-            let result = op dst src in
-            let flags = {cf = is_cf result; zf = is_zf result} in
-            let dvals = fmap_find_with_defval flags NumSet.empty dmap in
-            let svals = fmap_find_with_defval flags NumSet.empty smap in
-            let dstmap = FlagMap.add flags (NumSet.add dst dvals) dmap in
-            let srcmap = FlagMap.add flags (NumSet.add src svals) smap in
-            (dstmap, srcmap)
-          ) svals (FlagMap.empty,FlagMap.empty) in
-          let dstmap,srcmap = NumSet.fold (fun dst (new_d,new_s) -> 
-            let dstvals, srcvals = compute_op dst in
-            fmap_combine dstvals new_d NumSet.union,
-            fmap_combine srcvals new_s NumSet.union
-            ) dvals (FlagMap.empty,FlagMap.empty) in
-          let dstmap = FlagMap.map (fun nums -> lift_to_interval nums) dstmap in
-          let srcmap = FlagMap.map (fun nums -> lift_to_interval nums) srcmap in
-          let resmap = FlagMap.map (fun nums -> VarMap.add dstvar nums m) dstmap in
-          begin match srcvar with
-            | VarOp x -> let sres = FlagMap.map (fun nums -> VarMap.add x nums m) srcmap in
-              fmap_combine resmap sres join
-            | Cons _ -> resmap
-          end
+      FSet dset, FSet sset ->
+        let oper = arithop_to_int64op arith_op in
+        let dstmap,srcmap,_ = perform_op oper dset sset is_cf in
+        FlagMap.mapi (fun flgs dvals -> 
+          let env = begin match srcvar with
+          | VarOp var -> VarMap.add var (FlagMap.find flgs srcmap) env
+          | Cons _ -> env end in
+          VarMap.add dstvar dvals env) dstmap 
     | _,_ ->
         let ift pos = 
           interval_flag_test pos arith_op (to_interval dvals) (to_interval svals) in
         (* Add the interval of dst to the enviroment *)
-        let newm pos = VarMap.add dstvar (fst (ift pos)) m in
+        let newm pos = VarMap.add dstvar (fst (ift pos)) env in
         (* If src is a variable, add interval of src to env *)
         let create_m pos = 
           (match srcvar with
@@ -632,38 +609,30 @@ module Make (O:VALADOPT) = struct
     | Rol -> fun x o -> rotate_left x (Int64.to_int o)
   
   (* Shift the values of the variable dst using the offsets given by soff *)
-  let shift m flags sop dstvar vals soff off_vals mk = 
+  let shift env flags sop dstvar vals offs_var off_vals mk = 
     let offsets = mask_vals mk off_vals in
-    let operator = shift_operator sop in
-    let top_env = (VarMap.add dstvar top m) in
+    let oper = shift_operator sop in
+    let top_env = (VarMap.add dstvar top env) in
       match vals, offsets with
       | FSet dset, FSet offs_set ->
-          let compute_op dst = NumSet.fold 
-          (fun offs fm -> 
-            let result = operator dst offs in
-            let flags = {cf = is_cf_shift sop result dst (Int64.to_int offs); 
-              zf = is_zf result} in
-            (* NumSet.add (flags,(truncate 32 result)) s *)
-            let vals = fmap_find_with_defval flags NumSet.empty fm in
-            FlagMap.add flags (NumSet.add (truncate 32 (result)) vals) fm
-            ) offs_set FlagMap.empty in
-          
-          let finalSetMap = NumSet.fold (fun dst s -> 
-            fmap_combine (compute_op dst) s NumSet.union) dset FlagMap.empty in
-          let finalSetMap = 
-            FlagMap.map (fun nums -> lift_to_interval nums) finalSetMap in
-          (* let finalSet = NumSet.fold (fun dst s -> NumSet.fold NumSet.add (perform_op dst) s) dset NumSet.empty in *)
-          FlagMap.map (fun nums -> VarMap.add dstvar nums m) finalSetMap
+          let cf_test = (is_cf_shift sop) in
+          let _,srcmap,resmap = perform_op oper dset offs_set cf_test in
+          FlagMap.mapi (fun flgs dvals -> 
+            let env = begin match offs_var with
+            | VarOp var -> VarMap.add var (FlagMap.find flgs srcmap) env
+            | Cons _ -> env end in
+            VarMap.add dstvar dvals env) resmap
+            
       | Interval(l,h), FSet offs_set -> (* This doesn't work with rotate; return Top if rotate *)
         let newenv =
-          let bound f b sup = NumSet.fold (fun offs r -> f (operator b offs) r) offs_set sup in
+          let bound f b sup = NumSet.fold (fun offs r -> f (oper b offs) r) offs_set sup in
           let lb, ub = bound min l max_elt, bound max h min_elt in
           (* TODO : flag test *)
           (* Flags are not changed at all which is not correct! *)
           begin
             match sop with
               Ror | Rol -> top_env
-            | _ -> if ub < lb then m else VarMap.add dstvar (Interval(lb,ub)) m
+            | _ -> if ub < lb then env else VarMap.add dstvar (Interval(lb,ub)) env
           end in
         FlagMap.singleton flags newenv
       | _, _ -> 
