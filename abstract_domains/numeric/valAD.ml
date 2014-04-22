@@ -488,11 +488,16 @@ module Make (O:VALADOPT) = struct
    * interval_arith may return either FSet or Interval *)
     interval_arith env aop oper dstvar dst_vals src_vals
   
-  let imul env flgs_init dstvar dst_vals srcvar src_vals aop = 
+  let imul env flgs_init dstvar dst_vals srcvar src_vals aop arg3 =
+    let imm = match arg3 with 
+    | None -> failwith "IMUL with < 3 operands not implemented"
+    | Some i -> i in
     match dst_vals, src_vals with
     | FSet dset, FSet sset ->
+      let immset = NumSet.singleton imm in 
+      (* compute dst = src * imm *)
       (* zero flag is always not set *)
-      let _,srcmap,resmap = perform_op Int64.mul dset sset is_cf (fun _ -> false) in
+      let srcmap,_,resmap = perform_op Int64.mul sset immset is_cf (fun _ -> false) in
       store_vals env dstvar resmap srcvar srcmap
     | _, _ -> failwith "IMUL not implemented with intervals"
   
@@ -621,7 +626,7 @@ module Make (O:VALADOPT) = struct
   FlagMap.singleton flags new_env
 
 
-  let update_val env flags dstvar mkvar srcvar mkcvar op operand3 = 
+  let update_val env flags dstvar mkvar srcvar mkcvar op arg3 = 
     let dvals = VarMap.find dstvar env in
     let svals = get_vals srcvar env in
     if op = Amov then mov env flags dstvar mkvar dvals srcvar mkcvar svals
@@ -631,7 +636,7 @@ module Make (O:VALADOPT) = struct
       else arith env flags dstvar dvals srcvar svals aop
     | Ashift sop -> shift env flags sop dstvar dvals srcvar svals mkcvar
     | Aflag fop -> test_cmp env flags fop dstvar dvals srcvar svals
-    | Aimul -> failwith "IMUL not implemented yet"
+    | Aimul -> imul env flags dstvar dvals srcvar svals op arg3
     | _ -> assert false
   
 end
