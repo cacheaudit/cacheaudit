@@ -34,14 +34,6 @@ module Make (V: ValAD.S) = struct
     ff : V.t add_bottom; (* CF false and ZF false *)
   }
   
-  let fmap_to_old fmap =
-    let get_values flgs = try( 
-        Nb (FlagMap.find flgs fmap)
-      ) with Not_found -> Bot in
-    { tt = get_values {cf = true; zf = true};
-      tf = get_values {cf = true; zf = false};
-      ft = get_values {cf = false; zf = true};
-      ff = get_values {cf = false; zf = false} }
   
   
   let is_bottom env = FlagMap.is_empty env
@@ -50,21 +42,21 @@ module Make (V: ValAD.S) = struct
     Format.fprintf fmt "@[<2>When CF is %B and ZF is %B, @,%a@]"
               flgs.cf flgs.zf V.print env
 
-  let print_delta_flag cf zf st1 fmt st2 = match st1,st2 with
+  let print_delta_flag flgs st1 fmt st2 = match st1,st2 with
     | Bot, Bot -> ()
     | Bot, Nb env -> begin match get_log_level FlagLL with
       | Debug -> Format.fprintf fmt "@[New case: CF %B, ZF %B: @,%a@]"
-             cf zf V.print env 
+             flgs.cf flgs.zf V.print env 
       | _ -> ()
       end
     | Nb env, Bot -> begin match get_log_level FlagLL with
       | Debug -> Format.fprintf fmt "@[The case CF %B, ZF %B is no longer possible@]"
-             cf zf 
+             flgs.cf flgs.zf 
       | _ -> ()
       end
     | Nb env1, Nb env2 -> begin match get_log_level FlagLL with
       | Debug -> if env1 != env2 then
-             Format.fprintf fmt "@[Case CF %B, ZF %B: @,%a@]" cf zf
+             Format.fprintf fmt "@[Case CF %B, ZF %B: @,%a@]" flgs.cf flgs.zf
              (V.print_delta env1) env2
       | _ -> Format.fprintf fmt "@[%a@]" (V.print_delta env1) env2
       end
@@ -76,20 +68,26 @@ module Make (V: ValAD.S) = struct
       FlagMap.iter (fun flgs vals -> print_flag flgs fmt vals) st;
       Format.fprintf fmt "@]"
 
-  let print_delta st1 fmt st2 = 
-    let st1,st2 = fmap_to_old st1, fmap_to_old st2 in
-    Format.fprintf fmt "@[%a @; %a @; %a @; %a@]"
-       (print_delta_flag true true st1.tt) st2.tt
-       (print_delta_flag true false st1.tf) st2.tf
-       (print_delta_flag false true st1.ft) st2.ft
-       (print_delta_flag false false st1.ff) st2.ff
 
+  let print_delta st1 fmt st2 = 
+    let get_values flgs fmap = try( 
+          Nb (FlagMap.find flgs fmap)
+        ) with Not_found -> Bot in
+    let flgs_tt, flgs_tf, flgs_ft, flgs_ff = {cf = true; zf = true},
+      {cf = true; zf = false}, {cf = false; zf = true}, {cf = false; zf = false} in
+    Format.fprintf fmt "@[%a @; %a @; %a @; %a@]"
+      (print_delta_flag flgs_tt (get_values flgs_tt st1)) (get_values flgs_tt st2)
+      (print_delta_flag flgs_tf (get_values flgs_tf st1)) (get_values flgs_tf st2)
+      (print_delta_flag flgs_ft (get_values flgs_ft st1)) (get_values flgs_ft st2)
+      (print_delta_flag flgs_ff (get_values flgs_ff st1)) (get_values flgs_ff st2)
+      
+  
   let init v2s = FlagMap.add initial_flags (V.init v2s) FlagMap.empty
 
-let flmap_combine fm1 fm2 fn = FlagMap.merge (fun _ a b -> 
-  match a,b with None,None -> None
-  | Some x, None -> Some x | None, Some y -> Some y
-  | Some x, Some y -> Some (V.join x y)) fm1 fm2
+  let flmap_combine fm1 fm2 fn = FlagMap.merge (fun _ a b -> 
+    match a,b with None,None -> None
+    | Some x, None -> Some x | None, Some y -> Some y
+    | Some x, Some y -> Some (V.join x y)) fm1 fm2
 
 (* Component-wise join *)
   

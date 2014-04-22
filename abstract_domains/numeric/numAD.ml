@@ -60,26 +60,5 @@ module DS = struct
   | Some x, None -> Some x | None, Some y -> Some y
   | Some x, Some y -> Some (fn x y)) fm1 fm2
   
-  (* for handling legacy functions *)
-  
-  let fmap_to_tupleold fmap =
-    let get_values flgs = try( 
-        Nb (FlagMap.find flgs fmap)
-      ) with Not_found -> Bot in
-     get_values {cf = true; zf = true},
-     get_values {cf = true; zf = false},
-     get_values {cf = false; zf = true},
-     get_values {cf = false; zf = false}
-     
-  let tupleold_to_fmap old = let fmap = FlagMap.empty in
-    let set_vals_nobot flgs vals fmap = match vals with 
-    | Bot -> fmap
-    | Nb x -> FlagMap.add flgs x fmap in
-    let tt, tf, ft, ff = old in
-    let fmap = set_vals_nobot {cf = true; zf = true} tt fmap in
-    let fmap = set_vals_nobot {cf = true; zf = false} tf fmap in
-    let fmap = set_vals_nobot {cf = false; zf = true} ft fmap in
-    set_vals_nobot {cf = false; zf = false} ff fmap
-
 end
 

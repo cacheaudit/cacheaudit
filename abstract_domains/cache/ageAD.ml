@@ -49,20 +49,23 @@ module Make (V: ValAD.S) = struct
     assert (e1.max_age = e2.max_age);
     {e1 with value = (V.join e1.value e2.value)}
   
-  let flatten x = 
-    if FlagMap.cardinal x = 1 then
-       FlagMap.find initial_flags x
-    else
-    let (d1,d2,d3,d4) = fmap_to_tupleold x in
-    let result = List.fold_left (lift_combine V.join) Bot [d1;d2;d3;d4] in
-    match result with
-      Bot -> failwith "SValAD.flatten: bottom"
-    | Nb a -> a
+  let flatten fmap = 
+    assert (FlagMap.cardinal fmap = 1);
+    FlagMap.find initial_flags fmap
 
+  let fmap_to_tuple fmap =
+    let get_values flgs = try( 
+        Nb (FlagMap.find flgs fmap)
+      ) with Not_found -> Bot in
+     get_values {cf = true; zf = true},
+     get_values {cf = true; zf = false},
+     get_values {cf = false; zf = true},
+     get_values {cf = false; zf = false}
+  
   (* computes comparison of x1 and x2, see vguard below *)
   (* the first result is x1<x2, the second one x1=x2 and the last one x1>x2 *)
-  let vcomp venv x1 x2 =
-    let _,tf,ft,ff= fmap_to_tupleold (V.update_val venv initial_flags x1 NoMask x2 NoMask (Aflag Acmp)) in
+  let vcomp venv x1 x2 = 
+    let _,tf,ft,ff= fmap_to_tuple (V.update_val venv initial_flags x1 NoMask x2 NoMask (Aflag Acmp)) in
     (* Since we only have positive values, when the carry flag is set, it means venv is strictly smaller than x2 *)
     (* The case where there is a carry and the result is zero should not be 
 possible, so it approximates Bottom *)
