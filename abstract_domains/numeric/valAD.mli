@@ -58,10 +58,12 @@ module type S = sig
   (** Meet operation *)
   val meet : t -> t -> t add_bottom 
 
-  (** [update_val env flags dst mskdst src msksrc op] performs operation
+  (** [update_val env flags dst mskdst src msksrc op arg3] performs operation
       [op] on [dst] and [src], where the masks [mskdst] and [msksrc]
       specify whether 8 or 32 bit of the operand are involved. 
-      [flags] gives the initial value of the flags. Returns
+      [flags] gives the initial value of the flags. 
+      [arg3] is an optional argument currently only used for 3-argument IMUL.
+      Returns
       one environment per value combination of CF and ZF. *)
   val update_val : t -> flags_t -> var -> mask -> cons_var -> mask -> 
     AbstrInstr.abstr_op -> int64 option -> t FlagMap.t 

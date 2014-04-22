@@ -74,7 +74,11 @@ let anon_fun = (fun x ->  if !bin_name = "" then bin_name := x
 
 let speclist = [
     (* ("-f", Arg.String anon_fun, "give the name of the binary file"); *)
-    ("--start", Arg.String (fun s -> start_addr := int_of_string s), 
+    ("--start", Arg.String (fun s -> try
+        start_addr := int_of_string s
+      with Failure "int_of_string" -> failwith (Printf.sprintf "Start address \
+      %s not recognized as a number. Expecting a decimal or hexadecimal (0x...) \
+      representation" s)), 
       "set the address (in bytes) where we start parsing");
     ("--end", Arg.String (fun s -> end_addr := int_of_string s), 
       "set the oddress (in bytes) where we stop parsing");

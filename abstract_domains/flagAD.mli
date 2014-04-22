@@ -39,9 +39,10 @@ sig
   (** Meet operation *)
   val meet : t -> t -> t 
 
-  (** [update_var env dst mskdst src msksrc op] performs operation
+  (** [update_var env dst mskdst src msksrc op arg3] performs operation
       [op] on [dst] and [src], where the masks [mskdst] and [msksrc]
-      specify whether 8 or 32 bit of the operand are involved. *)
+      specify whether 8 or 32 bit of the operand are involved. 
+      [arg3] is an optional argument currently only used for 3-argument IMUL. *)
   val update_val : t -> var -> mask -> cons_var -> mask -> abstr_op -> int64 option -> t
     
   (** Returns a pair of environments overapproximating the
