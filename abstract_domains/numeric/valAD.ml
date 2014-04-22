@@ -138,9 +138,8 @@ module Make (O:VALADOPT) = struct
 
   (* Flag setting functions *)
   let is_cf _ _ res =
-    let upper_bound = Int64.shift_left Int64.one 32 in
-    let lower_bound = 0L in
-    res < lower_bound || res >= upper_bound
+    res < min_elt || res > max_elt
+    
   let is_cf_shift sop original offset result =
     let carry = match sop with
       Shl | Rol -> Int64.logand result (Int64.shift_left Int64.one 32)
@@ -289,17 +288,6 @@ module Make (O:VALADOPT) = struct
           let srcmap = FlagMap.map (fun nums -> lift_to_interval nums) srcmap in
           let resmap = FlagMap.map (fun nums -> lift_to_interval nums) resmap in
           dstmap, srcmap,resmap
-          (* let resmap = FlagMap.map (fun nums -> VarMap.add dstvar nums m) dstmap in         *)
-          (* begin match srcvar with                                                           *)
-          (*   | VarOp x -> let sres = FlagMap.map (fun nums -> VarMap.add x nums m) srcmap in *)
-          (*     fmap_combine resmap sres join                                                 *)
-          (*   | Cons _ -> resmap                                                              *)
-          (* end                                                                               *)
-  
-  
-  
-  
-  
   
   (* Functions used by update_val *)
   let arithop_to_int64op = function
@@ -402,19 +390,24 @@ module Make (O:VALADOPT) = struct
         assert(ub >= lb); Interval (lb,ub)
     | _,_ -> raise (Invalid_argument "interval_operation")
 
+  let to_interval = function 
+    | FSet s -> (set_to_interval s)
+    | i -> i
+  
   (* interval_arith takes a flg : position = {TT,...,FF}, an arith_op aop,
    * the Int64 operation oper and two intervals *)
-  let interval_arith aop oper di si = 
+  let interval_arith env aop oper dstvar dst_vals src_vals = 
+    let dst_vals, src_vals = (to_interval dst_vals), (to_interval src_vals) in
     let retmap = FlagMap.empty in
     (* Interval after operation *)
     let inter = match aop with 
-    | Add | Addc | Sub | Subb -> interval_operation oper di si 
+    | Add | Addc | Sub | Subb -> interval_operation oper dst_vals src_vals 
     | And | Or | Xor -> begin match aop with 
-        | And -> interval_and di si
-        | Or -> interval_or di si
+        | And -> interval_and dst_vals src_vals
+        | Or -> interval_or dst_vals src_vals
         | Xor -> (* a xor b = (a & not b) or (b & not a) *)
           let f a b = interval_and a (interval_not b) in
-          interval_or (f di si) (f si di) 
+          interval_or (f dst_vals src_vals) (f src_vals dst_vals) 
         | _ -> assert false 
         end
     | _ -> assert false in
@@ -458,46 +451,131 @@ module Make (O:VALADOPT) = struct
       | _ -> retmap end
     | _ -> retmap in
     
-    if FlagMap.is_empty retmap then raise Bottom 
-      else retmap
+    FlagMap.map (fun nums -> VarMap.add dstvar nums env) retmap
     
-  let to_interval = function 
-    | FSet s -> (set_to_interval s)
-    | i -> i
 
   let bool_to_int64 = function true -> 1L | false -> 0L
   
-
+  (* Stores the new values of the dstvar (possibly updated from the computation)*)
+  (* as well as the src_cvar values if the source is a variable.*)
+  (* Both values are partitioned into the ones corresponding to any of the *)
+  (* possible flag combinations *)
+  let store_vals env dstvar dstmap src_cvar srcmap = 
+    FlagMap.mapi (fun flgs dvals -> 
+      let env = begin match src_cvar with
+      | VarOp var -> VarMap.add var (FlagMap.find flgs srcmap) env
+      | Cons _ -> env end in
+      VarMap.add dstvar dvals env) dstmap
   
   (* Implements the effects of arithmetic operations *)
-  let arith env flgs_init dstvar mkvar dst_vals srcvar mkcvar src_vals aop = 
+  let arith env flgs_init dstvar dst_vals srcvar src_vals aop = 
     match aop with
     | Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)
               FlagMap.singleton {cf = false; zf = true} (VarMap.add dstvar zero env)
     | _ ->
-    if (mkvar, mkcvar) <> (NoMask,NoMask) then 
-      failwith "ValAD.arith: only 32-bit arithmetic is implemented"
-    else
-              (* Add carry flag value to operation if it's either Addc or Subb *)
-              let oper x y = let y = match aop with 
-                | Addc | Subb -> 
-                  Int64.add y (bool_to_int64 flgs_init.cf)
-                | _ -> y in
-                arithop_to_int64op aop x y in
-              match dst_vals, src_vals with
-              | FSet dset, FSet sset ->
-                let _,srcmap,resmap = perform_op oper dset sset is_cf in
-                FlagMap.mapi (fun flgs dvals -> 
-                let env = begin match srcvar with
-                | VarOp var -> VarMap.add var (FlagMap.find flgs srcmap) env
-                | Cons _ -> env end in
-                VarMap.add dstvar dvals env) resmap
-              | _, _ ->
-            (* We convert sets into intervals in order to perform the operations;
-             * interval_arith may return either FSet or Interval *)
-               let retmap = interval_arith aop oper (to_interval dst_vals) (to_interval src_vals) in
-               FlagMap.map (fun nums -> VarMap.add dstvar nums env) retmap
+    (* Add carry flag value to operation if it's either Addc or Subb *)
+    let oper x y = let y = match aop with 
+      | Addc | Subb -> 
+        Int64.add y (bool_to_int64 flgs_init.cf)
+      | _ -> y in
+      arithop_to_int64op aop x y in
+    match dst_vals, src_vals with
+    | FSet dset, FSet sset ->
+      let _,srcmap,resmap = perform_op oper dset sset is_cf in
+      store_vals env dstvar resmap srcvar srcmap
+    | _, _ ->
+  (* We convert sets into intervals in order to perform the operations;
+   * interval_arith may return either FSet or Interval *)
+    interval_arith env aop oper dstvar dst_vals src_vals
 
+  (* interval_flag_test takes two intervals and a flag combination and returns
+   * the corresponding intervals *)
+  let interval_flag_test env arith_op dstvar dvals srcvar svals =
+    let dvals, svals = to_interval dvals, to_interval svals in
+    if arith_op <> Sub then failwith "interval_flag_test: TEST instruction for intervals not implemented";
+    let dl,dh = get_bounds dvals in
+    let sl,sh = get_bounds svals in
+    (* Intersection between the two intervals *)
+    let meetZF = var_meet_ab dvals svals in
+    let ndh = min dh (Int64.pred sh) in
+    let nsl = max (Int64.succ dl) sl in
+    let nsh = min (Int64.pred dh) sh in
+    let ndl = max dl (Int64.succ sl) in
+    let dstmap,srcmap = FlagMap.empty,FlagMap.empty in
+    let dstmap,srcmap = if ndh < dl || nsl > sh then dstmap,srcmap 
+    (* We should have [dl, min(dh,sh-1)] and [max(dl+1,sl), sh] *)
+      else let flgs = {cf = true; zf = false} in
+        FlagMap.add flgs (set_or_interval dl ndh) dstmap,
+        FlagMap.add flgs (set_or_interval nsl sh) srcmap in
+    let dstmap,srcmap = if ndl > dh || nsh < sl then dstmap,srcmap
+      else let flgs = {cf = false; zf = false} in
+        FlagMap.add flgs (set_or_interval ndl dh) dstmap,
+        FlagMap.add flgs (set_or_interval sl nsh) srcmap in
+    (* meet <> empty then ZF can be set *)
+      match meetZF with
+      | Bot -> dstmap,srcmap
+      | Nb z -> let flgs = {cf = false; zf = true} in
+      FlagMap.add flgs z dstmap, FlagMap.add flgs z dstmap
+
+  (* perform TEST or CMP *)
+  let test_cmp env flags fop dstvar dvals srcvar svals =
+    let arith_op = match fop with
+    | Atest -> And | Acmp -> Sub in
+    let dstmap,srcmap =
+      match dvals,svals with
+      | FSet dset, FSet sset ->
+          let oper = arithop_to_int64op arith_op in
+          let dstmap,srcmap,_ = perform_op oper dset sset is_cf in
+          dstmap,srcmap
+      | _,_ ->
+          interval_flag_test env arith_op dstvar dvals srcvar svals in
+    store_vals env dstvar dstmap srcvar srcmap
+
+
+  let rotate_left value offset =
+    let bin = Int64.shift_left value offset in
+    let bout = Int64.shift_right_logical value (32 - offset) in
+    Int64.logor (truncate 32 bin) (truncate 32 bout)
+
+  let rotate_right value offset =
+    let bin = Int64.shift_right_logical value offset in
+    let bout = Int64.shift_left value (32 - offset) in
+    Int64.logor (truncate 32 bin) (truncate 32 bout)
+
+  let shift_operator = function
+    | Shl -> fun x o -> Int64.shift_left x (Int64.to_int o)
+    | Shr -> fun x o -> Int64.shift_right_logical x (Int64.to_int o)
+    (* In order to preserve the sign, we need to convert to int32 *)
+    | Sar -> fun value off -> Int64.of_int32 (Int32.shift_right (Int64.to_int32 value) (Int64.to_int off))
+    | Ror -> fun x o -> rotate_right x (Int64.to_int o)
+    | Rol -> fun x o -> rotate_left x (Int64.to_int o)
+  
+  (* Shift the values of the variable dst using the offsets given by soff *)
+  let shift env flags sop dstvar vals offs_var off_vals mk = 
+    let offsets = mask_vals mk off_vals in
+    let oper = shift_operator sop in
+    let top_env = (VarMap.add dstvar top env) in
+      match vals, offsets with
+      | FSet dset, FSet offs_set ->
+          let cf_test = (is_cf_shift sop) in
+          let _,srcmap,resmap = perform_op oper dset offs_set cf_test in
+          store_vals env dstvar resmap offs_var srcmap
+      | Interval(l,h), FSet offs_set -> (* This doesn't work with rotate; return Top if rotate *)
+        let newenv =
+          let bound f b sup = NumSet.fold (fun offs r -> f (oper b offs) r) offs_set sup in
+          let lb, ub = bound min l max_elt, bound max h min_elt in
+          (* TODO : flag test *)
+          (* Flags are not changed at all which is not correct! *)
+          begin
+            match sop with
+              Ror | Rol -> top_env
+            | _ -> if ub < lb then env else VarMap.add dstvar (Interval(lb,ub)) env
+          end in
+        FlagMap.singleton flags newenv
+      | _, _ ->  let fm = FlagMap.singleton {cf = true; zf = true} top_env in
+        let fm = FlagMap.add {cf = true; zf = false} top_env fm in
+        let fm = FlagMap.add {cf = false; zf = true} top_env fm in
+        FlagMap.add {cf = false; zf = false} top_env fm
 
   (* Implements the effects of MOV *)
   let mov env flags dstvar mkvar dst_vals srcvar mkcvar src_vals =
@@ -532,122 +610,18 @@ module Make (O:VALADOPT) = struct
     | _, _ -> failwith "ValAD.move: operation from 32 bits to 8 bits" in 
   FlagMap.singleton flags new_env
 
-  (* interval_flag_test takes two intervals and a flag combination and returns
-   * the corresponding intervals *)
-  let interval_flag_test pos op di si =
-    match op with
-    | Sub ->
-        let dl,dh = get_bounds di in
-        let sl,sh = get_bounds si in
-        (* Intersection between the two intervals *)
-        let meetZF = var_meet_ab di si in
-        begin
-          match pos with
-          | TT -> raise Bottom
-          | TF -> (* We should have [dl, min(dh,sh-1)] and [max(dl+1,sl), sh] *)
-              let ndh = min dh (Int64.pred sh) in
-              let nsl = max (Int64.succ dl) sl in
-              if ndh < dl || nsl > sh then raise Bottom
-              else (set_or_interval dl ndh),(set_or_interval nsl sh)
-          | FT -> (* meet <> empty then ZF can be set *)
-              begin
-                match meetZF with
-                | Bot -> raise Bottom
-                | Nb z -> z,z
-              end
-          | FF -> 
-              let nsh = min (Int64.pred dh) sh in
-              let ndl = max dl (Int64.succ sl) in
-              if ndl > dh || nsh < sl then raise Bottom
-              else (set_or_interval ndl dh),(set_or_interval sl nsh)
-        end
-    | _ -> failwith "interval_flag_test: TEST instruction for intervals not implemented yet"
 
-  let flagop env flags fop dstvar dvals srcvar svals =
-    let arith_op = match fop with
-    | Atest -> And | Acmp -> Sub in
-    match dvals,svals with
-      FSet dset, FSet sset ->
-        let oper = arithop_to_int64op arith_op in
-        let dstmap,srcmap,_ = perform_op oper dset sset is_cf in
-        FlagMap.mapi (fun flgs dvals -> 
-          let env = begin match srcvar with
-          | VarOp var -> VarMap.add var (FlagMap.find flgs srcmap) env
-          | Cons _ -> env end in
-          VarMap.add dstvar dvals env) dstmap 
-    | _,_ ->
-        let ift pos = 
-          interval_flag_test pos arith_op (to_interval dvals) (to_interval svals) in
-        (* Add the interval of dst to the enviroment *)
-        let newm pos = VarMap.add dstvar (fst (ift pos)) env in
-        (* If src is a variable, add interval of src to env *)
-        let create_m pos = 
-          (match srcvar with
-          | VarOp x -> VarMap.add x (snd (ift pos)) (newm pos)
-          | Cons _ -> newm pos)
-        in
-        let finalm pos = try (Nb (create_m pos)) with Bottom -> Bot in
-        tupleold_to_fmap (finalm TT, finalm TF, finalm FT, finalm FF)
-
-
-  let rotate_left value offset =
-    let bin = Int64.shift_left value offset in
-    let bout = Int64.shift_right_logical value (32 - offset) in
-    Int64.logor (truncate 32 bin) (truncate 32 bout)
-
-  let rotate_right value offset =
-    let bin = Int64.shift_right_logical value offset in
-    let bout = Int64.shift_left value (32 - offset) in
-    Int64.logor (truncate 32 bin) (truncate 32 bout)
-
-  let shift_operator = function
-    | Shl -> fun x o -> Int64.shift_left x (Int64.to_int o)
-    | Shr -> fun x o -> Int64.shift_right_logical x (Int64.to_int o)
-    (* In order to preserve the sign, we need to convert to int32 *)
-    | Sar -> fun value off -> Int64.of_int32 (Int32.shift_right (Int64.to_int32 value) (Int64.to_int off))
-    | Ror -> fun x o -> rotate_right x (Int64.to_int o)
-    | Rol -> fun x o -> rotate_left x (Int64.to_int o)
-  
-  (* Shift the values of the variable dst using the offsets given by soff *)
-  let shift env flags sop dstvar vals offs_var off_vals mk = 
-    let offsets = mask_vals mk off_vals in
-    let oper = shift_operator sop in
-    let top_env = (VarMap.add dstvar top env) in
-      match vals, offsets with
-      | FSet dset, FSet offs_set ->
-          let cf_test = (is_cf_shift sop) in
-          let _,srcmap,resmap = perform_op oper dset offs_set cf_test in
-          FlagMap.mapi (fun flgs dvals -> 
-            let env = begin match offs_var with
-            | VarOp var -> VarMap.add var (FlagMap.find flgs srcmap) env
-            | Cons _ -> env end in
-            VarMap.add dstvar dvals env) resmap
-            
-      | Interval(l,h), FSet offs_set -> (* This doesn't work with rotate; return Top if rotate *)
-        let newenv =
-          let bound f b sup = NumSet.fold (fun offs r -> f (oper b offs) r) offs_set sup in
-          let lb, ub = bound min l max_elt, bound max h min_elt in
-          (* TODO : flag test *)
-          (* Flags are not changed at all which is not correct! *)
-          begin
-            match sop with
-              Ror | Rol -> top_env
-            | _ -> if ub < lb then env else VarMap.add dstvar (Interval(lb,ub)) env
-          end in
-        FlagMap.singleton flags newenv
-      | _, _ -> 
-        tupleold_to_fmap (Nb top_env, Nb top_env, Nb top_env, Nb top_env)
-        
   let update_val env flags dstvar mkvar srcvar mkcvar op = 
     let dvals = VarMap.find dstvar env in
     let svals = get_vals srcvar env in
-    match op with
-    | Aarith aop -> arith env flags dstvar mkvar dvals srcvar mkcvar svals aop
-    | Amov -> mov env flags dstvar mkvar dvals srcvar mkcvar svals
+    if op = Amov then mov env flags dstvar mkvar dvals srcvar mkcvar svals
+    else match op with
+    | Aarith aop -> if (mkvar, mkcvar) <> (NoMask,NoMask) then 
+        failwith "ValAD: only 32-bit arithmetic is implemented"
+      else arith env flags dstvar dvals srcvar svals aop
     | Ashift sop -> shift env flags sop dstvar dvals srcvar svals mkcvar
-    | Aflag fop -> flagop env flags fop dstvar dvals srcvar svals
+    | Aflag fop -> test_cmp env flags fop dstvar dvals srcvar svals
     | Aimul -> failwith "IMUL not implemented yet"
     | _ -> assert false
   
 end
-
