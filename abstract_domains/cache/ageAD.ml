@@ -65,7 +65,7 @@ module Make (V: ValAD.S) = struct
   (* computes comparison of x1 and x2, see vguard below *)
   (* the first result is x1<x2, the second one x1=x2 and the last one x1>x2 *)
   let vcomp venv x1 x2 = 
-    let _,tf,ft,ff= fmap_to_tuple (V.update_val venv initial_flags x1 NoMask x2 NoMask (Aflag Acmp)) in
+    let _,tf,ft,ff= fmap_to_tuple (V.update_val venv initial_flags x1 NoMask x2 NoMask (Aflag Acmp) None) in
     (* Since we only have positive values, when the carry flag is set, it means venv is strictly smaller than x2 *)
     (* The case where there is a carry and the result is zero should not be 
 possible, so it approximates Bottom *)
@@ -82,7 +82,7 @@ possible, so it approximates Bottom *)
       match young with
       | Bot -> env.value
       | Nb yenv ->
-        let yenv = flatten (V.update_val yenv initial_flags v NoMask (Cons 1L) NoMask (Aarith X86Types.Add)) in
+        let yenv = flatten (V.update_val yenv initial_flags v NoMask (Cons 1L) NoMask (Aarith X86Types.Add) None) in
         match nyoung with
         | Bot -> yenv
         | Nb nyenv -> V.join yenv nyenv
@@ -97,7 +97,7 @@ possible, so it approximates Bottom *)
         let value = if not (is_var env v) then 
                     V.new_var env.value v
                   else env.value
-        in let value = flatten(V.update_val value initial_flags v NoMask (Cons(Int64.of_int a)) NoMask Amov) in
+        in let value = flatten(V.update_val value initial_flags v NoMask (Cons(Int64.of_int a)) NoMask Amov None) in
         {env with value = value}
   
   

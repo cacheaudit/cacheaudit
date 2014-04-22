@@ -252,7 +252,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
                     (* we will be changing the content of the variable, so make*)
                     (* sure the initial value is in memory before that *)
                     {env with vals = 
-                      F.update_val env.vals a NoMask (Cons value) NoMask Amov}
+                      F.update_val env.vals a NoMask (Cons value) NoMask Amov None}
                   | None ->  env in
             VarOp a, env in
           new_a, mask, {new_env with cache = new_cache} in
@@ -290,36 +290,24 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
     assert(slist <> []);
     (* For every possible value of src and dst, do dst = dst op src, updating *)
     (* the values by passing the operation to update_val from FlagAD. *)
-    let perform_op op dst dlist src slist =
+    let perform_op op dst dlist src slist op3 =
       let do_op (s,smask,es) = List.map (fun (d,dmask,ed) -> 
         let access_env = (get_access_env dst src ed es) in
          { access_env with vals = 
-          F.update_val access_env.vals (consvar_to_var d) dmask s smask op }
+          F.update_val access_env.vals (consvar_to_var d) dmask s smask op op3}
         ) dlist in
       list_join (List.concat (List.map do_op slist)) in
     let res = 
       match op with
       | Aarith _ | Ashift _ | Amov | Aflag _ -> 
-          perform_op op dst dlist src slist
+          perform_op op dst dlist src slist op3
       | Aexchg -> 
-          let s_to_d_vals = perform_op Amov dst dlist src slist in
-          let d_to_s_vals = perform_op Amov src slist dst dlist in
+          let s_to_d_vals = perform_op Amov dst dlist src slist op3 in
+          let d_to_s_vals = perform_op Amov src slist dst dlist op3 in
           join s_to_d_vals d_to_s_vals
       | Aimul ->
-        let src2,imm = match op3 with
-        | Some x -> begin 
-            match x with 
-            | (Op32(Imm i)) -> x,i 
-            | _ -> failwith "Only 32-bit immediates supported for imul"
-          end
-        | None -> failwith "2-operand imul not implemented" in
-        (* first move immediate to dst, then do dst = src * dst *)
-        (* to extend this to 2-operand imul, skip the first step *)
-        let env = perform_op Amov dst dlist src2 [(Cons imm,NoMask,env)] in
-        assert (is_reg dst); (* make sure we are accessing a register, because
-        if it were the memory, this would record a second access to the cache *)
-        let dlist = get_consvars env dst Read in
-        perform_op Aimul dst dlist src slist in
+        if op3 = None then failwith "2-operand imul not implemented";
+        perform_op Aimul dst dlist src slist op3 in
      {res with cache = C.elapse res.cache time_instr}
   ) with Bottom -> failwith 
     "MemAD.update_mem: Bottom in memAD after an operation on non bottom env"
@@ -332,7 +320,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
       let addrList = get_addresses env addr in
       let regVar = reg_to_var reg in
       let envList = List.map (fun (x,e) -> { env with vals = 
-        F.update_val e regVar NoMask (Cons x) NoMask Amov }) addrList in
+        F.update_val e regVar NoMask (Cons x) NoMask Amov None }) addrList in
       list_join envList
     ) with Bottom -> failwith 
       "MemAD.load_address: bottom after an operation on non bottom environment"
@@ -361,7 +349,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   | Movzx(dst32,src8) -> update_mem env Amov (Op32 dst32) (Op8 src8) None
   | Lea(r,a) -> load_address env r a
   | Imul(dst,src,imm) -> 
-    update_mem env Aimul (Op32 (Reg dst)) (Op32 src) (Some (Op32 (Imm imm)))
+    update_mem env Aimul (Op32 (Reg dst)) (Op32 src) (Some imm)
   | Shift(sop,dst32,offst8) -> 
     update_mem env (Ashift sop) (Op32 dst32) (Op8 offst8) None
   | Cmp(dst, src) -> update_mem env (Aflag Acmp) (Op32 dst) (Op32 src) None

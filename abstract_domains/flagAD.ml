@@ -15,7 +15,7 @@ module type S =
   val get_var : t -> var -> (t NumMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
   val meet : t -> t -> t (*TODO: should be add_bottom *)
-  val update_val : t -> var -> mask -> cons_var -> mask -> abstr_op -> t
+  val update_val : t -> var -> mask -> cons_var -> mask -> abstr_op -> int64 option -> t
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   end
 
@@ -162,16 +162,16 @@ module Make (V: ValAD.S) = struct
   (* For operations that do not change flags (e.g. Mov) update_val treats states independently and joins after update.
      For operations that do change flags, update_val joins before the operations 
      Further precision could be gained by separately treating operations (Inc) that leave some flags untouched *)
-  let update_val env var mkvar cvar mkcvar op = 
+  let update_val env var mkvar cvar mkcvar op op3 = 
     match op with
     | Amov -> FlagMap.mapi (fun flgs vals -> 
-        let fopmap = V.update_val vals flgs var mkvar cvar mkcvar op in
+        let fopmap = V.update_val vals flgs var mkvar cvar mkcvar op op3 in
           assert (FlagMap.cardinal fopmap = 1); 
           FlagMap.find flgs fopmap 
           ) env
     | _ -> let res =
         FlagMap.fold (fun flgs vals newmap -> 
-            join newmap (V.update_val vals flgs var mkvar cvar mkcvar op)
+            join newmap (V.update_val vals flgs var mkvar cvar mkcvar op op3)
           ) env FlagMap.empty in
         if is_bottom res then raise Bottom;
         res

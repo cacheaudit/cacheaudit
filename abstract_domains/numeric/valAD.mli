@@ -64,7 +64,7 @@ module type S = sig
       [flags] gives the initial value of the flags. Returns
       one environment per value combination of CF and ZF. *)
   val update_val : t -> flags_t -> var -> mask -> cons_var -> mask -> 
-    AbstrInstr.abstr_op -> t FlagMap.t 
+    AbstrInstr.abstr_op -> int64 option -> t FlagMap.t 
   (* This interface should be changed to allow flags as argument and
       return a tree *)
 
