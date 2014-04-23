@@ -354,6 +354,8 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
     update_mem env (Ashift sop) (Op32 dst32) (Op8 offst8) None
   | Cmp(dst, src) -> update_mem env (Aflag Acmp) (Op32 dst) (Op32 src) None
   | Test(dst, src) -> update_mem env (Aflag Atest) (Op32 dst) (Op32 src) None
+  | Inc x -> interpret_instruction env (Arith (Add, x, Imm 1L)) (*TODO: check that the effect on flags is correct *)
+  | Dec x -> interpret_instruction env (Arith (Sub, x, Imm 1L))
   | i -> Format.printf "@[Unexpected instruction %a @, 
     in MemAD->interpret_instruction@]@." X86Print.pp_instr i;
     failwith ""

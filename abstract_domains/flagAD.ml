@@ -21,20 +21,7 @@ module type S =
 
 module Make (V: ValAD.S) = struct
   
-  (* Handles invariants corresponding to combinations of flags.
-     For now only supports CF, ZF *)
-  
   type t = V.t FlagMap.t
-  
-  (* for handling legacy functions *)
-  type old_t = {
-    tt : V.t add_bottom; (* CF true and ZF true *)
-    tf : V.t add_bottom; (* CF true and ZF false *)
-    ft : V.t add_bottom; (* CF false and ZF true *)
-    ff : V.t add_bottom; (* CF false and ZF false *)
-  }
-  
-  
   
   let is_bottom env = FlagMap.is_empty env
 
@@ -84,11 +71,6 @@ module Make (V: ValAD.S) = struct
   
   let init v2s = FlagMap.add initial_flags (V.init v2s) FlagMap.empty
 
-  let flmap_combine fm1 fm2 fn = FlagMap.merge (fun _ a b -> 
-    match a,b with None,None -> None
-    | Some x, None -> Some x | None, Some y -> Some y
-    | Some x, Some y -> Some (V.join x y)) fm1 fm2
-
 (* Component-wise join *)
   
   let join env1 env2 = fmap_combine env1 env2 V.join
@@ -111,7 +93,6 @@ module Make (V: ValAD.S) = struct
 
 (* Component-wise widening. *)
  let widen env1 env2 = fmap_combine env1 env2 V.widen
-
 
   let new_var st var = FlagMap.map (fun x -> V.new_var x var) st
 
@@ -138,7 +119,6 @@ module Make (V: ValAD.S) = struct
       ) st NumMap.empty in
     Nt res
   ) with Is_Top -> Tp
-    
     
 
  let subseteq st1 st2 = 
