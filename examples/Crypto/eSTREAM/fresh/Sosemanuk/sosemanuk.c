@@ -20,11 +20,35 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
+//#include <stdlib.h>
 #include <string.h>
 #ifdef SOSEMANUK_SPEED
 #include <time.h>
 #endif
+
+
+
+
+void* memcpy (void* dst, const void* src, unsigned int num)
+{
+ 
+  char* d= dst;  const char* s= src; int i;
+
+  for (i=0; i<num; i++){
+    d[i]=s[i];
+  }
+  return dst;
+
+}
+
+void* memset (void* s, int c, unsigned int n)
+{
+  unsigned char* p=s;
+  while (n--)
+    *p++ = (unsigned char)c;
+  return s;
+
+}
 
 #include "sosemanuk.h"
 
@@ -336,11 +360,7 @@ sosemanuk_schedule(sosemanuk_key_context *kc,
 	 * The key is copied into the wbuf[] buffer and padded to 256 bits
 	 * as described in the Serpent specification.
 	 */
-	if (key_len == 0 || key_len > 32) {
-		fprintf(stderr, "invalid key size: %lu\n",
-			(unsigned long)key_len);
-		exit(EXIT_FAILURE);
-	}
+
 	memcpy(wbuf, key, key_len);
 	if (key_len < 32) {
 		wbuf[key_len] = 0x01;
