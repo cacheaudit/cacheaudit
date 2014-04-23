@@ -169,8 +169,6 @@ module Make(A:ArchitectureAD.S) = struct
     Bot -> false
   | Nb y -> A.subseteq x y
 
-  let op32_one = ((X86Types.Imm Int64.one):op32)
-
   let read_and_interpret_instruction inv (addr, inst) = 
     let newInv = A.read_instruction inv addr in
     (* interpret_instruction interpret the effect of all non jump instructions over
@@ -194,8 +192,6 @@ module Make(A:ArchitectureAD.S) = struct
       | Leave -> 
           let inv = interpret_instruction inv (addr,Mov(Reg ESP, Reg EBP)) in
           interpret_instruction inv (addr,Pop(Reg EBP))
-      | Inc x -> interpret_instruction inv (addr,Arith(Add, x, op32_one)) (*TODO: check that the effect on flags is correct *)
-      | Dec x -> interpret_instruction inv (addr,Arith(Sub, x, op32_one))
       | Ret -> inv
       | i -> ftrace (A.interpret_instruction inv i)
       ) with e -> (Format.fprintf Format.err_formatter "@[<v 2>\nError while processing %a %a @, in environment %a@]@."
