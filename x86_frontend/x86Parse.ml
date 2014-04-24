@@ -137,7 +137,7 @@ let rec read_instr_body bits seg_override =
   | 0x69 -> 
     let src, bits, dst = read_rm32_with_spare bits seg_override in
     let imm, bits = read_int32 bits 32 in
-      Imul ((int_to_reg32 dst), src, imm), bits
+      Imul ((int_to_reg32 dst), src, Some imm), bits
   | 0x68 ->
       let imm, bits = read_uint32 bits 32 in
       Push (Imm imm), bits
@@ -261,6 +261,9 @@ let rec read_instr_body bits seg_override =
         let src,bits,_ = read_rm8_with_spare bits seg_override in
         Set (int_to_cc (opc - 0x90), src),bits
       else begin match opc with
+      | 0xAF -> 
+        let src, bits, dst = read_rm32_with_spare bits seg_override in
+        Imul ((int_to_reg32 dst), src, None), bits
       | 0xB6 ->
         let _,_ = read_uint bits 8 in (* throw away first byte *)
         let src,bits,spare = read_rm8_with_spare bits seg_override in

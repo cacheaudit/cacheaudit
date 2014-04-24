@@ -179,8 +179,11 @@ void ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
    /* Generate four subvectors */
    i0 = U8TO32_LITTLE(iv+0);
    i2 = U8TO32_LITTLE(iv+4);
-   i1 = (i0>>16) | (i2&0xFFFF0000);
-   i3 = (i2<<16) | (i0&0x0000FFFF);
+   u32 a;
+   AND(a,i2,0xFFFF0000);
+   i1 = (i0>>16) | a;
+   AND(a,i0,0x0000FFFF)
+   i3 = (i2<<16) | a;
 
    /* Modify counter values */
    ctx->work_ctx.c[0] = ctx->master_ctx.c[0] ^ i0;

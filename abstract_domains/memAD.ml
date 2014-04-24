@@ -349,7 +349,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   | Movzx(dst32,src8) -> update_mem env Amov (Op32 dst32) (Op8 src8) None
   | Lea(r,a) -> load_address env r a
   | Imul(dst,src,imm) -> 
-    update_mem env Aimul (Op32 (Reg dst)) (Op32 src) (Some imm)
+    update_mem env Aimul (Op32 (Reg dst)) (Op32 src) imm
   | Shift(sop,dst32,offst8) -> 
     update_mem env (Ashift sop) (Op32 dst32) (Op8 offst8) None
   | Cmp(dst, src) -> update_mem env (Aflag Acmp) (Op32 dst) (Op32 src) None
@@ -357,8 +357,8 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   | Inc x -> interpret_instruction env (Arith (Add, x, Imm 1L)) (*TODO: check that the effect on flags is correct *)
   | Dec x -> interpret_instruction env (Arith (Sub, x, Imm 1L))
   | i -> Format.printf "@[Unexpected instruction %a @, 
-    in MemAD->interpret_instruction@]@." X86Print.pp_instr i;
-    failwith ""
+    in MemAD.interpret_instruction@]@." X86Print.pp_instr i;
+    failwith "MemAD.interpret_instruction unexpected instruction"
   
   let get_vals env gop = match gop with
     | Imm x -> Finite [(Int64.to_int x, env)]

@@ -245,7 +245,7 @@ type instr =
   | Set of cc * op8
   | Jmp of op32
   | Lea of reg32 * address
-  | Imul of reg32 * op32 * int64
+  | Imul of reg32 * op32 * int64 option
   | Leave
   | Mov of op32 * op32
   | Movb of op8 * op8
