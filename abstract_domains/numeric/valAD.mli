@@ -69,7 +69,8 @@ module type S = sig
     AbstrInstr.abstr_op -> int64 option -> t FlagMap.t 
   (* This interface should be changed to allow flags as argument and
       return a tree *)
-
+  (** [updval_set env flags dst mask op] performs a Set-instruction *)
+  val updval_set : t -> flags_t -> var -> mask -> X86Types.cc -> t FlagMap.t
 end
 
 
