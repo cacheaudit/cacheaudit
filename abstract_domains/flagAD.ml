@@ -16,6 +16,7 @@ module type S =
   val set_var : t -> var -> int64 -> int64 -> t
   val meet : t -> t -> t (*TODO: should be add_bottom *)
   val update_val : t -> var -> mask -> cons_var -> mask -> abstr_op -> int64 option -> t
+  val updval_set : t -> var -> mask -> cc -> t
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   end
 
@@ -152,6 +153,12 @@ module Make (V: ValAD.S) = struct
     | _ -> let res =
         FlagMap.fold (fun flgs vals newmap -> 
             join newmap (V.update_val vals flgs var mkvar cvar mkcvar op arg3)
+          ) env FlagMap.empty in
+        if is_bottom res then raise Bottom;
+        res
+  let updval_set env var mask cc = let res =
+    FlagMap.fold (fun flgs vals newmap -> 
+            join newmap (V.updval_set vals flgs var mask cc)
           ) env FlagMap.empty in
         if is_bottom res then raise Bottom;
         res

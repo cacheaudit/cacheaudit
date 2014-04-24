@@ -281,8 +281,8 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   (* Updates the memory according to the actions perscribed by op; *)
   (* get the possible sources and destitnations and pass further changes *)
   (* to FlagAD and CacheAD *)
-  let update_mem env op dst src op3 = try (
-    if op <> Aimul then assert (op3 = None);
+  let update_mem env op dst src arg3 = try (
+    if op <> Aimul then assert (arg3 = None);
     let read_or_write = match op with Aflag _ -> Read | _ -> Write in
     let dlist = get_consvars env dst read_or_write in
     assert(dlist <> []);
@@ -290,28 +290,36 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
     assert(slist <> []);
     (* For every possible value of src and dst, do dst = dst op src, updating *)
     (* the values by passing the operation to update_val from FlagAD. *)
-    let perform_op op dst dlist src slist op3 =
+    let perform_op op dst dlist src slist arg3 =
       let do_op (s,smask,es) = List.map (fun (d,dmask,ed) -> 
         let access_env = (get_access_env dst src ed es) in
          { access_env with vals = 
-          F.update_val access_env.vals (consvar_to_var d) dmask s smask op op3}
+          F.update_val access_env.vals (consvar_to_var d) dmask s smask op arg3}
         ) dlist in
       list_join (List.concat (List.map do_op slist)) in
     let res = 
       match op with
       | Aarith _ | Ashift _ | Amov | Aflag _ -> 
-          perform_op op dst dlist src slist op3
+          perform_op op dst dlist src slist arg3
       | Aexchg -> 
-          let s_to_d_vals = perform_op Amov dst dlist src slist op3 in
-          let d_to_s_vals = perform_op Amov src slist dst dlist op3 in
+          let s_to_d_vals = perform_op Amov dst dlist src slist arg3 in
+          let d_to_s_vals = perform_op Amov src slist dst dlist arg3 in
           join s_to_d_vals d_to_s_vals
       | Aimul ->
-        if op3 = None then failwith "2-operand imul not implemented";
-        perform_op Aimul dst dlist src slist op3 in
+        perform_op Aimul dst dlist src slist arg3 
+      | _ -> assert false in
      {res with cache = C.elapse res.cache time_instr}
   ) with Bottom -> failwith 
     "MemAD.update_mem: Bottom in memAD after an operation on non bottom env"
   
+  let updmem_set env dst cc = 
+    let dlist = get_consvars env dst Write in
+    assert(dlist <> []);
+    let dlist = List.map (fun (d,dmask,ed) -> 
+         { ed with vals = 
+          F.updval_set ed.vals (consvar_to_var d) dmask cc}
+        ) dlist in
+    list_join (dlist)
   
   (* Performs the Load Effective Address instruction by loading each possible
     address in the variable correspoding to the register.
@@ -356,6 +364,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   | Test(dst, src) -> update_mem env (Aflag Atest) (Op32 dst) (Op32 src) None
   | Inc x -> interpret_instruction env (Arith (Add, x, Imm 1L)) (*TODO: check that the effect on flags is correct *)
   | Dec x -> interpret_instruction env (Arith (Sub, x, Imm 1L))
+  | Set (cc,dst) -> updmem_set env (Op8 dst) cc
   | i -> Format.printf "@[Unexpected instruction %a @, 
     in MemAD.interpret_instruction@]@." X86Print.pp_instr i;
     failwith "MemAD.interpret_instruction unexpected instruction"

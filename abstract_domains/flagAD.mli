@@ -44,7 +44,10 @@ sig
       specify whether 8 or 32 bit of the operand are involved. 
       [arg3] is an optional argument currently only used for 3-argument IMUL. *)
   val update_val : t -> var -> mask -> cons_var -> mask -> abstr_op -> int64 option -> t
-    
+  
+  (** [updval_set env flags dst mask op] performs a Set-instruction *)
+  val updval_set : t -> var -> mask -> cc -> t
+
   (** Returns a pair of environments overapproximating the
       true/false cases of condition *)
   val test : t -> condition -> (t add_bottom)*(t add_bottom)

@@ -30,6 +30,7 @@ module type S = sig
   val meet : t -> t -> t add_bottom 
   val update_val : t -> flags_t -> var -> mask -> cons_var -> mask -> 
     AbstrInstr.abstr_op -> int64 option -> t FlagMap.t 
+  val updval_set : t -> flags_t -> var -> mask -> X86Types.cc ->t FlagMap.t 
 end
 
 
@@ -647,4 +648,28 @@ module Make (O:VALADOPT) = struct
     | Aimul -> imul env flags dstvar dvals srcvar svals op arg3
     | _ -> assert false
   
+  let updval_set env flags dstvar mask cc = 
+    let dvals = VarMap.find dstvar env in
+    match dvals with
+    | FSet dset -> 
+      let msk = match mask with
+      | NoMask -> assert false
+      | Mask msk -> msk in
+      let (v_mask, v_shift) = mask_to_intoff msk in
+      let newval = bool_to_int64 flags.cf in
+      let newval = Int64.shift_left newval v_shift in
+      let val_set = set_map (fun x -> Int64.logor newval 
+        (Int64.logand (Int64.lognot v_mask) x)) dset in
+      begin match cc with
+        | (true,B) ->
+          let new_env = VarMap.add dstvar (FSet val_set) env in 
+          FlagMap.singleton flags new_env 
+        | _ -> failwith "ValAD: SET with an unsupported condition"
+      end
+    | _ ->
+      (* For the time being we return top, *)
+      (* until a more precise solution is implemented*)
+      let top_env = (VarMap.add dstvar top env) in
+      FlagMap.singleton flags top_env
+
 end
