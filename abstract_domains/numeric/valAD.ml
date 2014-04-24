@@ -489,27 +489,27 @@ module Make (O:VALADOPT) = struct
     interval_arith env aop oper dstvar dst_vals src_vals
   
   let imul env flgs_init dstvar dst_vals srcvar src_vals aop arg3 =
-    let imm = match arg3 with 
-    | None -> failwith "IMUL with < 3 operands not implemented"
-    | Some i -> i in
     match dst_vals, src_vals with
     | FSet dset, FSet sset ->
-      let immset = NumSet.singleton imm in 
       (* zero flag is always not set *)
       let test_zf = (fun _ -> false) in
       (* carry flag is set when result has to be truncated *)
       let test_cf _ _ res =
         res < Int64.of_int32 Int32.min_int || res > Int64.of_int32 Int32.max_int in
-      (* compute dst = src * imm *)
-      let srcmap,_,resmap = perform_op Int64.mul sset immset test_cf test_zf in
-      store_vals env dstvar resmap srcvar srcmap
+      
+      let srcmap,_,resmap = match arg3 with 
+        | None -> (* 2 operands: do dst = dst * src *)
+          perform_op Int64.mul dset sset test_cf test_zf
+        | Some imm -> (* 3 operands: do dst = src * imm*)
+          let immset = NumSet.singleton imm in
+          perform_op Int64.mul sset immset test_cf test_zf in
+        store_vals env dstvar resmap srcvar srcmap
     | _, _ -> 
-      (* For the time being, we return top; TODO: a more precise solution *)
+      (* For the time being we return top, *)
+      (* until a more precise solution is implemented*)
       let top_env = (VarMap.add dstvar top env) in
       let retmap = FlagMap.singleton {cf = false; zf = false} top_env in
       FlagMap.add {cf = true; zf = false} top_env retmap
-  
-  
   
   (* interval_flag_test takes two intervals and a flag combination and returns
    * the corresponding intervals *)
