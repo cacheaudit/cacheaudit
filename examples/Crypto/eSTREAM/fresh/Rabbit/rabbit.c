@@ -49,7 +49,8 @@ static u32 RABBIT_g_func(u32 x)
    u32 a, b, h, l;
 
    /* Construct high and low argument for squaring */
-   a = x&0xFFFF;
+//    a = x&0xFFFF;
+   AND(a,x,0xFFFF)
    b = x>>16;
 
    /* Calculate high and low result of squaring */
@@ -135,19 +136,7 @@ void ECRYPT_keysetup(ECRYPT_ctx* ctx, const u8* key, u32 keysize, u32 ivsize)
    ctx->master_ctx.c[2] = ROTL32(k3, 16);
    ctx->master_ctx.c[4] = ROTL32(k0, 16);
    ctx->master_ctx.c[6] = ROTL32(k1, 16);
-//    u32 t1;
-//    t1 = k0&0xFFFFF000;
-//    t1 = k0&0xFFF;
-//    static const unsigned int bla = 0xFFFF0000;
-//    asm(
-//        "and %2, %1;"
-//        "movl %1, %0;"
-// 	   : "=r" (t1)
-// 	   : "r" (k0),
-// 	     "i" (bla) 
-//    );
-   
-//    AND(t1,k0,0xFFFF0000);
+
    
    u32 a1,a2;
    AND(a1,k0,0xFFFF0000); AND(a2,k1,0xFFFF);
