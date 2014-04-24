@@ -495,9 +495,13 @@ module Make (O:VALADOPT) = struct
     match dst_vals, src_vals with
     | FSet dset, FSet sset ->
       let immset = NumSet.singleton imm in 
-      (* compute dst = src * imm *)
       (* zero flag is always not set *)
-      let srcmap,_,resmap = perform_op Int64.mul sset immset is_cf (fun _ -> false) in
+      let test_zf = (fun _ -> false) in
+      (* carry flag is set when result has to be truncated *)
+      let test_cf _ _ res =
+        res < Int64.of_int32 Int32.min_int || res > Int64.of_int32 Int32.max_int in
+      (* compute dst = src * imm *)
+      let srcmap,_,resmap = perform_op Int64.mul sset immset test_cf test_zf in
       store_vals env dstvar resmap srcvar srcmap
     | _, _ -> 
       (* For the time being, we return top; TODO: a more precise solution *)
