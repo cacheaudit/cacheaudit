@@ -499,7 +499,11 @@ module Make (O:VALADOPT) = struct
       (* zero flag is always not set *)
       let srcmap,_,resmap = perform_op Int64.mul sset immset is_cf (fun _ -> false) in
       store_vals env dstvar resmap srcvar srcmap
-    | _, _ -> failwith "IMUL not implemented with intervals"
+    | _, _ -> 
+      (* For the time being, we return top; TODO: a more precise solution *)
+      let top_env = (VarMap.add dstvar top env) in
+      let retmap = FlagMap.singleton {cf = false; zf = false} top_env in
+      FlagMap.add {cf = true; zf = false} top_env retmap
   
   
   
