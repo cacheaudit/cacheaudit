@@ -154,8 +154,8 @@ let pp_instr fmt = function
   | Inc gop -> fprintf fmt "@[@ INC@ %a@]" pp_op32 gop
   | Dec gop -> fprintf fmt "@[@ DEC@ %a@]" pp_op32 gop
   | Jcc (cc, imm) -> fprintf fmt "@[@ J%a@ %a@]" pp_cc cc pp_addr imm
+  | Set (cc, src) -> fprintf fmt "@[@ SET%a@ %a@]" pp_cc cc pp_op8 src
   | Jmp dst -> fprintf fmt "@[@ JMP@ %a@]" pp_genop_addr32 dst
-  (* | Div src -> fprintf fmt "@[@ DIV@ %a@]" pp_genop_addr32 src *)
   | Imul (dst, src, imm) -> fprintf fmt "@[@ IMUL@ %a,@ %a,@ %a@]" pp_reg32 dst pp_op32 src pp_addr imm
   | Lea (dst, src) -> fprintf fmt "@[@ LEA@ %a,@ %a@]" pp_reg32 dst pp_address src
   | Leave -> fprintf fmt "@[ LEAVE@]"

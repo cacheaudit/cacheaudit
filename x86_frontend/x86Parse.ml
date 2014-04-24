@@ -256,11 +256,15 @@ let rec read_instr_body bits seg_override =
         let loc = get_byte bits + 4 in
         let imm, bits = read_int32 bits 32 in
         Jcc (int_to_cc (opc - 0x80), Int64.add (Int64.of_int (!file_base_offset + loc)) imm), bits
+      else if opc >= 0x90 && opc < 0x90 + nCcs then
+        let _,_ = read_uint bits 8 in (* throw away first byte *)
+        let src,bits,_ = read_rm8_with_spare bits seg_override in
+        Set (int_to_cc (opc - 0x90), src),bits
       else begin match opc with
       | 0xB6 ->
         let _,_ = read_uint bits 8 in (* throw away first byte *)
-        let o_to,bits,spare = read_rm8_with_spare bits seg_override in
-          Movzx (Reg (int_to_reg32 spare),o_to),bits
+        let src,bits,spare = read_rm8_with_spare bits seg_override in
+          Movzx (Reg (int_to_reg32 spare),src),bits
       | _ -> raise (Parse (Printf.sprintf "Unknown 0x0F instruction 0x%x at position 0x%x" opc position))
       end
   | _ -> raise (Parse (Printf.sprintf "Unknown instruction 0x%x at position 0x%x" byte position))

@@ -242,6 +242,7 @@ type instr =
   | Inc of op32
   | Dec of op32
   | Jcc of cc * int64
+  | Set of cc * op8
   | Jmp of op32
   | Lea of reg32 * address
   | Imul of reg32 * op32 * int64
