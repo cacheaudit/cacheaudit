@@ -43,8 +43,9 @@ void* memcpy (void* dst, const void* src, unsigned int num)
 
 void* memset (void* s, int c, unsigned int n)
 {
-  unsigned char* p=s;
-  while (n--)
+  unsigned char* p=s; 
+  int i;
+  for (i=0; i<n; i++)
     *p++ = (unsigned char)c;
   return s;
 
