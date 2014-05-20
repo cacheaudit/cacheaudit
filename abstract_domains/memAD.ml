@@ -262,7 +262,8 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
         assert(addrList<>[]);
         List.map access_addr addrList
       ) with Is_Top -> 
-        failwith "Top in a set of values referencing addresses, cannot continue"
+        failwith ("Top in a set of values referencing addresses, cannot continue\n"^
+		"Possible solution: increase the unroll size, e.g. --unroll 1024")
 
   (* return the enviroment that corresponds to a memory access *)
   let get_access_env d s ed es = 
