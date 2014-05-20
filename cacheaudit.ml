@@ -171,17 +171,20 @@ let _ =
       try
         let sa,sv,cp = Config.config (!bin_name^".conf") in
         Printf.printf "Configuration file %s.conf parsed\n" !bin_name;
-        (match sa with
-        | None -> Printf.printf "Start address not specified\n"
-        | Some x -> Printf.printf "Start address is 0x%x\n" x; start_addr := x);
-          instruction_base_addr := cp.inst_base_addr;
-          data_cache_s := if !data_cache_s <= 0 then cp.cache_s else !data_cache_s;
-          data_line_s := if !data_line_s <= 0 then cp.line_s else !data_line_s;
-          data_assoc := if !data_assoc <= 0 then cp.assoc else !data_assoc;
-          inst_cache_s := if !inst_cache_s <= 0 then cp.inst_cache_s else !inst_cache_s;
-          inst_line_s := if !inst_line_s <= 0 then cp.inst_line_s else !inst_line_s;
-          inst_assoc := if !inst_assoc <= 0 then cp.inst_assoc else !inst_assoc;
-          sv
+        
+        start_addr := if !start_addr <> -1 then !start_addr
+          else begin match sa with
+          | None -> failwith ("No starting address given")
+          | Some s -> s 
+          end;
+        instruction_base_addr := cp.inst_base_addr;
+        data_cache_s := if !data_cache_s <= 0 then cp.cache_s else !data_cache_s;
+        data_line_s := if !data_line_s <= 0 then cp.line_s else !data_line_s;
+        data_assoc := if !data_assoc <= 0 then cp.assoc else !data_assoc;
+        inst_cache_s := if !inst_cache_s <= 0 then cp.inst_cache_s else !inst_cache_s;
+        inst_line_s := if !inst_line_s <= 0 then cp.inst_line_s else !inst_line_s;
+        inst_assoc := if !inst_assoc <= 0 then cp.inst_assoc else !inst_assoc;
+        sv
       with Sys_error _ ->
         Printf.printf "Configuration file %s.conf not found\nUsing default values\n" !bin_name;
         ([],List.map (fun (a,b) -> a,b,b) [(X86Types.EAX, 1L); (X86Types.ECX, 0xbffff224L); (X86Types.EDX, 0xbffff1b4L); (X86Types.EBX, 0x2d3ff4L); 
@@ -191,8 +194,9 @@ let _ =
   let bits, mem =
     try (
       let mem = read_exec !bin_name in
+      assert (!start_addr != -1);
+      Printf.printf "Start address (e.g. of main) is 0x%x\n" !start_addr;
       (* Setting default values *)
-      if !start_addr =(-1) then failwith ("No starting address given"); (*start_addr:=starting_offset mem;*)
       if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := 139844135157760L;
       if !data_cache_s = 0 then data_cache_s := 16384;
       if !data_line_s = 0 then data_line_s := 64;
