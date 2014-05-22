@@ -91,14 +91,13 @@ possible, so it approximates Bottom *)
   let is_var env a = V.is_var env.value a
 
   let set_var env v a = 
-      if a > env.max_age then
-        failwith "ageAD: set_var cannot set to values greater than the maximal value"
-      else
-        let value = if not (is_var env v) then 
-                    V.new_var env.value v
-                  else env.value
-        in let value = flatten(V.update_val value initial_flags v NoMask (Cons(Int64.of_int a)) NoMask Amov None) in
-        {env with value = value}
+      (* set_var cannot set to values greater than the maximal value *)
+      assert (a <= env.max_age);
+      let value = if not (is_var env v) then 
+                  V.new_var env.value v
+                else env.value
+      in let value = flatten(V.update_val value initial_flags v NoMask (Cons(Int64.of_int a)) NoMask Amov None) in
+      {env with value = value}
   
   
   let list_max l = List.fold_left (fun m x -> if x > m then x else m ) 0L l
