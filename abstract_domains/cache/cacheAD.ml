@@ -311,11 +311,11 @@ module Make (A: AgeAD.S) = struct
               lift_combine A.join ages 
                 (one_plru_touch env.ages env.associativity cset addr addr_age)
             ) Bot addr_ages in
-          (match ages with 
+          (match ages with
             Bot -> failwith "Unexpected bottom in touch when the strategy is PLRU"
-          | Nb ages -> {env with ages = A.set_var ages addr 0}
+          | Nb ages -> assert (A.get_values env.ages addr = [0]);
+            {env with ages = ages}
           )
-      (* in {new_cache with traces = traces} *)
       in new_cache
     end else add_new_address env addr set_addr cset 
 
