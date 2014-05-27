@@ -1428,4 +1428,19 @@ int aes_self_test( int verbose )
 
 #endif /* POLARSSL_SELF_TEST */
 
+void aes_preloading(){
+
+  unsigned int i;
+  unsigned long tmp;
+  for (i = 0; i<256; i++){    
+    tmp = FSb[i];
+    tmp = FT0[i];
+    tmp = FT1[i];
+    tmp = FT2[i];
+    tmp = FT3[i];
+  }
+
+
+
+}
 
