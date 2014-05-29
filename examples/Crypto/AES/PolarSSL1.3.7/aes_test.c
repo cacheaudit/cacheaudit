@@ -21,8 +21,8 @@ int main(){
   const unsigned char input [16];
   unsigned char output[16];
 
-  // Homegrown preloading
-  aes_preloading(); 
+//   // Homegrown preloading
+//   aes_preloading(); 
   
 
   /* Currently we're using the POLAR_AES_ROM_TABLES option, which means that we're using precomputed tables. Uncommenting this option could help to avoid preloading, but the code does not go through due some "imul" operation that we don't cover.
