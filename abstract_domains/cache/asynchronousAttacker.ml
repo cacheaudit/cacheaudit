@@ -1,7 +1,7 @@
 open Big_int
 open AD.DS
   
-
+let commands = ref 0
 let time_hit = 1
 let time_miss = 10
 
@@ -139,7 +139,7 @@ struct
 
   let touch_hm x addr = failwith "touch_hm not implemented in OneInstructionInterrupt"
 
-  let elapse x _ = {x with leakage = max_big_int x.leakage (C.count_cache_states x.cache)}
+  let elapse x _ = commands := !commands+1; {x with leakage = max_big_int x.leakage (C.count_cache_states x.cache)}
 
   let count_cache_states x = failwith "count_cache_states not implemented in OneInstructionInterrupt"
 
@@ -148,7 +148,7 @@ struct
                    
   (* for the widening, we just widen the caches and take the max of leakages, which must be the second argument *)
   (* This terminates because there is a bound on the number of cache states, but we could use thresholds... *) 
-  let widen x1 x2 = { x2 with cache = C.widen x1.cache x2.cache }
+  let widen x1 x2 = Pervasives.print_string "Number of commands at widening point \n "; Pervasives.print_int !commands; { x2 with cache = C.widen x1.cache x2.cache }
 
   let subseteq x1 x2 = le_big_int x1.leakage x2.leakage && (C.subseteq x1.cache x2.cache)
 
