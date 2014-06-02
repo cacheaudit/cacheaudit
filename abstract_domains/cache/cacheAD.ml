@@ -313,8 +313,7 @@ module Make (A: AgeAD.S) = struct
             ) Bot addr_ages in
           (match ages with
             Bot -> failwith "Unexpected bottom in touch when the strategy is PLRU"
-          | Nb ages -> assert (A.get_values env.ages addr = [0]);
-            {env with ages = ages}
+          | Nb ages -> {env with ages=A.set_var ages addr 0}
           )
       in new_cache
     end else add_new_address env addr set_addr cset 
