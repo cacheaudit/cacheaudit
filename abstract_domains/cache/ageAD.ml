@@ -181,15 +181,23 @@ possible, so it approximates Bottom *)
       if x < a then s else loop (x-1) (x::s)
     in loop (b-1) []
   
+  module NumSetSet = Set.Make(NumSet)
+  let numset_from_list l =
+    List.fold_left (fun set elt -> 
+      match elt with None -> set
+      | Some i -> NumSet.add i set) NumSet.empty l
+  
   (* Count the number of n-permutations of the address set addr_set*)
   (* which are also a valid cache state *)
+  (* Additionally, return the set of n-subsets (the valid permutations without order) *)
   let num_tuples env n addr_set = 
     if NumSet.cardinal addr_set >= n then begin
       (* the loop creates all n-permutations and tests each for validity *)
-      let rec loop n elements tuple num = 
+      let rec loop n elements tuple num sets = 
         if n = 0 then 
           if env.strategy <> PLRU then
-            if is_valid_cstate env addr_set tuple then Int64.add num 1L else num
+            if is_valid_cstate env addr_set tuple then 
+              Int64.add num 1L,NumSetSet.add (numset_from_list tuple) sets else num,sets
           else
             (* In PLRU "holes" are possible, i.e., there may be a with age i, *)
             (* and there is no b with age i-1. *)
@@ -200,11 +208,11 @@ possible, so it approximates Bottom *)
             (* and test the new tuples (cstate-s) for validity. *)
             (* There are (max_age choose |tuple|) possible ways to put the holes *)
             (* which for associativity 4 is at most 6, for 8 at most 70 *)
-            let rec loop_holes cstate rem_elts num = 
+            let rec loop_holes cstate rem_elts num sets = 
               if (List.length rem_elts) = 0 then 
                 (* no rem_elts -> this is a possible cache state;*)
                 (* check it for validity *)
-                if is_valid_cstate env addr_set cstate then Int64.add num 1L else num
+                if is_valid_cstate env addr_set cstate then Int64.add num 1L, NumSetSet.add (numset_from_list tuple) sets else num, sets
               else
                 let elt = List.hd rem_elts in
                 let rem_elts = List.tl rem_elts in
@@ -212,20 +220,20 @@ possible, so it approximates Bottom *)
                 let poss_num_holes = create_range 0 (env.max_age - 
                   (List.length cstate) - (List.length rem_elts)) in
                 
-                List.fold_left (fun num nholes -> 
+                List.fold_left (fun (num,sets) nholes -> 
                   (* add the nholes holes and elt to the state *)
                   (* and continue scanning the remaining elements *)
-                  loop_holes (cstate @ (create_ulist nholes None) @ [elt]) rem_elts num
-                  ) num poss_num_holes
-            in loop_holes [] tuple num
+                  loop_holes (cstate @ (create_ulist nholes None) @ [elt]) rem_elts num sets
+                  ) (num,sets) poss_num_holes
+            in loop_holes [] tuple num sets
         else
           (* add next element to tuple and continue looping *)
           (* (will go on until n elements have been picked) *)
-          NumSet.fold (fun addr s -> 
-            loop (n-1) (NumSet.remove addr elements) ((Some addr)::tuple) s
-            ) elements num in 
-      loop n addr_set [] 0L
-    end else 0L
+          NumSet.fold (fun addr (s1,s2) -> 
+            loop (n-1) (NumSet.remove addr elements) ((Some addr)::tuple) s1 s2
+            ) elements (num, sets) in 
+      loop n addr_set [] 0L NumSetSet.empty
+    end else 0L,NumSetSet.empty
     
   (* Computes two lists where each item i is the number of possible *)
   (* cache states of cache set i for a shared-memory *)
@@ -237,9 +245,9 @@ possible, so it approximates Bottom *)
           let rec loop i (num,num_blurred) =
             if i > env.max_age then (num,num_blurred)
             else
-              let this_num = 
+              let this_num, sets = 
                 num_tuples env i addr_set in 
-              let this_bl = if this_num > 0L then 1L else 0L in
+              let this_bl = Int64.of_int (NumSetSet.cardinal sets) in
               loop (i+1) (Int64.add num this_num, Int64.add num_blurred this_bl) in 
           loop 0 (0L,0L) in 
         (num_tpls::nums,num_bl::bl_nums)
