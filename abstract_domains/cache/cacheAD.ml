@@ -87,17 +87,21 @@ module Make (A: AgeAD.S) = struct
     end
   
   let print fmt env =
-    if get_log_level CacheLL <> Quiet then begin 
-      Format.fprintf fmt "@[<v 2>";
+      Format.fprintf fmt "Final cache state:\n";
+      Format.fprintf fmt "@[Set: addr1 in {age1,age2,...}; ...@.";
       IntMap.iter (fun i all_elts ->
           if not (NumSet.is_empty all_elts) then begin
-            Format.fprintf fmt "@;@[ Set %4d: " i;
-            NumSet.iter (fun elt -> Format.fprintf fmt "%Lx @," elt) all_elts;
+            Format.fprintf fmt "@;%3d: " i;
+            NumSet.iter (fun elt -> 
+              Format.fprintf fmt "%Lx" elt;
+              Format.fprintf fmt " in {%s}; @,"
+                (String.concat "," (List.map
+                  string_of_int (A.get_values env.ages elt)))
+              ) all_elts;
             Format.fprintf fmt "@]"
           end
         ) env.cache_sets;
-    end else ();
-    Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" A.print env.ages;
+    (* Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" A.print env.ages; *)
     if get_strategy env = AgeAD.PLRU then 
       Format.fprintf fmt "\nWarning: Counting on PLRU is incorrect\n";
     Format.printf "\n";

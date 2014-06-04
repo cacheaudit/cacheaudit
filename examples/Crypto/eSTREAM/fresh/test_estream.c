@@ -10,9 +10,9 @@ int main()
 	const u32 ivsize = ECRYPT_IVSIZE(0);
 	const u8 iv[ECRYPT_IVSIZE(0)];
 	
-//#define MSGLEN 128
+#define MSGLEN 128
 //#define MSGLEN 256
-#define MSGLEN 512
+// #define MSGLEN 512
 //#define MSGLEN 1024 
 	u32 msglen = MSGLEN;
 	const u8 plaintext[MSGLEN];
