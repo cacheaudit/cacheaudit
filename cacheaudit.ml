@@ -194,7 +194,7 @@ let _ =
   let bits, mem =
     try (
       let mem = read_exec !bin_name in
-      assert (!start_addr != -1);
+      if !start_addr = -1 then failwith ("No starting address given");
       Printf.printf "Start address (e.g. of main) is 0x%x\n" !start_addr;
       (* Setting default values *)
       if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := 139844135157760L;
