@@ -88,13 +88,13 @@ module Make (A: AgeAD.S) = struct
   
   let print fmt env =
       Format.fprintf fmt "Final cache state:\n";
-      Format.fprintf fmt "@[Set: addr1 in {age1,age2,...}; ...@.";
+      Format.fprintf fmt "@[Set: addr1 in {age1,age2,...} addr2 in ...@.";
       IntMap.iter (fun i all_elts ->
           if not (NumSet.is_empty all_elts) then begin
             Format.fprintf fmt "@;%3d: " i;
             NumSet.iter (fun elt -> 
               Format.fprintf fmt "%Lx" elt;
-              Format.fprintf fmt " in {%s}; @,"
+              Format.fprintf fmt " in {%s} @,"
                 (String.concat "," (List.map
                   string_of_int (A.get_values env.ages elt)))
               ) all_elts;

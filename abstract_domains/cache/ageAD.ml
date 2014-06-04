@@ -148,7 +148,7 @@ possible, so it approximates Bottom *)
 
   let get_values env v = let l = match V.get_var env.value v with
      Tp -> []  | Nt x -> NumMap.bindings x in
-     List.map (fun (k,v) -> Int64.to_int k) l
+     List.map (fun (k,_) -> Int64.to_int k) l
   
   let delete_var env v = {env with value = V.delete_var env.value v}
     
