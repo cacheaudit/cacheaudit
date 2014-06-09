@@ -192,7 +192,7 @@ module Make (O:VALADOPT) = struct
     let f k a b = match a,b with
         | Some c, Some d -> Some(var_join c d)
         (* f should never enter this case *)
-        | _, None | None, _ -> failwith "Disjoint variables in valAD.join"
+        | _ -> Printf.printf "Missing: %Lx\n" k; assert false (* Disjoint variables *)
     in
     VarMap.merge f x y
   
