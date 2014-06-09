@@ -53,8 +53,8 @@ module type S = sig
   val comp : t -> var -> var -> (t add_bottom)*(t add_bottom)
   (** [comp env x1 x2] filters the domain according to a comparison between 
      variables [x1] and [x2].
-     The first result overapproximates the cases when [x1] < [x2] and
-     the second one when [x1] > [x2]. *)
+     The first result overapproximates the cases where [x1] < [x2] and
+     the second one where [x1] > [x2]. *)
   val comp_with_val : t -> var -> int -> (t add_bottom)*(t add_bottom)
   (** [comp env x a] filters the domain according to whether variable [x] 
      takes values smaller than [a] or not.

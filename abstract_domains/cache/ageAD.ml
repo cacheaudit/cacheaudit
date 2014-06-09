@@ -76,8 +76,9 @@ possible, so it approximates Bottom *)
   let vguard venv x c = vcomp venv x (Cons(Int64.of_int c))
 
   let inc_var env v = 
-    let young,nyoung,_ = vguard env.value v env.max_age in
+    let young,nyoung,bigger = vguard env.value v env.max_age in
 (* we assume the cases bigger than max_age are irrelevent and we never increase values above max_age *)
+    assert (bigger = Bot);
     let new_valad = 
       match young with
       | Bot -> env.value
@@ -124,7 +125,7 @@ possible, so it approximates Bottom *)
   let permute env perm x = 
     let perm64 a = Int64.of_int (perm (Int64.to_int a)) in
     match V.get_var env.value x with
-      Tp -> env
+    | Tp -> env
     | Nt vm -> 
       let v1,_ = NumMap.min_binding vm in
       let value1 = let nv1 = perm64 v1 in V.set_var env.value x nv1 nv1 in 

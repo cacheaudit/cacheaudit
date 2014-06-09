@@ -28,10 +28,11 @@ end
 
 
 
-
 open Big_int 
 
-let precise_touch = ref true
+(* let precise_touch = ref true *)
+
+let opt_touch_precision = ref true
 
 type adversay = Blurred | SharedSpace
 
@@ -42,11 +43,24 @@ let adversary = ref Blurred
 (* leaf to root (0 is the most recent, corresponding to all 0 bits is the path *)
 
 let plru_permut assoc a n = if n=assoc then n else
-  let rec f a n =  if a=0 then n 
-    else if a land 1 = 1 then if n land 1 = 1 then 2*(f (a/2) (n/2)) else n+1
-    else (* a even*) if n land 1 = 1 then n else 2*(f (a/2) (n/2))
+  let rec f a n =  
+    if a=0 then n 
+    else 
+      if a land 1 = 1 then 
+	if n land 1 = 1 then 2*(f (a/2) (n/2)) 
+	else n+1
+      else (* a even*) 
+	if n land 1 = 1 then n 
+	else 2*(f (a/2) (n/2))
   in f a n
 
+
+let lru_permut assoc a n = 
+  if n = a then 0
+  else if n < a then n+1
+  else n
+
+let fifo_permut assoc a n = n
 
 module Make (A: AgeAD.S) = struct
   type t = {
@@ -59,14 +73,13 @@ module Make (A: AgeAD.S) = struct
 
     cache_size: int;
     line_size: int; (* same as "data block size" *)
-    associativity: int;
+    assoc: int;
     num_sets : int; (* computed from the previous three *)
   }
   
   let get_strategy env = A.get_strategy env.ages
 
   let print_addr_set fmt = NumSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
-
 
   let count_cache_states env = 
     let num_cstates,bl_num_cstates = A.count_cstates env.ages in
@@ -132,7 +145,7 @@ module Make (A: AgeAD.S) = struct
       handled_addrs = NumSet.empty;
       cache_size = cs;
       line_size = ls;
-      associativity = ass;
+      assoc = ass;
       num_sets = ns;
     }
 
@@ -145,22 +158,21 @@ module Make (A: AgeAD.S) = struct
   (*                   (*TODO simplify this in Simple Values *)       *)
 
   (* Removes a cache line when we know it cannot be in the cache *)
-  let remove_line env addr =
+
+  let remove_block env addr =
     let addr_set = get_set_addr env addr in
     let cset = IntMap.find addr_set env.cache_sets in
     let cset = NumSet.remove addr cset in
+    let handled_addrs = NumSet.remove addr env.handled_addrs in
     { env with
       ages = A.delete_var env.ages addr;
-      handled_addrs = NumSet.remove addr env.handled_addrs;
+      handled_addrs = handled_addrs;
       cache_sets = IntMap.add addr_set cset env.cache_sets;
-    } 
-
-
-  let get_set_diffs aset1 aset2 =
-     NumSet.diff aset1 aset2, NumSet.diff aset2 aset1
+    }
+  
 
   let join c1 c2 =
-    assert ((c1.associativity = c2.associativity) && 
+    assert ((c1.assoc = c2.assoc) && 
       (c1.num_sets = c2.num_sets));
     let handled_addrs = NumSet.union c1.handled_addrs c2.handled_addrs in
     let cache_sets = IntMap.merge 
@@ -172,9 +184,9 @@ module Make (A: AgeAD.S) = struct
         | None, Some cset2 -> Some cset2
         | None, None -> None 
       ) c1.cache_sets c2.cache_sets in
-    let assoc = c1.associativity in
-    let haddr_1minus2,haddr_2minus1 =
-      get_set_diffs c1.handled_addrs c2.handled_addrs in
+    let assoc = c1.assoc in
+    let haddr_1minus2 = NumSet.diff c1.handled_addrs c2.handled_addrs in
+    let haddr_2minus1 = NumSet.diff c2.handled_addrs c1.handled_addrs  in
     (* add missing variables to ages *)
     let ages1 = NumSet.fold (fun addr c_ages ->
       A.set_var c_ages addr assoc) haddr_2minus1 c1.ages in
@@ -183,169 +195,138 @@ module Make (A: AgeAD.S) = struct
     let ages = A.join ages1 ages2 in
     { c1 with ages = ages; handled_addrs = handled_addrs;
     cache_sets = cache_sets}
-
-(* when addr is touched (and already in the cache set)
- update of the age of addr_in *)
-(* In case where addr_in can be either older or younger than the intial age *)
-(* of addr, splits the cases and returns two cache configurations *)
-(* to allow some precision gain *)
-
-  (* Increment the age of addr_in if it is younger than addr *)
-  let age_one_element env addr addr_in =
-    (* This case requires setting age of addr to 0 and is treated later in touch *)
-    if addr = addr_in then env,None 
-    else
-      (* Deals with the case in which ages of addr and addr_in are
-       equal to associativity, i.e. addr and addr_in are both not
-       cached *)
-      let add_out in_ages =
-        match A.exact_val env.ages addr env.associativity with
-        | Bot -> in_ages
-        | Nb addr_nc -> 
-          match A.exact_val addr_nc addr_in env.associativity  with
-          | Bot -> in_ages
-          | Nb both_nc -> A.join in_ages both_nc in
-      (* Deals with the cases in which age of addr \neq age of addr_in *)
-      let young,nyoung = A.comp env.ages addr_in addr in
-      match young,nyoung with
-      | Bot, Nb nyenv -> { env with ages = add_out nyenv }, None
-      (* Age of blocks older than addr remains the same *)  
-      | Nb yenv, Bot ->  { env with ages = add_out (A.inc_var yenv addr_in) }, None
-      (* Age of blocks younger than addr is increased by one *)
-      | Nb yenv, Nb nyenv ->  { env with ages = add_out (A.inc_var yenv addr_in) }, Some {env with ages = nyenv }
-      (* Combination of both cases, returned separately for increased precision. *)
-      | Bot, Bot -> remove_line env addr_in, None
-  (* The last case is only possible only if addr and addr_in
-     both have only maximal age, i.e. if they are not loaded.
-     TODO: sanity check here ? *)
-
-
-  (* Increments the ages of all blocks that are in the same cache set as
-     addr, which are given as a list of addresses *)
-  let rec precise_age_elements env addr addrs = match addrs with
-    | [] -> env
-    | addr_in :: clist -> begin
-      match age_one_element env addr addr_in with
-      | new_env, None -> precise_age_elements new_env addr clist
-      | env1, Some env2 ->
-        let c1 = precise_age_elements env1 addr clist in
-        let c2 = precise_age_elements env2 addr clist in
-        (* TODO: see if it is too costly to remove some blocks here, as there *)
-        (*  could be some of them which need to be put back in the join *)
-        join c1 c2 
-    end
-
-  (*Increments all ages in the cache set [cset] by one *)           
-  let incr_ages ages cset = match ages with 
-    | Bot -> Bot
-    | Nb ages -> Nb(NumSet.fold (fun addr_in a -> A.inc_var a addr_in) cset ages)
-            
-            
-  let get_ages env addr = A.get_values env.ages (get_block_addr env addr)
-
-(* returns the set of ages for addr_in that are different from the ages of addr *)
-  let ages_different ages addr addr_in =
-      let young,nyoung = A.comp ages addr_in addr in
-      lift_combine A.join young nyoung
-(* The effect of one touch of addr, restricting to the case when addr is of age c *)
-  let one_plru_touch ages assoc cset addr c = 
-    let ages_at_c = A.exact_val ages addr c in
-    if c=assoc then incr_ages ages_at_c cset
-    else match ages_at_c with Bot -> Bot
-    | Nb ag -> (try 
-        Nb(NumSet.fold (fun addr_in a -> if addr_in=addr then a
-                else match ages_different a addr addr_in with
-                  Bot -> raise Bottom
-                | Nb a -> A.permute a (plru_permut assoc c) addr_in) cset ag )
-      with Bottom -> Bot)
-
-   (* adds a new address handled by the cache if it's not already handled *)
-   (* We increment the age of all other adresses in the same set *)
-   (* That works for LRU, FIFO and PLRU *)
-   let add_new_address env addr set_addr cset =
-      let ages = A.set_var env.ages addr 0 in
-      let h_addrs = NumSet.add addr env.handled_addrs in
-      (* increment the ages of elements in cache set *)
-      (* also ages >= associativity are incremented; we may not want this *)
-      let ages = NumSet.fold (fun addr oages -> A.inc_var oages addr) cset ages in
-      let cache_sets = IntMap.add set_addr (NumSet.add addr cset) env.cache_sets in
-      {env with ages = ages; handled_addrs = h_addrs; cache_sets = cache_sets}
   
-  (* retuns true if addr was handled *)
-  let is_handled env addr = 
-    let set_addr = get_set_addr env addr in
-    NumSet.mem addr (IntMap.find set_addr env.cache_sets)
+  let remove_not_cached env block =
+    if (A.get_values env.ages block) = [env.assoc] then
+      remove_block env block
+    else env
+  
+  let get_permutation strategy = match strategy with
+      | AgeAD.LRU -> lru_permut
+      | AgeAD.FIFO -> fifo_permut
+      | AgeAD.PLRU -> plru_permut 
+
+  let get_cset env block = 
+    let set_addr = get_set_addr env block in
+    IntMap.find set_addr env.cache_sets
+
+  (* Remove the "add_bottom" *)
+  let strip_bot = function
+    | Bot -> raise Bottom
+    | Nb x -> x
+
+  (* The effect of one touch of addr, restricting to the case when addr
+     is of age c. c=assoc corresponds to a miss, in which case the age
+     of all blocks is incremented -- except for the touched block,
+     whose age is set to 0. c < assoc corresponds to a hit, in which
+     case a permutation is applied to the ages of all blocks *)
+  let one_touch env block block_age = 
+    let strategy = get_strategy env in
+    let cset = get_cset env block in
+    if block_age = env.assoc then
+    (* cache miss => set age to 0 and increment ages of other blocks *)
+      let env = {env with ages = A.set_var env.ages block 0} in
+      NumSet.fold (fun blck nenv -> 
+        if blck = block then nenv else
+          let nags = 
+            let ags = nenv.ages in
+            let nin_cache = List.mem env.assoc (A.get_values ags blck) in
+            let ags = A.inc_var ags blck in
+            if !opt_touch_precision && 
+              ((strategy = AgeAD.LRU) || (strategy = AgeAD.FIFO)) then
+              (* Optimization: disallow ages >= cardinality of cache set *)
+              let ages_in_cache,_ = A.comp_with_val ags blck (NumSet.cardinal cset) in
+              (* age "associativity" is still possible *)
+              if nin_cache then 
+                let _,ages_nin_cache = A.comp_with_val ags blck env.assoc in
+                strip_bot (lift_combine A.join ages_in_cache ages_nin_cache)
+              else 
+                strip_bot ages_in_cache
+            else ags
+          in remove_not_cached {nenv with ages = nags} blck
+        ) cset env 
+    else
+    (* cache hit => apply permutation *)
+      (* optimize for FIFO *)
+      if strategy = AgeAD.FIFO then env 
+      else
+        (* Permute ages of all blocks != block *)
+        let perm = get_permutation strategy in
+        let nages = NumSet.fold
+            (fun b new_ages ->
+                if b = block then new_ages
+                else
+                  let permute_ages ages = match ages with
+                    | Bot -> Bot
+                    | Nb ags -> Nb (A.permute ags (perm env.assoc block_age) b) in 
+                  let ages_young,ages_old = A.comp new_ages b block in
+                  let ages_young = permute_ages ages_young in
+                  let ages_old =
+                    (* optimize for LRU *)
+                    if strategy = AgeAD.LRU then ages_old
+                    else permute_ages ages_old in
+                  (* One of the ages can be bottom, however not both *)
+                  strip_bot (lift_combine A.join ages_young ages_old)
+            ) cset env.ages in
+        (* Permute ages of block *)
+        {env with ages = (A.permute nages (perm env.assoc block_age) block)}
+
+  
+  (* adds a new address handled by the cache if it's not already handled *)
+  (* That works for LRU, FIFO and PLRU *)
+  let add_new_address env block =
+     (* the block has the default age of associativity *)
+     let ages = A.set_var env.ages block env.assoc in
+    let set_addr = get_set_addr env block in
+    let cset = get_cset env block in
+     let h_addrs = NumSet.add block env.handled_addrs in
+     let cache_sets = IntMap.add set_addr (NumSet.add block cset) env.cache_sets in
+     {env with ages = ages; handled_addrs = h_addrs; cache_sets = cache_sets}
+  
+  
+  (* retuns true if block was handled *)
+  let is_handled env block = 
+    NumSet.mem block env.handled_addrs
   
   (* Reads or writes an address into cache *)
   let touch env orig_addr =
     if get_log_level CacheLL = Debug then Printf.printf "\nWriting cache %Lx" orig_addr;
     (* we cache the block address *)
-    let addr = get_block_addr env orig_addr in
-    if get_log_level CacheLL = Debug then Printf.printf " in block %Lx\n" addr;
-    let set_addr = get_set_addr env addr in
-    let cset = IntMap.find set_addr env.cache_sets in
-    if is_handled env addr then begin
-      let new_cache =
-        match get_strategy env with
-        | AgeAD.LRU -> 
-          let env = if !precise_touch 
-          then precise_age_elements env addr (NumSet.elements cset)
-          else NumSet.fold (fun addr_in curr_cache ->
-      	    match age_one_element curr_cache addr addr_in with
-      	      c, None -> c
-      	    | c1, Some c2 -> (* in this case, only the ages differ *)
-        		{c1 with ages = A.join c1.ages c2.ages}
-        	  ) cset env
-          in {env with ages = A.set_var env.ages addr 0} (* set age of accessed block to 0 *)
-        | AgeAD.FIFO -> (* We first split the cache ages in cases where addr is in the block and cases where it is not *)
-          let ages_in, ages_out = 
-            A.comp_with_val env.ages addr env.associativity in
-          let env1 = match ages_in with Bot -> Bot
-            | Nb ages_in -> Nb {env with ages=ages_in} (*nothing changes in that case *)
-          and env2 = (*in this case we increment the age of all blocks in the set *)
-            match incr_ages ages_out cset with Bot -> Bot
-            | Nb ages -> Nb {env with ages=A.set_var ages addr 0}
-          in (match lift_combine join env1 env2 with 
-            Bot -> failwith "Unexpected bottom in touch when the strategy is FIFO"
-          | Nb c -> c)
-        | AgeAD.PLRU -> (* for each possible age of the block, we apply a different permutation *)
-          let addr_ages = A.get_values env.ages addr in
-          let ages = List.fold_left 
-            (fun ages addr_age -> 
-              lift_combine A.join ages 
-                (one_plru_touch env.ages env.associativity cset addr addr_age)
-            ) Bot addr_ages in
-          (match ages with
-            Bot -> failwith "Unexpected bottom in touch when the strategy is PLRU"
-          | Nb ages -> {env with ages=A.set_var ages addr 0}
-          )
-      in new_cache
-    end else add_new_address env addr set_addr cset 
+    let block = get_block_addr env orig_addr in
+    if get_log_level CacheLL = Debug then Printf.printf " in block %Lx\n" block;
+    let env = if is_handled env block then env 
+      else add_new_address env block in
+    let block_ages = A.get_values env.ages block in
+    (try
+    let new_env = List.fold_left 
+      (fun nenv block_age ->
+        match A.exact_val env.ages block block_age with
+        | Bot -> raise Bottom
+        | Nb xages -> lift_combine join nenv 
+          (Nb (one_touch {env with ages = xages} block block_age))
+      ) Bot block_ages in
+    strip_bot new_env
+    with Bottom -> assert false) (* Touch shouldn't produce bottom *)
 
   (* Same as touch, but returns two possible configurations, one for the hit and the second for the misses *)
-  (* TODO: we could be more efficient here, by not calling touch, but modifying touch instead *)
   let touch_hm env orig_addr = 
-    let addr = get_block_addr env orig_addr in 
-    let set_addr = get_set_addr env addr in
-    let cset = IntMap.find set_addr env.cache_sets in
-    if is_handled env addr  then begin
-      (* ages_in is the set of ages for which there is a hit *)
-      let ages_in, ages_out = 
-          A.comp_with_val env.ages addr env.associativity in
-      let t a = match a with Bot -> Bot 
-                | Nb a -> Nb(touch {env with ages=a} orig_addr)
-      in
-      (t ages_in, t ages_out)
-    end else (Bot, Nb(add_new_address env addr set_addr cset))
-
-
+    let block = get_block_addr env orig_addr in
+    let env = if is_handled env block then env 
+      else add_new_address env block in
+    (* ages_in is the set of ages for which there is a hit *)
+    let ages_in, ages_out = 
+        A.comp_with_val env.ages block env.assoc in
+    let t a = match a with Bot -> Bot 
+              | Nb a -> Nb(touch {env with ages=a} orig_addr)
+    in
+    (t ages_in, t ages_out)
 
   let widen c1 c2 = 
     join c1 c2
 
   let subseteq c1 c2 =
     assert 
-      ((c1.associativity = c2.associativity) && (c1.num_sets = c2.num_sets));
+      ((c1.assoc = c2.assoc) && (c1.num_sets = c2.num_sets));
     (NumSet.subset c1.handled_addrs c2.handled_addrs) &&
     (A.subseteq c1.ages c2.ages) &&
     (IntMap.for_all (fun addr vals ->
@@ -354,25 +335,25 @@ module Make (A: AgeAD.S) = struct
       else false
      ) c1.cache_sets)
 
-
+      
   let print_delta c1 fmt c2 = match get_log_level CacheLL with
     | Debug->
-          let added_blocks = NumSet.diff c2.handled_addrs c1.handled_addrs
-          and removed_blocks = NumSet.diff c1.handled_addrs c2.handled_addrs in
-          if not (NumSet.is_empty added_blocks) then Format.fprintf fmt
-            "Blocks added to the cache: %a@;" print_addr_set added_blocks;
-          if not (NumSet.is_empty removed_blocks) then Format.fprintf fmt
-            "Blocks removed from the cache: %a@;" print_addr_set removed_blocks;
-          if c1.ages != c2.ages then begin
+      let added_blocks = NumSet.diff c2.handled_addrs c1.handled_addrs
+      and removed_blocks = NumSet.diff c1.handled_addrs c2.handled_addrs in
+      if not (NumSet.is_empty added_blocks) then Format.fprintf fmt
+        "Blocks added to the cache: %a@;" print_addr_set added_blocks;
+      if not (NumSet.is_empty removed_blocks) then Format.fprintf fmt
+        "Blocks removed from the cache: %a@;" print_addr_set removed_blocks;
+      if c1.ages != c2.ages then begin
             (* this is shallow equals - does it make sense? *)
-            Format.fprintf fmt "@;@[<v 0>@[Old ages are %a@]"
-              (A.print_delta c2.ages) c1.ages;
+        Format.fprintf fmt "@;@[<v 0>@[Old ages are %a@]"
+          (A.print_delta c2.ages) c1.ages;
             (* print fmt c1; *)
-            Format.fprintf fmt "@;@[New ages are %a@]@]"
-              (A.print_delta c1.ages) c2.ages;
-          end
+        Format.fprintf fmt "@;@[New ages are %a@]@]"
+          (A.print_delta c1.ages) c2.ages;
+      end
     | _ -> A.print_delta c2.ages fmt c1.ages
-
+      
 
   (* let is_var cache addr = A.is_var cache.ages (get_block_addr cache addr) *)
 
