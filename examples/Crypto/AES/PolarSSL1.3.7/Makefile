@@ -10,7 +10,7 @@ HEADERS = config.h
 CIPHERS_C = aes.c 
 BASENAME = $(patsubst %.c,%,$(CIPHERS_C))
 VARIANTS = rom preloading
-KEYSIZES = 128 196 256
+KEYSIZES = 128 192 256
 EXECUTABLES = $(foreach s, $(KEYSIZES), $(foreach v,$(VARIANTS), $(BASENAME)-$(s)-$(v)))
 
 all: $(EXECUTABLES);
