@@ -20,6 +20,7 @@ module RelAgeAD = struct
   let debug = ref false
   
   let get_strategy env = env.strategy
+  let get_permutation str = failwith "relAgeAD: get_permutation not implemented"
 
 
   (* partition helper *)

@@ -1,12 +1,8 @@
 open Big_int
 open AD.DS
+open Logger
+open NumAD.DS
 
-
-module IntSet = Set.Make( 
-  struct
-    let compare = Pervasives.compare
-    type t = int
-  end )
 
 type cache_st = H | M | N | HM
 (* Hit, Miss, No access, Hit or Miss *)
@@ -268,6 +264,13 @@ module Make (CA : CacheAD.S) = struct
     | Nb c,Bot -> (c,H)
     | Bot,Nb c -> (c,M)
     | Nb c1,Nb c2   -> (CA.join c1 c2,HM) in
+    if (get_log_level TraceLL = Debug) then 
+      Printf.printf "status: %s\n"
+        (match status with
+        | H -> "Hit"
+        | M -> "Miss"
+        | HM -> "HorM"
+        | N -> "None");
     let traces = add env.traces status in
     let times = add_time_status status env.times in
     {traces = traces; cache = cache; times = times}

@@ -9,6 +9,13 @@ type replacement_strategy =
   | FIFO (** first in, first out *)
   | PLRU (** tree-based pseudo LRU *)
 
+(* This flag can disable an optimization (for precision) *)
+(* which checks whether ages of elements are achievable by the *)
+(* corresponding replacement strategy.*)
+(* If disabled, holes will be counted as possible, if enabled, only the holes*)
+(* achievable by the strategy will be counted *)
+let exclude_impossible = ref true
+
 module type S = sig
   include AD.S
   val init : int -> (var -> int) -> (var->string) -> replacement_strategy -> t
@@ -21,6 +28,7 @@ module type S = sig
   val comp : t -> var -> var -> (t add_bottom)*(t add_bottom)
   val comp_with_val : t -> var -> int -> (t add_bottom)*(t add_bottom)
   val get_strategy : t -> replacement_strategy
+  val get_permutation: replacement_strategy -> int -> int -> int -> int
   val count_cstates: t -> big_int * big_int
 end
 
@@ -44,6 +52,36 @@ module Make (V: ValAD.S) = struct
   }
   
   let get_strategy env = env.strategy
+  
+  (* Permutation to apply when touching an element of age a in PLRU *)
+  (* We assume an ordering correspond to the boolean encoding of the tree from *)
+  (* leaf to root (0 is the most recent, corresponding to all 0 bits is the path *)
+  
+  let plru_permut assoc a n = if n=assoc then n else
+    let rec f a n =  
+      if a=0 then n 
+      else 
+        if a land 1 = 1 then 
+  	if n land 1 = 1 then 2*(f (a/2) (n/2)) 
+  	else n+1
+        else (* a even*) 
+  	if n land 1 = 1 then n 
+  	else 2*(f (a/2) (n/2))
+    in f a n
+  
+  
+  let lru_permut assoc a n = 
+    if n = a then 0
+    else if n < a then n+1
+    else n
+  
+  let fifo_permut assoc a n = n
+  
+  let get_permutation strategy = match strategy with
+    | LRU -> lru_permut
+    | FIFO -> fifo_permut
+    | PLRU -> plru_permut
+  
   
   let join e1 e2 = 
     assert (e1.max_age = e2.max_age);
@@ -156,18 +194,57 @@ possible, so it approximates Bottom *)
   
   (*** Counting valid states ***)
   
+  module IntSetSet = Set.Make(IntSet)
+  
+  let intset_map f iset = 
+    IntSet.fold (fun x st -> IntSet.add (f x) st) iset IntSet.empty
+  
+  (* Return a set containing sets of possible age allocations within a cache set *)
+  (* depending on the replacement strategy *)
+  let get_poss_ages strategy assoc = 
+    let permut = get_permutation strategy in
+    let rec loop ready todo = 
+      if IntSetSet.is_empty todo then ready
+      else 
+        let elt = IntSetSet.choose todo in
+        let ready = IntSetSet.add elt ready in
+        let todo = IntSetSet.remove elt todo in
+        (* hit successors *)
+        let successors = IntSet.fold (fun i succ ->
+          IntSetSet.add (int_set_map (permut assoc i) elt) succ
+          ) elt IntSetSet.empty in
+        (* miss successor *)
+        let miss_elt = IntSet.remove assoc (IntSet.add 0 (int_set_map succ elt)) in
+        let successors = IntSetSet.add miss_elt successors in
+        let todo = IntSetSet.diff (IntSetSet.union todo successors) ready in
+        loop ready todo in
+    loop IntSetSet.empty (IntSetSet.singleton IntSet.empty) 
+  
+  (* check whether cstate is a possible concretization for a cache set,*)
+  (* according to the list poss_ages containing the possible ages in the cache set*)
+  let is_poss poss_ages cstate = 
+    let state_ages,_ = List.fold_left (fun (st,ctr) x -> 
+        match x with
+        | None -> (st,succ ctr)
+        | Some _ -> (IntSet.add ctr st, succ ctr)
+      ) (IntSet.empty,0) cstate in
+    IntSetSet.mem state_ages poss_ages
+    
+  
   (* Checks if the given cache state is valid *)
   (* with respect to the ages (which are stored in [env])*)
   (*  of the elements of the same cache set [addr_set]*)
-  let is_valid_cstate env addr_set cache_state  = 
+  let is_valid_cstate env addr_set cache_state poss_ages = 
     assert (List.for_all (function Some a -> NumSet.mem a addr_set | None -> true) cache_state);
-    (* get the position of [addr] in cache state [cstate], starting from [i];*)
-    (* if the addres is not in cstate, then it should be max_age *)
-    let rec pos addr cstate i = match cstate with 
-       [] -> env.max_age
-    | hd::tl -> if hd = Some addr then i else pos addr tl (i+1) in
-    NumSet.for_all (fun addr -> 
-      List.mem (pos addr cache_state 0) (get_values env addr)) addr_set 
+    if !exclude_impossible && (not (is_poss poss_ages cache_state)) then false
+    else
+      (* get the position of [addr] in cache state [cstate], starting from [i];*)
+      (* if the addres is not in cstate, then it should be max_age *)
+      let rec pos addr cstate i = match cstate with 
+         [] -> env.max_age
+      | hd::tl -> if hd = Some addr then i else pos addr tl (i+1) in
+      NumSet.for_all (fun addr -> 
+        List.mem (pos addr cache_state 0) (get_values env addr)) addr_set 
   
   
   (* create a uniform list containing n times the element x *)
@@ -191,28 +268,24 @@ possible, so it approximates Bottom *)
   (* Count the number of n-permutations of the address set addr_set*)
   (* which are also a valid cache state *)
   let num_tuples env n addr_set = 
+    (* Preprocessing step for counting: set of all possible sets of ages*)
+    (* of the blocks within a cache set *)
+    let poss_ages = get_poss_ages env.strategy env.max_age in
     if NumSet.cardinal addr_set >= n then begin
       (* the loop creates all n-permutations and tests each for validity *)
       let rec loop n elements tuple num = 
         if n = 0 then 
-          if env.strategy <> PLRU then
-            if is_valid_cstate env addr_set tuple then 
-              Int64.add num 1L else num
-          else
+          (* if env.strategy <> PLRU then                            *)
+          (*   if is_valid_cstate env addr_set tuple poss_ages then  *)
+          (*     Int64.add num 1L else num                           *)
+          (* else                                                    *)
             (* In PLRU "holes" are possible, i.e., there may be a with age i, *)
             (* and there is no b with age i-1. *)
-            (* We overapproximate the counting for this by considering all *)
-            (* possible combinations of holes *)
-            (* (even though not all are achievable with PLRU).*)
-            (* In the current tuple, we try all possibilities to put holes,*)
-            (* and test the new tuples (cstate-s) for validity. *)
-            (* There are (max_age choose |tuple|) possible ways to put the holes *)
-            (* which for associativity 4 is at most 6, for 8 at most 70 *)
             let rec loop_holes cstate rem_elts num = 
               if (List.length rem_elts) = 0 then 
                 (* no rem_elts -> this is a possible cache state;*)
                 (* check it for validity *)
-                if is_valid_cstate env addr_set cstate then Int64.add num 1L else num
+                if is_valid_cstate env addr_set cstate poss_ages then Int64.add num 1L else num
               else
                 let elt = List.hd rem_elts in
                 let rem_elts = List.tl rem_elts in
@@ -256,5 +329,6 @@ possible, so it approximates Bottom *)
   let count_cstates env = 
     let nums_cstates,bl_nums_cstates = cache_states_per_set env in
       (Utils.prod nums_cstates,Utils.prod bl_nums_cstates)
+  
 end
 

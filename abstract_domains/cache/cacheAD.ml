@@ -77,7 +77,6 @@ module Make (A: AgeAD.S) = struct
     num_sets : int; (* computed from the previous three *)
   }
   
-  let get_strategy env = A.get_strategy env.ages
 
   let print_addr_set fmt = NumSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
 
@@ -114,9 +113,6 @@ module Make (A: AgeAD.S) = struct
             Format.fprintf fmt "@]"
           end
         ) env.cache_sets;
-    (* Format.fprintf fmt "@.Possible ages of blocks:@; %a@]" A.print env.ages; *)
-    if get_strategy env = AgeAD.PLRU then 
-      Format.fprintf fmt "\nWarning: Counting on PLRU is incorrect\n";
     Format.printf "\n";
     let num, bl_num = A.count_cstates env.ages in
     Format.fprintf fmt "\nNumber of valid cache configurations: ";
@@ -200,11 +196,6 @@ module Make (A: AgeAD.S) = struct
     if (A.get_values env.ages block) = [env.assoc] then
       remove_block env block
     else env
-  
-  let get_permutation strategy = match strategy with
-      | AgeAD.LRU -> lru_permut
-      | AgeAD.FIFO -> fifo_permut
-      | AgeAD.PLRU -> plru_permut 
 
   let get_cset env block = 
     let set_addr = get_set_addr env block in
@@ -221,7 +212,7 @@ module Make (A: AgeAD.S) = struct
      whose age is set to 0. c < assoc corresponds to a hit, in which
      case a permutation is applied to the ages of all blocks *)
   let one_touch env block block_age = 
-    let strategy = get_strategy env in
+    let strategy = A.get_strategy env.ages in
     let cset = get_cset env block in
     if block_age = env.assoc then
     (* cache miss => set age to 0 and increment ages of other blocks *)
@@ -251,7 +242,7 @@ module Make (A: AgeAD.S) = struct
       if strategy = AgeAD.FIFO then env 
       else
         (* Permute ages of all blocks != block *)
-        let perm = get_permutation strategy in
+        let perm = A.get_permutation strategy in
         let nages = NumSet.fold
             (fun b new_ages ->
                 if b = block then new_ages

@@ -64,6 +64,8 @@ module type S = sig
   val get_strategy : t -> replacement_strategy
   (** [get_strategy env] return the replacement strategy used *)
   
+  val get_permutation: replacement_strategy -> int -> int -> int -> int
+  
   (** {6 Counting} *)
 
   val count_cstates: t -> big_int * big_int
