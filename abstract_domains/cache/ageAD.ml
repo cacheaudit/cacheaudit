@@ -211,10 +211,10 @@ possible, so it approximates Bottom *)
         let todo = IntSetSet.remove elt todo in
         (* hit successors *)
         let successors = IntSet.fold (fun i succ ->
-          IntSetSet.add (int_set_map (permut assoc i) elt) succ
+          IntSetSet.add (intset_map (permut assoc i) elt) succ
           ) elt IntSetSet.empty in
         (* miss successor *)
-        let miss_elt = IntSet.remove assoc (IntSet.add 0 (int_set_map succ elt)) in
+        let miss_elt = IntSet.remove assoc (IntSet.add 0 (intset_map succ elt)) in
         let successors = IntSetSet.add miss_elt successors in
         let todo = IntSetSet.diff (IntSetSet.union todo successors) ready in
         loop ready todo in
