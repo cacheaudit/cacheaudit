@@ -41,6 +41,7 @@ module DS = struct
   module IntSet = Set.Make(struct type t = int let compare = compare end)
   module IntMap = Map.Make(struct type t = int let compare = compare end)
   module VarMap = Map.Make(struct type t=var let compare = compare end)
+  module IntSetSet = Set.Make(IntSet)
   
   
   type flags_t = { cf : bool; zf : bool; }
