@@ -30,37 +30,16 @@ end
 
 open Big_int 
 
-(* let precise_touch = ref true *)
-
+(* if following flag is true, cache updates when we have cache misses will *)
+(* be done by concretizing (for a cache set), performing update and abstracting *)
+let do_concrete_update = ref true
+(* the following flag turns on an optimization for LRU/FIFO when doing *)
+(* abstract update (flag above is false) *)
 let opt_touch_precision = ref true
 
 type adversay = Blurred | SharedSpace
 
 let adversary = ref Blurred
-
-(* Permutation to apply when touching an element of age a in PLRU *)
-(* We assume an ordering correspond to the boolean encoding of the tree from *)
-(* leaf to root (0 is the most recent, corresponding to all 0 bits is the path *)
-
-let plru_permut assoc a n = if n=assoc then n else
-  let rec f a n =  
-    if a=0 then n 
-    else 
-      if a land 1 = 1 then 
-	if n land 1 = 1 then 2*(f (a/2) (n/2)) 
-	else n+1
-      else (* a even*) 
-	if n land 1 = 1 then n 
-	else 2*(f (a/2) (n/2))
-  in f a n
-
-
-let lru_permut assoc a n = 
-  if n = a then 0
-  else if n < a then n+1
-  else n
-
-let fifo_permut assoc a n = n
 
 module Make (A: AgeAD.S) = struct
   type t = {
@@ -205,7 +184,53 @@ module Make (A: AgeAD.S) = struct
   let strip_bot = function
     | Bot -> raise Bottom
     | Nb x -> x
-
+  
+  
+  (* [i -- j] returns the list [i; i+1; ... ; j-1]*)
+  let (--) i j = 
+    let rec aux n acc =
+      if n < i then acc else aux (n-1) (n :: acc)
+    in aux (j-1) []
+  
+  (* Returns a list of concretizations corresponding to one cache set [cset]. *)
+  (* Each concretization is a NumMap, mapping blocks to ages *)
+  let concretize_set env cset =
+    let blocks = NumSet.elements cset in
+    let abstraction = List.map (fun blck -> 
+        A.get_values env.ages blck
+      ) blocks in
+    let lens = List.map List.length abstraction in
+    let num_concrete = List.fold_left (fun x prod -> prod * x) 1 lens in
+    let pos i n = 
+      let rec divide x n =  
+         if n = 0 then x
+         else divide (x/(List.nth lens (n-1))) (n-1) in
+      (divide i (n)) mod (List.nth lens n) in
+    
+    List.fold_left (fun concr i -> 
+        let state = 
+          List.fold_left (fun state n -> 
+            NumMap.add (List.nth blocks n) 
+              (List.nth (List.nth abstraction n) (pos i n)) state
+           ) NumMap.empty (0 -- (List.length blocks)) in
+        state :: concr
+        ) [] (0 -- num_concrete)
+  
+  let abstract_set env concr = 
+    let abstr,_ = 
+      List.fold_left (fun (ages,first_time) state -> 
+        (* Set ages of current concrete state *)
+        let nages = NumMap.fold (fun block age nages -> 
+          A.set_var nages block age) state ages in 
+        (* We overwrite the first value and join afterwards *)
+        if first_time then (nages,false) else (A.join ages nages,false)
+        ) (env.ages,true) concr in
+    abstr
+  
+  let miss_permut assoc accessed_block this_block = 
+    if this_block = accessed_block then fun _ -> 0
+    else fun age -> if age = assoc then age else succ age
+    
   (* The effect of one touch of addr, restricting to the case when addr
      is of age c. c=assoc corresponds to a miss, in which case the age
      of all blocks is incremented -- except for the touched block,
@@ -216,26 +241,42 @@ module Make (A: AgeAD.S) = struct
     let cset = get_cset env block in
     if block_age = env.assoc then
     (* cache miss => set age to 0 and increment ages of other blocks *)
-      let env = {env with ages = A.set_var env.ages block 0} in
-      NumSet.fold (fun blck nenv -> 
-        if blck = block then nenv else
-          let nags = 
-            let ags = nenv.ages in
-            let nin_cache = List.mem env.assoc (A.get_values ags blck) in
-            let ags = A.inc_var ags blck in
-            if !opt_touch_precision && 
-              ((strategy = AgeAD.LRU) || (strategy = AgeAD.FIFO)) then
-              (* Optimization: disallow ages >= cardinality of cache set *)
-              let ages_in_cache,_ = A.comp_with_val ags blck (NumSet.cardinal cset) in
-              (* age "associativity" is still possible *)
-              if nin_cache then 
-                let _,ages_nin_cache = A.comp_with_val ags blck env.assoc in
-                strip_bot (lift_combine A.join ages_in_cache ages_nin_cache)
-              else 
-                strip_bot ages_in_cache
-            else ags
-          in remove_not_cached {nenv with ages = nags} blck
-        ) cset env 
+      if !do_concrete_update then
+        (* concretize *)
+        let concr = concretize_set env cset in
+        (* remove impossible *)
+        let is_poss assoc state = 
+          let state_ages = NumMap.fold (fun _ age age_set -> 
+            IntSet.add age age_set) state IntSet.empty in
+          let state_ages = IntSet.remove assoc state_ages in
+          IntSetSet.mem state_ages (A.get_poss_ages env.ages) in
+          
+        let concr = List.filter (is_poss env.assoc) concr in
+        (* permute values *)
+        let concr = List.map (NumMap.mapi (miss_permut env.assoc block)) concr in
+        (* abstract *)
+        {env with ages = abstract_set env concr}
+      else
+        let env = {env with ages = A.set_var env.ages block 0} in
+        NumSet.fold (fun blck nenv -> 
+          if blck = block then nenv else
+            let nags = 
+              let ags = nenv.ages in
+              let nin_cache = List.mem env.assoc (A.get_values ags blck) in
+              let ags = A.inc_var ags blck in
+              if !opt_touch_precision && 
+                ((strategy = AgeAD.LRU) || (strategy = AgeAD.FIFO)) then
+                (* Optimization: disallow ages >= cardinality of cache set *)
+                let ages_in_cache,_ = A.comp_with_val ags blck (NumSet.cardinal cset) in
+                (* age "associativity" is still possible *)
+                if nin_cache then 
+                  let _,ages_nin_cache = A.comp_with_val ags blck env.assoc in
+                  strip_bot (lift_combine A.join ages_in_cache ages_nin_cache)
+                else 
+                  strip_bot ages_in_cache
+              else ags
+            in remove_not_cached {nenv with ages = nags} blck
+          ) cset env 
     else
     (* cache hit => apply permutation *)
       (* optimize for FIFO *)

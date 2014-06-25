@@ -20,6 +20,7 @@ module RelAgeAD = struct
   let debug = ref false
   
   let get_strategy env = env.strategy
+  let get_poss_ages env = failwith "relAgeAD: get_poss_ages not implemented"
   let get_permutation str = failwith "relAgeAD: get_permutation not implemented"
 
 

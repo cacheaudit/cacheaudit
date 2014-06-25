@@ -66,6 +66,8 @@ module type S = sig
   
   val get_permutation: replacement_strategy -> int -> int -> int -> int
   
+  val get_poss_ages : t -> IntSetSet.t
+  
   (** {6 Counting} *)
 
   val count_cstates: t -> big_int * big_int
