@@ -12,7 +12,7 @@ module type S =
     val call : t -> op32 -> int -> (int, t) finite_set
     val return : t -> (int, t) finite_set
     val interpret_instruction : t -> X86Types.instr -> t
-    val touch : t -> int64 -> t
+    val touch : t -> int64 -> NumAD.DS.rw_t -> t
     val elapse : t -> int -> t
   end
 

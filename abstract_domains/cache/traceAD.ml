@@ -242,6 +242,13 @@ module Make (CA : CacheAD.S) = struct
     (* TODO: implement printing of delta of traces and times *)
     CA.print_delta env1.cache fmt env2.cache
   
+  let print_status status = Printf.printf "status: %s\n"
+        (match status with
+        | H -> "Hit"
+        | M -> "Miss"
+        | HM -> "HorM"
+        | N -> "None")
+  
   let add_time time times = 
     match times with 
     | Tp -> Tp
@@ -256,8 +263,9 @@ module Make (CA : CacheAD.S) = struct
     | HM -> 
       join_times (add_time duration_M times) (add_time duration_H times)
   
-  let touch env addr =
-    let c_hit,c_miss = CA.touch_hm env.cache addr in
+  
+  let touch env addr rw =
+    let c_hit,c_miss = CA.touch_hm env.cache addr rw in
     (* determine if status it is H or M or HM *)
     let cache,status = match c_hit,c_miss with
     | Bot,Bot -> raise Bottom
@@ -265,19 +273,18 @@ module Make (CA : CacheAD.S) = struct
     | Bot,Nb c -> (c,M)
     | Nb c1,Nb c2   -> (CA.join c1 c2,HM) in
     if (get_log_level TraceLL = Debug) then 
-      Printf.printf "status: %s\n"
-        (match status with
-        | H -> "Hit"
-        | M -> "Miss"
-        | HM -> "HorM"
-        | N -> "None");
+      print_status status;
+    (* Assume that because write-through cache is being used,*)
+    (* a write-hit is perceived by attacker as a miss *)
+    let status = if rw = Write && (status = H || status = HM) then M
+      else status in
     let traces = add env.traces status in
     let times = add_time_status status env.times in
     {traces = traces; cache = cache; times = times}
 
   (* Hitmiss tracking for touch_hm *)
-  let touch_hm env addr =
-    let c_hit,c_miss = CA.touch_hm env.cache addr in
+  let touch_hm env addr rw =
+    let c_hit,c_miss = CA.touch_hm env.cache addr rw in
     let nu_hit = match c_hit with
       | Nb c -> 
 	Nb {traces = add env.traces H;

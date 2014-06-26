@@ -86,8 +86,9 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
     call_ad = ST.elapse env.call_ad t;
     inst_ad = IC.elapse env.inst_ad t
   }
-
-  let read_instruction env addr = { env with inst_ad = (IC.touch env.inst_ad (Int64.add (Int64.of_int addr) !instruction_addr_base)) }
+  
+  (* Note: in the following "touch" we only do reads *)
+  let read_instruction env addr = { env with inst_ad = (IC.touch env.inst_ad (Int64.add (Int64.of_int addr) !instruction_addr_base) NumAD.DS.Read) }
 
 
 end
@@ -113,8 +114,9 @@ module MakeShared (ST: StackAD.S) = struct
   let print form env = ST.print form env
     
   let print_delta env1 form env2 = ST.print_delta env1 form env2
-    
-  let read_instruction env addr = ST.touch env (Int64.add (Int64.of_int addr) !instruction_addr_base)
+  
+  (* Note: in the following "touch" we only do reads *)
+  let read_instruction env addr = ST.touch env (Int64.add (Int64.of_int addr) !instruction_addr_base) NumAD.DS.Read
 
 end
 
