@@ -238,12 +238,15 @@ module Make (A: AgeAD.S) = struct
      of all blocks is incremented -- except for the touched block,
      whose age is set to 0. c < assoc corresponds to a hit, in which
      case a permutation is applied to the ages of all blocks *)
-  let one_touch env block block_age = 
+  let one_touch env block block_age rw = 
     let strategy = A.get_strategy env.ages in
     let cset = get_cset env block in
     if block_age = env.assoc then
-    (* cache miss => set age to 0 and increment ages of other blocks *)
-      if !do_concrete_update then
+    (* cache miss *)
+      (* Comply to 'no write-allocate' policy: if there is a write-miss, *)
+      (* do not put the element into cache *)
+      if rw = Write then env
+      else if !do_concrete_update then
         (* concretize *)
         let concr = concretize_set env cset in
         (* remove impossible *)
@@ -260,6 +263,8 @@ module Make (A: AgeAD.S) = struct
         (* abstract *)
         {env with ages = abstract_set env concr}
       else
+        (* work on abstract elements:*)
+        (* set age to 0 and increment ages of other blocks *)
         let env = {env with ages = A.set_var env.ages block 0} in
         NumSet.fold (fun blck nenv -> 
           if blck = block then nenv else
@@ -339,7 +344,7 @@ module Make (A: AgeAD.S) = struct
         match A.exact_val env.ages block block_age with
         | Bot -> raise Bottom
         | Nb xages -> lift_combine join nenv 
-          (Nb (one_touch {env with ages = xages} block block_age))
+          (Nb (one_touch {env with ages = xages} block block_age rw))
       ) Bot block_ages in
     strip_bot new_env
     with Bottom -> assert false) (* Touch shouldn't produce bottom *)
