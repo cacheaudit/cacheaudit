@@ -15,14 +15,14 @@ module type S = sig
   (** initialize an empty cache
    takes arguments cache_size (in bytes), 
   line_size (in bytes) and associativity *)
-  val touch : t -> int64 -> t
+  val touch : t -> int64 -> rw_t -> t
   (** reads or writes an address into cache *)
 
+  val touch_hm : t -> int64 -> rw_t -> (t add_bottom*t add_bottom)
   (** Same as touch, but returns more precise informations about hit and misses *)
   (** @return, the first set overapproximates hit cases, the second one misses *)
-  val touch_hm : t -> int64 -> (t add_bottom*t add_bottom)
-  (** Used to keep track of time, if neccessary *)
   val elapse : t -> int -> t
+  (** Used to keep track of time, if neccessary *)
   val count_cache_states : t -> Big_int.big_int
 end
 
@@ -227,6 +227,8 @@ module Make (A: AgeAD.S) = struct
         ) (env.ages,true) concr in
     abstr
   
+  (* The permutation belonging to a cache miss: age of accessed block is set *)
+  (* to 0, ages of other blocks are incremented, unless if age = associativity *)
   let miss_permut assoc accessed_block this_block = 
     if this_block = accessed_block then fun _ -> 0
     else fun age -> if age = assoc then age else succ age
@@ -248,6 +250,7 @@ module Make (A: AgeAD.S) = struct
         let is_poss assoc state = 
           let state_ages = NumMap.fold (fun _ age age_set -> 
             IntSet.add age age_set) state IntSet.empty in
+          (* assoc is always a possible age *)
           let state_ages = IntSet.remove assoc state_ages in
           IntSetSet.mem state_ages (A.get_poss_ages env.ages) in
           
@@ -275,7 +278,8 @@ module Make (A: AgeAD.S) = struct
                 else 
                   strip_bot ages_in_cache
               else ags
-            in remove_not_cached {nenv with ages = nags} blck
+            in {nenv with ages = nags}
+            (* in remove_not_cached {nenv with ages = nags} blck *)
           ) cset env 
     else
     (* cache hit => apply permutation *)
@@ -321,7 +325,7 @@ module Make (A: AgeAD.S) = struct
     NumSet.mem block env.handled_addrs
   
   (* Reads or writes an address into cache *)
-  let touch env orig_addr =
+  let touch env orig_addr rw =
     if get_log_level CacheLL = Debug then Printf.printf "\nWriting cache %Lx" orig_addr;
     (* we cache the block address *)
     let block = get_block_addr env orig_addr in
@@ -341,7 +345,7 @@ module Make (A: AgeAD.S) = struct
     with Bottom -> assert false) (* Touch shouldn't produce bottom *)
 
   (* Same as touch, but returns two possible configurations, one for the hit and the second for the misses *)
-  let touch_hm env orig_addr = 
+  let touch_hm env orig_addr rw = 
     let block = get_block_addr env orig_addr in
     let env = if is_handled env block then env 
       else add_new_address env block in
@@ -349,7 +353,7 @@ module Make (A: AgeAD.S) = struct
     let ages_in, ages_out = 
         A.comp_with_val env.ages block env.assoc in
     let t a = match a with Bot -> Bot 
-              | Nb a -> Nb(touch {env with ages=a} orig_addr)
+              | Nb a -> Nb(touch {env with ages=a} orig_addr rw)
     in
     (t ages_in, t ages_out)
 

@@ -12,9 +12,6 @@ let time_effective_load = 0;
 (* Operand type, which may be a 8 or 32-bit operand*)
 type op_t = Op8 of X86Types.op8 | Op32 of X86Types.op32
 
-(* Type to differentiate memory reads from writes *)
-type rw_t = Read | Write
-
 (* List of initial values for registers *)
 type reg_init_values = (X86Types.reg32 * int64 * int64) list
 
@@ -31,7 +28,7 @@ module type S =
   val get_vals: t -> op32 -> (int,t) finite_set
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val interpret_instruction : t -> X86Types.instr -> t
-  val touch : t -> int64 -> t
+  val touch : t -> int64 -> rw_t -> t
   val elapse : t -> int -> t
 end
   
@@ -226,7 +223,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
             let mask = Mask (rem_to_mask (Int64.logand (Int64.lognot a) 3L)) in
             new_a, mask in
         let access_addr (a,avals) = 
-          let new_cache = C.touch env.cache a in
+          let new_cache = C.touch env.cache a rw in
           let a,mask = get_a_mask a in
           (* Update the values to environment corresponding to a (which excludes*)
           (* values connected to other possible evaluations of a).*)
@@ -419,7 +416,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   (* pass the elapsed time to the cache domain which keeps  track of it *)
   let elapse env d = {env with cache = C.elapse env.cache d}
 
-  let touch env addr = {env with cache = C.touch env.cache addr}
+  let touch env addr rw = {env with cache = C.touch env.cache addr rw}
         
 end 
 

@@ -4,7 +4,10 @@ open AD.DS
 
 (** Module containing data structures common to numeric abstract domains *)
 module DS = struct
-
+  
+  (** Type to differentiate memory reads from writes *)
+  type rw_t = Read | Write
+  
   (** Type of variables *)
   type var = Int64.t
       

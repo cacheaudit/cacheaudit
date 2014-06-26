@@ -243,9 +243,9 @@ module Make (CA : CacheAD.S) = struct
     (* TODO: implement printing of delta of traces *)
     CA.print_delta env1.cache fmt env2.cache
   
-  let touch env addr =
+  let touch env addr rw =
     (* determine the block number of the touch *)
-    let c_hit,c_miss = CA.touch_hm env.cache addr in
+    let c_hit,c_miss = CA.touch_hm env.cache addr rw in
     (* determine if status it is H or M or HM *)
     let cache,status = match c_hit,c_miss with
     | Bot,Bot -> raise Bottom
@@ -255,8 +255,8 @@ module Make (CA : CacheAD.S) = struct
     {traces = traces; cache = cache;}
 
   (* Hitmiss tracking for touch_hm *)
-  let touch_hm env addr =
-    let c_hit,c_miss = CA.touch_hm env.cache addr in
+  let touch_hm env addr rw =
+    let c_hit,c_miss = CA.touch_hm env.cache addr rw in
     let nu_hit = match c_hit with
       | Nb c -> Nb {traces = add env.traces addr; cache = c ;}
       | Bot -> Bot

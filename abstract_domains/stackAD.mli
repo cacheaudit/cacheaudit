@@ -42,7 +42,7 @@ sig
 
     
   (** Signal to the cache that a memory location has been accessed *)  
-  val touch : t -> int64 -> t
+  val touch : t -> int64 -> NumAD.DS.rw_t -> t
       
   (** Signal from the iterator to the cache the
       time consumed by an instruction *)

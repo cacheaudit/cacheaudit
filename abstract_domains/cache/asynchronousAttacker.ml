@@ -49,12 +49,12 @@ module InstructionBasedAttacker (C: CacheAD.S) : CacheAD.S = struct
       init_cache = initial_state.caches;
     }
 
-  let touch env addr = { env with history = IntMap.fold 
-   (fun i cs res -> IntMap.add i {cs with caches = C.touch cs.caches addr} res) 
+  let touch env addr rw = { env with history = IntMap.fold 
+   (fun i cs res -> IntMap.add i {cs with caches = C.touch cs.caches addr rw} res) 
    env.history IntMap.empty }
 
   (* safe, but very imprecise, TODO *)
-  let touch_hm env addr = let t = touch env addr in Nb t, Nb t
+  let touch_hm env addr rw = let t = touch env addr rw in Nb t, Nb t
 
   let leakage_of_attacker_state cs = 
     mult_big_int (C.count_cache_states cs.caches) cs.leakage
@@ -135,9 +135,9 @@ struct
 
   let init cp = { cache = C.init cp; leakage = unit_big_int }
 
-  let touch x addr = { x with cache = C.touch x.cache addr }
+  let touch x addr rw = { x with cache = C.touch x.cache addr rw }
 
-  let touch_hm x addr = failwith "touch_hm not implemented in OneInstructionInterrupt"
+  let touch_hm x addr rw = failwith "touch_hm not implemented in OneInstructionInterrupt"
 
   let elapse x _ = commands := !commands+1; {x with leakage = max_big_int x.leakage (C.count_cache_states x.cache)}
 
@@ -217,14 +217,14 @@ struct
       in
       IntMap.add t nc acc
 
-  let touch env addr = { env with in_progress =
+  let touch env addr rw = { env with in_progress =
     IntMap.fold (fun t c res ->
-          let c_hit,c_miss = C.touch_hm c addr in
+          let c_hit,c_miss = C.touch_hm c addr rw in
           add_at c_hit (t+time_hit) (add_at c_miss (t+time_miss) res)
                 ) env.in_progress IntMap.empty
                        }
 
-  let touch_hm env d = failwith "touch_hm not implemented in OneTimeInterrupt"
+  let touch_hm env d rw = failwith "touch_hm not implemented in OneTimeInterrupt"
 
   let elapse env d = age_and_observe env d
 end

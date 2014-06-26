@@ -15,12 +15,12 @@ module type S = sig
   val init : cache_param -> t
   (** Initialize an empty cache according to the cache parameters defined 
       in [cache_param] *)
-  val touch : t -> int64 -> t
+  val touch : t -> int64 -> NumAD.DS.rw_t -> t
   (** [touch addr] corresponds to a read or write of memory location [addr]. 
       The block containing [addr] is loaded into cache (if not in cache), and the
       positions of the elements in the corresponding cache set may be changed 
       according to the replacement strategy *)
-  val touch_hm : t -> int64 -> (t add_bottom*t add_bottom)
+  val touch_hm : t -> int64 -> NumAD.DS.rw_t -> (t add_bottom*t add_bottom)
   (** Same as [touch] but returns more precise information: 
       it returns a tuple [(hit_env,miss_env)], where the first element is an 
       (overapproximation of a) cache environment which results when there is
