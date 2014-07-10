@@ -12,9 +12,17 @@ int main(){
 
   aes_context aes;
 
+  
+  unsigned char xyz[(KEYSIZE + 7)/8] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   unsigned char key[(KEYSIZE + 7)/8];
+  //unsigned char xyz[(KEYSIZE + 7)/8];
+  //unsigned char key[(KEYSIZE + 7)/8] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
+  unsigned char abc[16]  = "bbbbbbbbbbbbbbbb";
   const unsigned char input [16];
+  //unsigned char abc[16];
+  //const unsigned char input [16] = "bbbbbbbbbbbbbbbb";
+
   unsigned char output[16];
 
 #ifdef PRELOADING
