@@ -32,8 +32,8 @@ open Big_int
 (* if following flags are true, cache updates will be done by concretizing *)
 (* (for a cache set), performing update and abstracting, upon*)
 (* cache hits, resp. misses*)
-let do_concrete_miss = ref true
-let do_concrete_hit = ref true
+let do_concrete_miss = ref false
+let do_concrete_hit = ref false
 
 
 (* the following flag turns on an optimization for LRU/FIFO when doing *)
