@@ -1,15 +1,15 @@
 // SelectionSort
 //# include <stdio.h>
 
+#define array_size 64
 int main(){
 
-  unsigned int a[64];
-  unsigned int array_size=64;  
+  unsigned int a[array_size];
 
-  int i;
+  unsigned int i;
   for (i = 0; i < array_size - 1; ++i)
     {
-      int j, min, temp;
+      unsigned int j, min, temp;
       min = i;
       for (j = i+1; j < array_size; ++j)
 	{
