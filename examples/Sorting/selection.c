@@ -1,17 +1,19 @@
 // SelectionSort
 //# include <stdio.h>
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE 64
+#endif
 
-#define array_size 64
 int main(){
 
-  unsigned int a[array_size];
+  unsigned int a[ARRAY_SIZE];
 
   unsigned int i;
-  for (i = 0; i < array_size - 1; ++i)
+  for (i = 0; i < ARRAY_SIZE - 1; ++i)
     {
       unsigned int j, min, temp;
       min = i;
-      for (j = i+1; j < array_size; ++j)
+      for (j = i+1; j < ARRAY_SIZE; ++j)
 	{
 	  if (a[j] < a[min])
 	    min = j;
@@ -22,7 +24,7 @@ int main(){
       a[min] = temp;
     }
 
-  //   for (i =0;i<array_size;i++)
+  //   for (i =0;i<ARRAY_SIZE;i++)
   //   printf ("%d\n", a[i]);
 
 }
