@@ -1,10 +1,11 @@
 // BubbleSort
 //# include <stdio.h>
 
+#define array_size 64
+
 int main(){
 
-  unsigned int a[64];
-  unsigned int array_size=64;  
+  unsigned int a[array_size];  
   unsigned int i, j, temp;
 
   for (i = 0; i < (array_size - 1); ++i){
@@ -16,8 +17,6 @@ int main(){
       }
     }
   }
-
-
   //  for (i =0;i<array_size;i++)
   // printf ("%d\n", a[i]);
 

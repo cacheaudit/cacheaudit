@@ -1,10 +1,10 @@
 // InsertionSort
 //# include <stdio.h>
 
+#define array_size 64
 int main(){
 
-  unsigned int a[64];
-  unsigned int array_size=64;  
+  unsigned int a[array_size];
   unsigned int i, j, index;
 
   for (i = 1; i < array_size; ++i)
@@ -16,8 +16,8 @@ int main(){
       a[j] = index;
     }
 
-  // for (i =0;i<array_size;i++)
-  // printf ("%d\n", a[i]);
+  //for (i =0;i<array_size;i++)
+  //   printf ("%d\n", a[i]);
 
 }
 
