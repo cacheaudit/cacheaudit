@@ -6,7 +6,7 @@ LIBS=
 
 FILES_C = bubble.c insertion.c selection.c
 BASENAMES = $(patsubst %.c,%,$(FILES_C))
-ARRSIZES = 8 16 32
+ARRSIZES = 8 16 32 64
 EXECUTABLES = $(foreach s, $(ARRSIZES), \
 			$(foreach f, $(BASENAMES), \
 			sort-$(f)-$(s)))
