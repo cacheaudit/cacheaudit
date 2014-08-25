@@ -2,12 +2,18 @@ open AD.DS
 open NumAD.DS
 open Logger
 
+type replacement_strategy = 
+  | LRU  (** least-recently used *)
+  | FIFO (** first in, first out *)
+  | PLRU (** tree-based pseudo LRU *)
+
 type cache_param = { 
   cs: int; 
   ls: int; 
   ass: int; 
-  str: AgeAD.replacement_strategy;
+  str: replacement_strategy;
  } 
+
 
 module type S = sig
   include AD.S
@@ -40,11 +46,71 @@ let do_concrete_hit = ref false
 (* abstract update (flag above is false) *)
 let opt_touch_precision = ref true
 
+(* This flag can disable an optimization (for precision) *)
+(* which checks whether ages of elements are achievable by the *)
+(* corresponding replacement strategy.*)
+(* If disabled, holes will be counted as possible, if enabled, only the holes*)
+(* achievable by the strategy will be counted *)
+let exclude_impossible = ref true
+
 type adversay = Blurred | SharedSpace
 
 let adversary = ref Blurred
 
 module Make (A: AgeAD.S) = struct
+  (* Permutation to apply when touching an element of age a in PLRU *)
+  (* We assume an ordering correspond to the boolean encoding of the tree from *)
+  (* leaf to root (0 is the most recent, corresponding to all 0 bits is the path *)
+  let plru_permut assoc a n = if n=assoc then n else
+    let rec f a n =  
+      if a=0 then n 
+      else 
+        if a land 1 = 1 then 
+  	if n land 1 = 1 then 2*(f (a/2) (n/2)) 
+  	else n+1
+        else (* a even*) 
+  	if n land 1 = 1 then n 
+  	else 2*(f (a/2) (n/2))
+    in f a n
+  
+  
+  let lru_permut assoc a n = 
+    if n = a then 0
+    else if n < a then n+1
+    else n
+  
+  let fifo_permut assoc a n = n
+  
+  let get_permutation strategy = match strategy with
+    | LRU -> lru_permut
+    | FIFO -> fifo_permut
+    | PLRU -> plru_permut
+   
+  let intset_map f iset = 
+    IntSet.fold (fun x st -> IntSet.add (f x) st) iset IntSet.empty
+  
+  (* Return a set containing sets of possible age allocations within a cache set *)
+  (* depending on the replacement strategy *)
+  let calc_poss_ages strategy assoc = 
+    let permut = get_permutation strategy in
+    let rec loop ready todo = 
+      if IntSetSet.is_empty todo then ready
+      else 
+        let elt = IntSetSet.choose todo in
+        let ready = IntSetSet.add elt ready in
+        let todo = IntSetSet.remove elt todo in
+        (* hit successors *)
+        let successors = IntSet.fold (fun i succ ->
+          IntSetSet.add (intset_map (permut assoc i) elt) succ
+          ) elt IntSetSet.empty in
+        (* miss successor *)
+        let miss_elt = IntSet.remove assoc (IntSet.add 0 (intset_map succ elt)) in
+        let successors = IntSetSet.add miss_elt successors in
+        let todo = IntSetSet.diff (IntSetSet.union todo successors) ready in
+        loop ready todo in
+    loop IntSetSet.empty (IntSetSet.singleton IntSet.empty) 
+  
+  
   type t = {
     handled_addrs : NumSet.t; (* holds addresses handled so far *)
     cache_sets : NumSet.t IntMap.t;
@@ -57,13 +123,154 @@ module Make (A: AgeAD.S) = struct
     line_size: int; (* same as "data block size" *)
     assoc: int;
     num_sets : int; (* computed from the previous three *)
+    
+    strategy : replacement_strategy;
+    poss_ages : IntSetSet.t
   }
   
+    let var_to_string x = Printf.sprintf "%Lx" x 
+  
+  let calc_set_addr num_sets addr = 
+    Int64.to_int (Int64.rem addr (Int64.of_int num_sets))
 
+  (* Determine the set in which an address is cached *)
+  let get_set_addr env addr =
+    calc_set_addr env.num_sets addr
+    
+  let init cache_param =
+    let (cs,ls,ass,strategy) = (cache_param.cs, cache_param.ls,
+      cache_param.ass,cache_param.str) in
+    let ns = cs / ls / ass in (* number of sets *)
+    let rec init_csets csets i = match i with
+    | 0 -> csets
+    | n -> init_csets (IntMap.add (n - 1) NumSet.empty csets) (n - 1) in
+    { cache_sets = init_csets IntMap.empty ns;
+      ages = A.init ass (calc_set_addr ns) var_to_string;
+      handled_addrs = NumSet.empty;
+      cache_size = cs;
+      line_size = ls;
+      assoc = ass;
+      num_sets = ns;
+      strategy = strategy;
+      poss_ages = calc_poss_ages strategy ass
+    }
+  
+  (* Gives the block address *)
+  let get_block_addr env addr = Int64.div addr (Int64.of_int env.line_size)
+  
+  
+  (*** Counting valid states ***)
+  
+  (* check whether cstate is a possible concretization for a cache set,*)
+  (* according to the list poss_ages containing the possible ages in the cache set*)
+  let is_poss poss_ages cstate = 
+    let state_ages,_ = List.fold_left (fun (st,ctr) x -> 
+        match x with
+        | None -> (st,succ ctr)
+        | Some _ -> (IntSet.add ctr st, succ ctr)
+      ) (IntSet.empty,0) cstate in
+    IntSetSet.mem state_ages poss_ages
+    
+  
+  (* Checks if the given cache state is valid *)
+  (* with respect to the ages (which are stored in [env])*)
+  (*  of the elements of the same cache set [addr_set]*)
+  let is_valid_cstate env addr_set cache_state = 
+    assert (List.for_all (function Some a -> NumSet.mem a addr_set | None -> true) cache_state);
+    if !exclude_impossible && (not (is_poss env.poss_ages cache_state)) then false
+    else
+      (* get the position of [addr] in cache state [cstate], starting from [i];*)
+      (* if the addres is not in cstate, then it should be assoc *)
+      let rec pos addr cstate i = match cstate with 
+         [] -> env.assoc
+      | hd::tl -> if hd = Some addr then i else pos addr tl (i+1) in
+      NumSet.for_all (fun addr -> 
+        List.mem (pos addr cache_state 0) (A.get_values env.ages addr)) addr_set 
+  
+  
+  (* create a uniform list containing n times the element x *)
+  let create_ulist n x =
+    let rec loop n x s = 
+      if n <= 0 then s else loop (n-1) x (x::s)
+    in loop n x []
+  
+  (* create a list with the elements [a;a+1;...;b-1] (not including b) *)
+  let create_range a b = 
+    let rec loop x s = 
+      if x < a then s else loop (x-1) (x::s)
+    in loop (b-1) []
+  
+  module NumSetSet = Set.Make(NumSet)
+  let numset_from_list l =
+    List.fold_left (fun set elt -> 
+      match elt with None -> set
+      | Some i -> NumSet.add i set) NumSet.empty l
+  
+  (* Count the number of n-permutations of the address set addr_set*)
+  (* which are also a valid cache state *)
+  let num_tuples env n addr_set = 
+    (* Preprocessing step for counting: set of all possible sets of ages*)
+    (* of the blocks within a cache set *)
+    if NumSet.cardinal addr_set >= n then begin
+      (* the loop creates all n-permutations and tests each for validity *)
+      let rec loop n elements tuple num = 
+        if n = 0 then 
+            let rec loop_holes cstate rem_elts num = 
+              if (List.length rem_elts) = 0 then 
+                (* no rem_elts -> this is a possible cache state;*)
+                (* check it for validity *)
+                if is_valid_cstate env addr_set cstate then Int64.add num 1L else num
+              else
+                let elt = List.hd rem_elts in
+                let rem_elts = List.tl rem_elts in
+                (* a list containing the possible number of holes before elt *)
+                let poss_num_holes = create_range 0 (env.assoc - 
+                  (List.length cstate) - (List.length rem_elts)) in
+                
+                List.fold_left (fun num nholes -> 
+                  (* add the nholes holes and elt to the state *)
+                  (* and continue scanning the remaining elements *)
+                  loop_holes (cstate @ (create_ulist nholes None) @ [elt]) rem_elts num
+                  ) num poss_num_holes
+            in loop_holes [] tuple num
+        else
+          (* add next element to tuple and continue looping *)
+          (* (will go on until n elements have been picked) *)
+          NumSet.fold (fun addr s1 -> 
+            loop (n-1) (NumSet.remove addr elements) ((Some addr)::tuple) s1
+            ) elements num in 
+      loop n addr_set [] 0L
+    end else 0L
+  
+  (* Computes two lists where each item i is the number of possible *)
+  (* cache states of cache set i for a shared-memory *)
+  (* and the disjoint-memory (blurred) adversary *)
+  let cache_states_per_set env =
+    let cache_sets = Utils.partition (A.var_names env.ages) (get_set_addr env) in
+    IntMap.fold (fun _ addr_set (nums,bl_nums) ->
+        let num_tpls,num_bl =
+          let rec loop i (num,num_blurred) =
+            if i > env.assoc then (num,num_blurred)
+            else
+              let this_num = 
+                num_tuples env i addr_set in
+              let this_bl = if this_num = 0L then 0L else 1L in
+              loop (i+1) (Int64.add num this_num, Int64.add num_blurred this_bl) in 
+          loop 0 (0L,0L) in 
+        (num_tpls::nums,num_bl::bl_nums)
+      ) cache_sets ([],[])
+      
+  let count_cstates env = 
+    let nums_cstates,bl_nums_cstates = cache_states_per_set env in
+      (Utils.prod nums_cstates,Utils.prod bl_nums_cstates)
+      
+      
+  (*** Printing ***)
+  
   let print_addr_set fmt = NumSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
 
   let count_cache_states env = 
-    let num_cstates,bl_num_cstates = A.count_cstates env.ages in
+    let num_cstates,bl_num_cstates = count_cstates env in
     match !adversary with
     | Blurred -> bl_num_cstates
     | SharedSpace -> num_cstates
@@ -96,44 +303,12 @@ module Make (A: AgeAD.S) = struct
           end
         ) env.cache_sets;
     Format.printf "\n";
-    let num, bl_num = A.count_cstates env.ages in
+    let num, bl_num = count_cstates env in
     Format.fprintf fmt "\nNumber of valid cache configurations: ";
     print_num fmt num;
     Format.fprintf fmt "\nNumber of valid cache configurations (blurred): ";
     print_num fmt bl_num
   
-  let var_to_string x = Printf.sprintf "%Lx" x 
-  
-  let calc_set_addr num_sets addr = 
-    Int64.to_int (Int64.rem addr (Int64.of_int num_sets))
-
-  (* Determine the set in which an address is cached *)
-  let get_set_addr env addr =
-    calc_set_addr env.num_sets addr
-    
-  let init cache_param =
-    let (cs,ls,ass,strategy) = (cache_param.cs, cache_param.ls,
-      cache_param.ass,cache_param.str) in
-    let ns = cs / ls / ass in (* number of sets *)
-    let rec init_csets csets i = match i with
-    | 0 -> csets
-    | n -> init_csets (IntMap.add (n - 1) NumSet.empty csets) (n - 1) in
-    { cache_sets = init_csets IntMap.empty ns;
-      ages = A.init ass (calc_set_addr ns) var_to_string strategy;
-      handled_addrs = NumSet.empty;
-      cache_size = cs;
-      line_size = ls;
-      assoc = ass;
-      num_sets = ns;
-    }
-
-
-  (* Gives the block address *)
-  let get_block_addr env addr = Int64.div addr (Int64.of_int env.line_size)
-
-  (* let get_keys map = let keys,_ = List.split (ValMap.bindings map) *)
-  (*                    in List.map Int64.to_int keys                 *)
-  (*                   (*TODO simplify this in Simple Values *)       *)
 
   (* Removes a cache line when we know it cannot be in the cache *)
 
@@ -242,7 +417,7 @@ module Make (A: AgeAD.S) = struct
      whose age is set to 0. c < assoc corresponds to a hit, in which
      case a permutation is applied to the ages of all blocks *)
   let one_touch env block block_age rw = 
-    let strategy = A.get_strategy env.ages in
+    let strategy = env.strategy in
     let cset = get_cset env block in
     let is_miss = block_age = env.assoc in 
     (* Comply to 'no write-allocate' policy: if there is a write-miss, *)
@@ -270,14 +445,14 @@ module Make (A: AgeAD.S) = struct
             IntSet.add age age_set) state IntSet.empty in
           (* assoc is always a possible age *)
           let state_ages = IntSet.remove assoc state_ages in
-          IntSetSet.mem state_ages (A.get_poss_ages env.ages) in
+          IntSetSet.mem state_ages env.poss_ages in
         let concr = List.filter (is_poss env.assoc) concr in
         
         (* Permute values *)
         (* operation is left with non-tail-recursive List.map on purpose *)
         (* so that computation is disrupted for an impossibly long list *)
         let permut = if is_miss then miss_permut 
-          else let perm_hit = A.get_permutation strategy in
+          else let perm_hit = get_permutation strategy in
           fun assoc _ _ -> perm_hit assoc block_age in
         let concr = List.map (NumMap.mapi (permut env.assoc block)) concr in
         (* abstract *)
@@ -294,7 +469,7 @@ module Make (A: AgeAD.S) = struct
               let nin_cache = List.mem env.assoc (A.get_values ags blck) in
               let ags = A.inc_var ags blck in
               if !opt_touch_precision && 
-                ((strategy = AgeAD.LRU) || (strategy = AgeAD.FIFO)) then
+                ((strategy = LRU) || (strategy = FIFO)) then
                 (* Optimization: disallow ages >= cardinality of cache set *)
                 let ages_in_cache,_ = A.comp_with_val ags blck (NumSet.cardinal cset) in
                 (* age "associativity" is still possible *)
@@ -309,10 +484,10 @@ module Make (A: AgeAD.S) = struct
           ) cset env
       else (* abstract-level hit *)
         (* optimize for FIFO *)
-        if strategy = AgeAD.FIFO then env 
+        if strategy = FIFO then env 
         else
           (* Permute ages of all blocks != block *)
-          let perm = A.get_permutation strategy in
+          let perm = get_permutation strategy in
           let nages = NumSet.fold
               (fun b new_ages ->
                   if b = block then new_ages
@@ -324,87 +499,13 @@ module Make (A: AgeAD.S) = struct
                     let ages_young = permute_ages ages_young in
                     let ages_old =
                       (* optimize for LRU *)
-                      if strategy = AgeAD.LRU then ages_old
+                      if strategy = LRU then ages_old
                       else permute_ages ages_old in
                     (* One of the ages can be bottom, however not both *)
                     strip_bot (lift_combine A.join ages_young ages_old)
               ) cset env.ages in
           (* Permute ages of block *)
           {env with ages = (A.permute nages (perm env.assoc block_age) block)}
-      
-    (* if is_miss then                                                                      *)
-    (* (* cache miss *)                                                                     *)
-    (*   (* Comply to 'no write-allocate' policy: if there is a write-miss, *)              *)
-    (*   (* do not put the element into cache *)                                            *)
-    (*   if rw = Write && is_miss then env                                                  *)
-    (*   else if !do_concrete_update then                                                   *)
-    (*     (* concretize *)                                                                 *)
-    (*     let concr = concretize_set env cset in                                           *)
-    (*     (* remove impossible *)                                                          *)
-    (*     let is_poss assoc state =                                                        *)
-    (*       let state_ages = NumMap.fold (fun _ age age_set ->                             *)
-    (*         IntSet.add age age_set) state IntSet.empty in                                *)
-    (*       (* assoc is always a possible age *)                                           *)
-    (*       let state_ages = IntSet.remove assoc state_ages in                             *)
-    (*       IntSetSet.mem state_ages (A.get_poss_ages env.ages) in                         *)
-          
-    (*     let concr = List.filter (is_poss env.assoc) concr in                             *)
-    (*     (* permute values *)                                                             *)
-    (*     (* leaving operation with non-tail-recursive List.map on purpose *)              *)
-    (*     (* so that computation is disrupted for an impossibly long list *)               *)
-    (*     let concr = List.map (NumMap.mapi (miss_permut env.assoc block)) concr in        *)
-    (*     (* abstract *)                                                                   *)
-    (*     {env with ages = abstract_set env concr}                                         *)
-    (*   else                                                                               *)
-    (*     (* work on abstract elements:*)                                                  *)
-    (*     (* set age to 0 and increment ages of other blocks *)                            *)
-    (*     let env = {env with ages = A.set_var env.ages block 0} in                        *)
-    (*     NumSet.fold (fun blck nenv ->                                                    *)
-    (*       if blck = block then nenv else                                                 *)
-    (*         let nags =                                                                   *)
-    (*           let ags = nenv.ages in                                                     *)
-    (*           let nin_cache = List.mem env.assoc (A.get_values ags blck) in              *)
-    (*           let ags = A.inc_var ags blck in                                            *)
-    (*           if !opt_touch_precision &&                                                 *)
-    (*             ((strategy = AgeAD.LRU) || (strategy = AgeAD.FIFO)) then                 *)
-    (*             (* Optimization: disallow ages >= cardinality of cache set *)            *)
-    (*             let ages_in_cache,_ = A.comp_with_val ags blck (NumSet.cardinal cset) in *)
-    (*             (* age "associativity" is still possible *)                              *)
-    (*             if nin_cache then                                                        *)
-    (*               let _,ages_nin_cache = A.comp_with_val ags blck env.assoc in           *)
-    (*               strip_bot (lift_combine A.join ages_in_cache ages_nin_cache)           *)
-    (*             else                                                                     *)
-    (*               strip_bot ages_in_cache                                                *)
-    (*           else ags                                                                   *)
-    (*         in {nenv with ages = nags}                                                   *)
-    (*         (* in remove_not_cached {nenv with ages = nags} blck *)                      *)
-    (*       ) cset env                                                                     *)
-    (* else                                                                                 *)
-    (* (* cache hit => apply permutation *)                                                 *)
-    (*   (* optimize for FIFO *)                                                            *)
-    (*   if strategy = AgeAD.FIFO then env                                                  *)
-    (*   else                                                                               *)
-    (*     (* Permute ages of all blocks != block *)                                        *)
-    (*     let perm = A.get_permutation strategy in                                         *)
-    (*     let nages = NumSet.fold                                                          *)
-    (*         (fun b new_ages ->                                                           *)
-    (*             if b = block then new_ages                                               *)
-    (*             else                                                                     *)
-    (*               let permute_ages ages = match ages with                                *)
-    (*                 | Bot -> Bot                                                         *)
-    (*                 | Nb ags -> Nb (A.permute ags (perm env.assoc block_age) b) in       *)
-    (*               let ages_young,ages_old = A.comp new_ages b block in                   *)
-    (*               let ages_young = permute_ages ages_young in                            *)
-    (*               let ages_old =                                                         *)
-    (*                 (* optimize for LRU *)                                               *)
-    (*                 if strategy = AgeAD.LRU then ages_old                                *)
-    (*                 else permute_ages ages_old in                                        *)
-    (*               (* One of the ages can be bottom, however not both *)                  *)
-    (*               strip_bot (lift_combine A.join ages_young ages_old)                    *)
-    (*         ) cset env.ages in                                                           *)
-    (*     (* Permute ages of block *)                                                      *)
-    (*     {env with ages = (A.permute nages (perm env.assoc block_age) block)}             *)
-
   
   (* adds a new address handled by the cache if it's not already handled *)
   (* That works for LRU, FIFO and PLRU *)

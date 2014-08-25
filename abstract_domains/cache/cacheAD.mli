@@ -2,11 +2,17 @@
 
 open AD.DS
 
+type replacement_strategy = 
+  | LRU  (** least-recently used *)
+  | FIFO (** first in, first out *)
+  | PLRU (** tree-based pseudo LRU *)
+
+
 type cache_param = { 
   cs: int; (** cache size *)
   ls: int; (** line size *)
   ass: int; (** associativity *)
-  str: AgeAD.replacement_strategy; (** strategy *)
+  str: replacement_strategy; (** strategy *)
  } (** the cache parameters are given in bytes *) 
 
 (** The signature of the cache abstract domain *)
