@@ -12,18 +12,13 @@ open Big_int
 open AD.DS
 open NumAD.DS
 
-type replacement_strategy = 
-  | LRU  (** least-recently used *)
-  | FIFO (** first in, first out *)
-  | PLRU (** tree-based pseudo LRU *)
-
 (** The signature of the Age abstract domain *)
 module type S = sig
   include AD.S
   
   (** {6 Initialization} *)
   
-  val init : int -> (var -> int) -> (var->string) -> replacement_strategy -> t
+  val init : int -> (var -> int) -> (var->string) -> t
   (** [init max_val pfn v2s] initializes the abstract domain
        with a maximal value [max_val]. 
        [pfn] is a partitioning function of the variables according to their 
@@ -61,20 +56,9 @@ module type S = sig
      The first result contains the values where [x] < [a], and the second one 
      the values where [x] >= [a]. *)
   
-  val get_strategy : t -> replacement_strategy
-  (** [get_strategy env] return the replacement strategy used *)
-  
-  val get_permutation: replacement_strategy -> int -> int -> int -> int
-  
-  val get_poss_ages : t -> IntSetSet.t
-  
-  (** {6 Counting} *)
-
-  val count_cstates: t -> big_int * big_int
-  (** Count the possible valid cache states; returns a tuple 
-      [(num_shared,num_disjoint)] representing the number of cache states
-       for an adversary with shared memory and for an adversary with  
-       disjoint memory*)
+      
+  (** Returns the variables represented by the domain *)
+  val var_names : t -> NumSet.t
 end
 
 (** Functor creating the age abstract domain given a value abstract domain *)

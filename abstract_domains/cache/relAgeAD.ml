@@ -14,14 +14,11 @@ module RelAgeAD = struct
     arity : int; 
     max : int;
     pfn : var -> int;
-    strategy : AgeAD.replacement_strategy
   }
 
   let debug = ref false
   
-  let get_strategy env = env.strategy
-  let get_poss_ages env = failwith "relAgeAD: get_poss_ages not implemented"
-  let get_permutation str = failwith "relAgeAD: get_permutation not implemented"
+  let var_names env = failwith "relAgeAD: var_names not implemented"
 
 
   (* partition helper *)
@@ -36,8 +33,8 @@ module RelAgeAD = struct
     let tmp = List.fold_left (fun setlist vset -> add_to_setlist setlist vset) [] (M.keys rsAD.map)  in
     List.fold_left (fun result vset -> NumSet.elements vset::result) [] tmp
 
-  let init max pfn v2s str = 
-    {map = M.init_with_max v2s max; arity = 2; max = max; pfn = pfn; strategy = str}
+  let init max pfn v2s = 
+    {map = M.init_with_max v2s max; arity = 2; max = max; pfn = pfn }
 
   let get_values (rsAD:t) (v:var) : int list = 
     let vset = NumSet.add v NumSet.empty in
