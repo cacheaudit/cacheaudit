@@ -29,6 +29,17 @@
 #include "ecrypt-portable.h"
 
 /* -------------------------------------------------------------------------- */
+// to = from AND val
+#define AND(to,from,val){\
+   asm(\
+       "and %2, %1;"\
+       "movl %1, %0;"\
+	   : "=r" (to)\
+	   : "r" (from),\
+	     "i" (val)\
+	);\
+}
+
 
 /* Square a 32-bit unsigned integer to obtain the 64-bit result and return */
 /* the upper 32 bits XOR the lower 32 bits */
@@ -38,7 +49,8 @@ static u32 RABBIT_g_func(u32 x)
    u32 a, b, h, l;
 
    /* Construct high and low argument for squaring */
-   a = x&0xFFFF;
+//    a = x&0xFFFF;
+   AND(a,x,0xFFFF)
    b = x>>16;
 
    /* Calculate high and low result of squaring */
@@ -52,7 +64,7 @@ static u32 RABBIT_g_func(u32 x)
 /* -------------------------------------------------------------------------- */
 
 /* Calculate the next internal state */
-static inline void RABBIT_next_state(RABBIT_ctx *p_instance)
+static void RABBIT_next_state(RABBIT_ctx *p_instance)
 {
    /* Temporary variables */
    u32 g[8], c_old[8], i;
@@ -124,10 +136,17 @@ void ECRYPT_keysetup(ECRYPT_ctx* ctx, const u8* key, u32 keysize, u32 ivsize)
    ctx->master_ctx.c[2] = ROTL32(k3, 16);
    ctx->master_ctx.c[4] = ROTL32(k0, 16);
    ctx->master_ctx.c[6] = ROTL32(k1, 16);
-   ctx->master_ctx.c[1] = (k0&0xFFFF0000) | (k1&0xFFFF);
-   ctx->master_ctx.c[3] = (k1&0xFFFF0000) | (k2&0xFFFF);
-   ctx->master_ctx.c[5] = (k2&0xFFFF0000) | (k3&0xFFFF);
-   ctx->master_ctx.c[7] = (k3&0xFFFF0000) | (k0&0xFFFF);
+
+   
+   u32 a1,a2;
+   AND(a1,k0,0xFFFF0000); AND(a2,k1,0xFFFF);
+   ctx->master_ctx.c[1] = a1 | a2;
+   AND(a1,k1,0xFFFF0000); AND(a2,k2,0xFFFF);
+   ctx->master_ctx.c[3] = a1 | a2;
+   AND(a1,k2,0xFFFF0000); AND(a2,k3,0xFFFF);
+   ctx->master_ctx.c[5] = a1 | a2;
+   AND(a1,k3,0xFFFF0000); AND(a2,k0,0xFFFF);
+   ctx->master_ctx.c[7] = a1 | a2;
 
    /* Clear carry bit */
    ctx->master_ctx.carry = 0;
@@ -160,8 +179,11 @@ void ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
    /* Generate four subvectors */
    i0 = U8TO32_LITTLE(iv+0);
    i2 = U8TO32_LITTLE(iv+4);
-   i1 = (i0>>16) | (i2&0xFFFF0000);
-   i3 = (i2<<16) | (i0&0x0000FFFF);
+   u32 a;
+   AND(a,i2,0xFFFF0000);
+   i1 = (i0>>16) | a;
+   AND(a,i0,0x0000FFFF)
+   i3 = (i2<<16) | a;
 
    /* Modify counter values */
    ctx->work_ctx.c[0] = ctx->master_ctx.c[0] ^ i0;
@@ -186,16 +208,12 @@ void ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
 /* ------------------------------------------------------------------------- */
 
 /* Encrypt/decrypt a message of any size */
-int main (){
-
-  ECRYPT_ctx* ctx;
-  u8* input; 
-  u8* output; 
-  u32 msglen=512;
-  
-  /* Temporary variables */
-  u32 i;
-  u8 buffer[16];
+void ECRYPT_process_bytes(int action, ECRYPT_ctx* ctx, const u8* input, 
+          u8* output, u32 msglen)
+{
+   /* Temporary variables */
+   u32 i;
+   u8 buffer[16];
 
    /* Encrypt/decrypt all full blocks */
    while (msglen >= 16)

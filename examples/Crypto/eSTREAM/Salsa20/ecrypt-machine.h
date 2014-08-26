@@ -22,9 +22,6 @@
 
 #include <stdlib.h>
 
-#pragma intrinsic(_lrotl)     /* compile rotations "inline" */
-#pragma intrinsic(_lrotr)
-
 #define ROTL32(v, n) _lrotl(v, n)
 #define ROTR32(v, n) _lrotr(v, n)
 #define ROTL64(v, n) _rotl64(v, n)

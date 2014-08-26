@@ -7,8 +7,8 @@
  * *** Please only edit parts marked with "[edit]". ***
  */
 
-#ifndef ECRYPT_SYNC
-#define ECRYPT_SYNC
+#ifndef ECRYPT_SYNC_AE
+#define ECRYPT_SYNC_AE
 
 #include "ecrypt-portable.h"
 
@@ -19,8 +19,7 @@
 /* 
  * The name of your cipher.
  */
-#define ECRYPT_NAME "Salsa20"    /* [edit] */ 
-#define ECRYPT_PROFILE "S3___"
+#define ECRYPT_NAME "Salsa20 stream cipher"    /* [edit] */ 
 
 /*
  * Specify which key and IV sizes are supported by your cipher. A user
@@ -224,7 +223,7 @@ void ECRYPT_decrypt_packet(
 #ifdef ECRYPT_GENERATES_KEYSTREAM
 
 #define ECRYPT_keystream_blocks(ctx, keystream, blocks)            \
-  ECRYPT_keystream_bytes(ctx, keystream,                        \
+  ECRYPT_AE_keystream_bytes(ctx, keystream,                        \
     (blocks) * ECRYPT_BLOCKLENGTH)
 
 #endif
@@ -246,32 +245,12 @@ void ECRYPT_decrypt_blocks(
 #ifdef ECRYPT_GENERATES_KEYSTREAM
 
 void ECRYPT_keystream_blocks(
-  ECRYPT_ctx* ctx,
+  ECRYPT_AE_ctx* ctx,
   const u8* keystream,
   u32 blocks);                /* Keystream length in blocks. */ 
 
 #endif
 
-#endif
-
-/*
- * If your cipher can be implemented in different ways, you can use
- * the ECRYPT_VARIANT parameter to allow the user to choose between
- * them at compile time (e.g., gcc -DECRYPT_VARIANT=3 ...). Please
- * only use this possibility if you really think it could make a
- * significant difference and keep the number of variants
- * (ECRYPT_MAXVARIANT) as small as possible (definitely not more than
- * 10). Note also that all variants should have exactly the same
- * external interface (i.e., the same ECRYPT_BLOCKLENGTH, etc.). 
- */
-#define ECRYPT_MAXVARIANT 1                   /* [edit] */
-
-#ifndef ECRYPT_VARIANT
-#define ECRYPT_VARIANT 1
-#endif
-
-#if (ECRYPT_VARIANT > ECRYPT_MAXVARIANT)
-#error this variant does not exist
 #endif
 
 /* ------------------------------------------------------------------------- */
