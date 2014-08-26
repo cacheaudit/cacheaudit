@@ -1,6 +1,8 @@
 open AD.DS
 open NumAD.DS
 open Logger
+open Big_int 
+open Utils
 
 type replacement_strategy = 
   | LRU  (** least-recently used *)
@@ -12,14 +14,8 @@ type cache_param = {
   ls: int; 
   ass: int; 
   str: replacement_strategy;
+  opt_precision: bool;
  } 
-
-
-(* [i -- j] returns the list [i; i+1; ... ; j-1]*)
-let (--) i j = 
-  let rec aux n acc =
-    if n < i then acc else aux (n-1) (n :: acc)
-  in aux (j-1) []
 
 
 module type S = sig
@@ -39,35 +35,28 @@ module type S = sig
   val count_cache_states : t -> Big_int.big_int
 end
 
-
-open Big_int 
+(*** Flags for modifying precision ***)
 
 (* if following flags are true, cache updates will be done by concretizing *)
 (* (for a cache set), performing update and abstracting, upon*)
 (* cache hits, resp. misses*)
-let do_concrete_miss = ref true
-let do_concrete_hit = ref true
+let do_concrete_miss = ref false
+let do_concrete_hit = ref false
 
-
-(* the following flag turns on an optimization for LRU/FIFO when doing *)
-(* abstract update (flag above is false) *)
-let opt_touch_precision = ref true
-
-(* This flag can disable an optimization (for precision) *)
-(* which checks whether ages of elements are achievable by the *)
-(* corresponding replacement strategy.*)
-(* If disabled, holes will be counted as possible, if enabled, only the holes*)
-(* achievable by the strategy will be counted *)
-let exclude_impossible = ref true
+(* if do_concrete_miss is false, the following flag determines whether to *)
+(* perform a reduction which removes impossible states with "holes" *)
+let do_reduction = ref true
 
 type adversay = Blurred | SharedSpace
 
 let adversary = ref Blurred
 
 module Make (A: AgeAD.S) = struct
+  (*** Permutations corresponding to replacement strategies ***)
+  
   (* Permutation to apply when touching an element of age a in PLRU *)
   (* We assume an ordering correspond to the boolean encoding of the tree from *)
-  (* leaf to root (0 is the most recent, corresponding to all 0 bits is the path *)
+  (* leaf to root. 0 is the most recent, corresponding to all 0 bits is the path *)
   let plru_permut assoc a n = if n=assoc then n else
     let rec f a n =  
       if a=0 then n 
@@ -96,6 +85,30 @@ module Make (A: AgeAD.S) = struct
   let intset_map f iset = 
     IntSet.fold (fun x st -> IntSet.add (f x) st) iset IntSet.empty
   
+  (*** Initialization ***)
+  
+  type t = {
+    handled_addrs : NumSet.t; (* holds addresses handled so far *)
+    cache_sets : NumSet.t IntMap.t;
+    (* holds a set of addreses which fall into a cache set
+        as implemented now it may also hold addresses evicted from the cache *)
+    ages : A.t;
+    (* for each accessed memory address holds its possible ages *)
+
+    cache_size: int;
+    line_size: int; (* same as "data block size" *)
+    assoc: int;
+    num_sets : int; (* computed from the previous three *)
+    
+    strategy : replacement_strategy;
+    poss_ages : IntSetSet.t
+  }
+  
+  let var_to_string x = Printf.sprintf "%Lx" x 
+  
+  let calc_set_addr num_sets addr = 
+    Int64.to_int (Int64.rem addr (Int64.of_int num_sets))
+    
   (* Return a set containing sets of possible age allocations within a cache set *)
   (* depending on the replacement strategy *)
   let calc_poss_ages strategy assoc = 
@@ -116,35 +129,16 @@ module Make (A: AgeAD.S) = struct
         let todo = IntSetSet.diff (IntSetSet.union todo successors) ready in
         loop ready todo in
     loop IntSetSet.empty (IntSetSet.singleton IntSet.empty) 
-  
-  
-  type t = {
-    handled_addrs : NumSet.t; (* holds addresses handled so far *)
-    cache_sets : NumSet.t IntMap.t;
-    (* holds a set of addreses which fall into a cache set
-        as implemented now it may also hold addresses evicted from the cache *)
-    ages : A.t;
-    (* for each accessed memory address holds its possible ages *)
-
-    cache_size: int;
-    line_size: int; (* same as "data block size" *)
-    assoc: int;
-    num_sets : int; (* computed from the previous three *)
-    
-    strategy : replacement_strategy;
-    poss_ages : IntSetSet.t
-  }
-  
-    let var_to_string x = Printf.sprintf "%Lx" x 
-  
-  let calc_set_addr num_sets addr = 
-    Int64.to_int (Int64.rem addr (Int64.of_int num_sets))
 
   (* Determine the set in which an address is cached *)
   let get_set_addr env addr =
     calc_set_addr env.num_sets addr
     
   let init cache_param =
+    if cache_param.opt_precision then begin
+        do_concrete_miss := true;
+        do_concrete_hit := true
+      end;
     let (cs,ls,ass,strategy) = (cache_param.cs, cache_param.ls,
       cache_param.ass,cache_param.str) in
     let ns = cs / ls / ass in (* number of sets *)
@@ -166,7 +160,8 @@ module Make (A: AgeAD.S) = struct
   let get_block_addr env addr = Int64.div addr (Int64.of_int env.line_size)
   
   
-  
+  (*** Functions for concretization, filtering and abstraction ***)
+
   (* Returns a list of concretizations corresponding to one cache set [cset]. *)
   (* Each concretization is a NumMap, mapping blocks to ages *)
   let concretize_set env cset =
@@ -286,9 +281,27 @@ module Make (A: AgeAD.S) = struct
     Format.fprintf fmt "\nNumber of valid cache configurations (blurred): ";
     print_num fmt bl_num
   
+    let print_delta c1 fmt c2 = match get_log_level CacheLL with
+    | Debug->
+      let added_blocks = NumSet.diff c2.handled_addrs c1.handled_addrs
+      and removed_blocks = NumSet.diff c1.handled_addrs c2.handled_addrs in
+      if not (NumSet.is_empty added_blocks) then Format.fprintf fmt
+        "Blocks added to the cache: %a@;" print_addr_set added_blocks;
+      if not (NumSet.is_empty removed_blocks) then Format.fprintf fmt
+        "Blocks removed from the cache: %a@;" print_addr_set removed_blocks;
+      if c1.ages != c2.ages then begin
+            (* this is shallow equals - does it make sense? *)
+        Format.fprintf fmt "@;@[<v 0>@[Old ages are %a@]"
+          (A.print_delta c2.ages) c1.ages;
+            (* print fmt c1; *)
+        Format.fprintf fmt "@;@[New ages are %a@]@]"
+          (A.print_delta c1.ages) c2.ages;
+      end
+    | _ -> A.print_delta c2.ages fmt c1.ages
+  
+  (*** General abstract interpretation functions ***)
 
   (* Removes a cache line when we know it cannot be in the cache *)
-
   let remove_block env addr =
     let addr_set = get_set_addr env addr in
     let cset = IntMap.find addr_set env.cache_sets in
@@ -326,11 +339,28 @@ module Make (A: AgeAD.S) = struct
     { c1 with ages = ages; handled_addrs = handled_addrs;
     cache_sets = cache_sets}
   
+  let widen c1 c2 = 
+    join c1 c2
+
+  let subseteq c1 c2 =
+    assert 
+      ((c1.assoc = c2.assoc) && (c1.num_sets = c2.num_sets));
+    (NumSet.subset c1.handled_addrs c2.handled_addrs) &&
+    (A.subseteq c1.ages c2.ages) &&
+    (IntMap.for_all (fun addr vals ->
+      if IntMap.mem addr c2.cache_sets
+      then NumSet.subset vals (IntMap.find addr c2.cache_sets)
+      else false
+     ) c1.cache_sets)
+  
+  
   let remove_not_cached env block =
     if (A.get_values env.ages block) = [env.assoc] then
       remove_block env block
     else env
 
+  (*** Cache update ***)
+  
   let get_cset env block = 
     let set_addr = get_set_addr env block in
     IntMap.find set_addr env.cache_sets
@@ -379,12 +409,12 @@ module Make (A: AgeAD.S) = struct
         let concr = List.filter (is_poss_state env) concr in
         
         (* Permute values *)
-        (* operation is left with non-tail-recursive List.map on purpose *)
-        (* so that computation is disrupted for an impossibly long list *)
+        (* operation can be infeasible and may take forever;*)
+        (* if so, don't use --precise-update *)
         let permut = if is_miss then miss_permut 
           else let perm_hit = get_permutation strategy in
           fun assoc _ _ -> perm_hit assoc block_age in
-        let concr = List.map (NumMap.mapi (permut env.assoc block)) concr in
+        let concr = List.rev_map (NumMap.mapi (permut env.assoc block)) concr in
         (* abstract *)
         {env with ages = abstract_set env concr}
     else (* do abstract-level update *)
@@ -398,7 +428,7 @@ module Make (A: AgeAD.S) = struct
               let ags = nenv.ages in
               let nin_cache = List.mem env.assoc (A.get_values ags blck) in
               let ags = A.inc_var ags blck in
-              if !opt_touch_precision && 
+              if !do_reduction && 
                 ((strategy = LRU) || (strategy = FIFO)) then
                 (* Optimization: disallow ages >= cardinality of cache set *)
                 let ages_in_cache,_ = A.comp_with_val ags blck (NumSet.cardinal cset) in
@@ -485,41 +515,7 @@ module Make (A: AgeAD.S) = struct
               | Nb a -> Nb(touch {env with ages=a} orig_addr rw)
     in
     (t ages_in, t ages_out)
-
-  let widen c1 c2 = 
-    join c1 c2
-
-  let subseteq c1 c2 =
-    assert 
-      ((c1.assoc = c2.assoc) && (c1.num_sets = c2.num_sets));
-    (NumSet.subset c1.handled_addrs c2.handled_addrs) &&
-    (A.subseteq c1.ages c2.ages) &&
-    (IntMap.for_all (fun addr vals ->
-      if IntMap.mem addr c2.cache_sets
-      then NumSet.subset vals (IntMap.find addr c2.cache_sets)
-      else false
-     ) c1.cache_sets)
-
-      
-  let print_delta c1 fmt c2 = match get_log_level CacheLL with
-    | Debug->
-      let added_blocks = NumSet.diff c2.handled_addrs c1.handled_addrs
-      and removed_blocks = NumSet.diff c1.handled_addrs c2.handled_addrs in
-      if not (NumSet.is_empty added_blocks) then Format.fprintf fmt
-        "Blocks added to the cache: %a@;" print_addr_set added_blocks;
-      if not (NumSet.is_empty removed_blocks) then Format.fprintf fmt
-        "Blocks removed from the cache: %a@;" print_addr_set removed_blocks;
-      if c1.ages != c2.ages then begin
-            (* this is shallow equals - does it make sense? *)
-        Format.fprintf fmt "@;@[<v 0>@[Old ages are %a@]"
-          (A.print_delta c2.ages) c1.ages;
-            (* print fmt c1; *)
-        Format.fprintf fmt "@;@[New ages are %a@]@]"
-          (A.print_delta c1.ages) c2.ages;
-      end
-    | _ -> A.print_delta c2.ages fmt c1.ages
-      
-
+   
   (* For this domain, we don't care about time *)
   let elapse env d = env
   
