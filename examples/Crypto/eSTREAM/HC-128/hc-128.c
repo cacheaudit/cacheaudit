@@ -6,21 +6,19 @@
  *======================================================================*/
 
 /*h1 function*/
-#define h1(ctx, x, y) {     \
-     u32 B0,B2,t0;          \
-     B0 = (u8) (x);         \
-     t0 = (ctx->T[512+B0]);   \
-     B2 = (u8) ((x) >> 16); \
-     y = t0 + (ctx->T[512+256+B2]);  \
+#define h1(ctx, x, y) {    \
+     u8 a,c;               \
+     a = (u8) (x);         \
+     c = (u8) ((x) >> 16);  \
+     y = (ctx->T[512+a])+(ctx->T[512+256+c]); \
 }
 
 /*h2 function*/
-#define h2(ctx, x, y) {     \
-     u32 B0,B2,t0;          \
-     B0 = (u8) (x);         \
-     t0 = (ctx->T[B0]);       \
-     B2 = (u8) ((x) >> 16); \
-     y = t0 + (ctx->T[256+B2]);     \
+#define h2(ctx, x, y) {    \
+     u8 a,c;               \
+     a = (u8) (x);         \
+     c = (u8) ((x) >> 16); \
+     y = (ctx->T[a])+(ctx->T[256+c]); \
 }
 
 /*one step of HC-128, update P and generate 32 bits keystream*/
@@ -235,7 +233,7 @@ void ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
     
 	for (i = 0; i < 16;  i++)  ctx->T[i] = ctx->T[256+i];
 
-	for (i = 16; i < 1024; i++) 
+	for (i = 16; i < 1024; i++)
 		ctx->T[i] = f2(ctx->T[i-2]) + ctx->T[i-7] + f1(ctx->T[i-15]) + ctx->T[i-16]+256+i;
     
     /* initialize counter1024, X and Y */
@@ -252,36 +250,25 @@ void ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
  *========================================================
  */
 
-int main(){
-
-
-  // build context
-  u8 key [16];
-  u8 myiv[16];
-  ECRYPT_ctx myctx;
-  ECRYPT_keysetup (&myctx, key,128,128); 
-  ECRYPT_ivsetup (&myctx, myiv);
-
-  // initialization
-  ECRYPT_ctx* ctx=&myctx;
-  u8 in[512];
-  u8 out[512];
-  u8* input=in;
-  u8* output=out;
-  u32 msglen=512;                /* Message length in bytes. */ 
-
+void ECRYPT_process_bytes(
+  int action,                 /* 0 = encrypt; 1 = decrypt; */
+  ECRYPT_ctx* ctx, 
+  const u8* input, 
+  u8* output, 
+  u32 msglen)                /* Message length in bytes. */ 
+{
   u32 i, keystream[16];
 
   for ( ; msglen >= 64; msglen -= 64, input += 64, output += 64)
-    {
-      generate_keystream(ctx, keystream);
+  {
+	  generate_keystream(ctx, keystream);
 
       /*for (i = 0; i < 16; ++i)
 	      ((u32*)output)[i] = ((u32*)input)[i] ^ U32TO32_LITTLE(keystream[i]); */
 
-      ((u32*)output)[0]  = ((u32*)input)[0]  ^ U32TO32_LITTLE(keystream[0]);
-      ((u32*)output)[1]  = ((u32*)input)[1]  ^ U32TO32_LITTLE(keystream[1]);
-      ((u32*)output)[2]  = ((u32*)input)[2]  ^ U32TO32_LITTLE(keystream[2]);
+	  ((u32*)output)[0]  = ((u32*)input)[0]  ^ U32TO32_LITTLE(keystream[0]);
+	  ((u32*)output)[1]  = ((u32*)input)[1]  ^ U32TO32_LITTLE(keystream[1]);
+	  ((u32*)output)[2]  = ((u32*)input)[2]  ^ U32TO32_LITTLE(keystream[2]);
 	  ((u32*)output)[3]  = ((u32*)input)[3]  ^ U32TO32_LITTLE(keystream[3]);
 	  ((u32*)output)[4]  = ((u32*)input)[4]  ^ U32TO32_LITTLE(keystream[4]);
 	  ((u32*)output)[5]  = ((u32*)input)[5]  ^ U32TO32_LITTLE(keystream[5]);
@@ -297,6 +284,13 @@ int main(){
 	  ((u32*)output)[15] = ((u32*)input)[15] ^ U32TO32_LITTLE(keystream[15]);
   }
 
- 
+  if (msglen > 0)
+  {
+      generate_keystream(ctx, keystream);
+
+      for (i = 0; i < msglen; i ++)
+	      output[i] = input[i] ^ ((u8*)keystream)[i];
+  }
 
 }
+

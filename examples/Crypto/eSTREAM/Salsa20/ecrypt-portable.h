@@ -300,11 +300,4 @@ typedef unsigned I64T u64;
 
 /* ------------------------------------------------------------------------- */
 
-#define AT_LEAST_ONE(n) (((n) < 1) ? 1 : (n))
-
-#define ALIGN(t, v, n) \
-  union { t b[n]; MAXT l[AT_LEAST_ONE(n * sizeof(t) / sizeof(MAXT))]; } v
-
-/* ------------------------------------------------------------------------- */
-
 #endif

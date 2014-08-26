@@ -19,7 +19,7 @@
  * The name of your cipher.
  */
 #define ECRYPT_NAME "HC-128"    /* [edit] */ 
-#define ECRYPT_PROFILE "S3___"
+#define ECRYPT_PROFILE "SW"
 
 /*
  * Specify which key and IV sizes are supported by your cipher. A user

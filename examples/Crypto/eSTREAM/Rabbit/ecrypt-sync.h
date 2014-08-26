@@ -19,8 +19,7 @@
 /* 
  * The name of your cipher.
  */
-#define ECRYPT_NAME "Rabbit"
-#define ECRYPT_PROFILE "S3___"
+#define ECRYPT_NAME "Rabbit Stream Cipher"
 
 /*
  * Specify which key and IV sizes are supported by your cipher. A user

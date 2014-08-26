@@ -12,8 +12,45 @@
 /* 
  * The LITTLE endian machines:
  */
-
+#if defined(__ultrix)           /* Older MIPS */
 #define ECRYPT_LITTLE_ENDIAN
+#elif defined(__alpha)          /* Alpha */
+#define ECRYPT_LITTLE_ENDIAN
+#elif defined(i386)             /* x86 (gcc) */
+#define ECRYPT_LITTLE_ENDIAN
+#elif defined(__i386)           /* x86 (gcc) */
+#define ECRYPT_LITTLE_ENDIAN
+#elif defined(_M_IX86)          /* x86 (MSC, Borland) */
+#define ECRYPT_LITTLE_ENDIAN
+#elif defined(_MSC_VER)         /* x86 (surely MSC) */
+#define ECRYPT_LITTLE_ENDIAN
+#elif defined(__INTEL_COMPILER) /* x86 (surely Intel compiler icl.exe) */
+#define ECRYPT_LITTLE_ENDIAN
+
+/* 
+ * The BIG endian machines: 
+ */
+#elif defined(sun)              /* Newer Sparc's */
+#define ECRYPT_BIG_ENDIAN
+#elif defined(__ppc__)          /* PowerPC */
+#define ECRYPT_BIG_ENDIAN
+
+/* 
+ * Finally machines with UNKNOWN endianness:
+ */
+#elif defined (_AIX)            /* RS6000 */
+#define ECRYPT_UNKNOWN
+#elif defined(__hpux)           /* HP-PA */
+#define ECRYPT_UNKNOWN
+#elif defined(__aux)            /* 68K */
+#define ECRYPT_UNKNOWN
+#elif defined(__dgux)           /* 88K (but P6 in latest boxes) */
+#define ECRYPT_UNKNOWN
+#elif defined(__sgi)            /* Newer MIPS */
+#define ECRYPT_UNKNOWN
+#else	                        /* Any other processor */
+#define ECRYPT_UNKNOWN
+#endif
 
 /* ------------------------------------------------------------------------- */
 
@@ -224,30 +261,6 @@
 #define I64T __int64
 #define U64C(v) (v##ui64)
 #endif
-
-#endif
-
-/* ------------------------------------------------------------------------- */
-
-/* find the largest type on this platform (used for alignment) */
-
-#if defined(__SSE__) || (defined(_MSC_VER) && (_MSC_VER >= 1300))
-
-#include <xmmintrin.h>
-#define MAXT __m128
-
-#elif defined(__MMX__)
-
-#include <mmintrin.h>
-#define MAXT __m64
-
-#elif defined(__ALTIVEC__)
-
-#define MAXT __vector int
-
-#else
-
-#define MAXT long
 
 #endif
 
