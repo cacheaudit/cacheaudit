@@ -219,81 +219,6 @@ module Make (A: AgeAD.S) = struct
   
   (*** Counting valid states ***)
   
-  (* (* check whether cstate is a possible concretization for a cache set,*)                        *)
-  (* (* according to the list poss_ages containing the possible ages in the cache set*)             *)
-  (* let is_poss poss_ages cstate =                                                                 *)
-  (*   let state_ages,_ = List.fold_left (fun (st,ctr) x ->                                         *)
-  (*       match x with                                                                             *)
-  (*       | None -> (st,succ ctr)                                                                  *)
-  (*       | Some _ -> (IntSet.add ctr st, succ ctr)                                                *)
-  (*     ) (IntSet.empty,0) cstate in                                                               *)
-  (*   IntSetSet.mem state_ages poss_ages                                                           *)
-    
-  
-  (* (* Checks if the given cache state is valid *)                                                 *)
-  (* (* with respect to the ages (which are stored in [env])*)                                      *)
-  (* (*  of the elements of the same cache set [addr_set]*)                                         *)
-  (* let is_valid_cstate env addr_set cache_state =                                                 *)
-  (*   assert (List.for_all (function Some a -> NumSet.mem a addr_set | None -> true) cache_state); *)
-  (*   if !exclude_impossible && (not (is_poss env.poss_ages cache_state)) then false               *)
-  (*   else                                                                                         *)
-  (*     (* get the position of [addr] in cache state [cstate], starting from [i];*)                *)
-  (*     (* if the addres is not in cstate, then it should be assoc *)                              *)
-  (*     let rec pos addr cstate i = match cstate with                                              *)
-  (*        [] -> env.assoc                                                                         *)
-  (*     | hd::tl -> if hd = Some addr then i else pos addr tl (i+1) in                             *)
-  (*     NumSet.for_all (fun addr ->                                                                *)
-  (*       List.mem (pos addr cache_state 0) (A.get_values env.ages addr)) addr_set                 *)
-  
-  
-  (* (* create a uniform list containing n times the element x *)                                   *)
-  (* let create_ulist n x =                                                                         *)
-  (*   let rec loop n x s =                                                                         *)
-  (*     if n <= 0 then s else loop (n-1) x (x::s)                                                  *)
-  (*   in loop n x []                                                                               *)
-  
-  (* module NumSetSet = Set.Make(NumSet)                                                            *)
-  (* let numset_from_list l =                                                                       *)
-  (*   List.fold_left (fun set elt ->                                                               *)
-  (*     match elt with None -> set                                                                 *)
-  (*     | Some i -> NumSet.add i set) NumSet.empty l                                               *)
-  
-  (* (* Count the number of n-permutations of the address set addr_set*)                            *)
-  (* (* which are also a valid cache state *)                                                       *)
-  (* let num_tuples env n addr_set =                                                                *)
-  (*   (* Preprocessing step for counting: set of all possible sets of ages*)                       *)
-  (*   (* of the blocks within a cache set *)                                                       *)
-  (*   if NumSet.cardinal addr_set >= n then begin                                                  *)
-  (*     (* the loop creates all n-permutations and tests each for validity *)                      *)
-  (*     let rec loop n elements tuple num =                                                        *)
-  (*       if n = 0 then                                                                            *)
-  (*           let rec loop_holes cstate rem_elts num =                                             *)
-  (*             if (List.length rem_elts) = 0 then                                                 *)
-  (*               (* no rem_elts -> this is a possible cache state;*)                              *)
-  (*               (* check it for validity *)                                                      *)
-  (*               if is_valid_cstate env addr_set cstate then Int64.add num 1L else num            *)
-  (*             else                                                                               *)
-  (*               let elt = List.hd rem_elts in                                                    *)
-  (*               let rem_elts = List.tl rem_elts in                                               *)
-  (*               (* a list containing the possible number of holes before elt *)                  *)
-  (*               let poss_num_holes = (0 -- (env.assoc -                                          *)
-  (*                 (List.length cstate) - (List.length rem_elts))) in                             *)
-                
-  (*               List.fold_left (fun num nholes ->                                                *)
-  (*                 (* add the nholes holes and elt to the state *)                                *)
-  (*                 (* and continue scanning the remaining elements *)                             *)
-  (*                 loop_holes (cstate @ (create_ulist nholes None) @ [elt]) rem_elts num          *)
-  (*                 ) num poss_num_holes                                                           *)
-  (*           in loop_holes [] tuple num                                                           *)
-  (*       else                                                                                     *)
-  (*         (* add next element to tuple and continue looping *)                                   *)
-  (*         (* (will go on until n elements have been picked) *)                                   *)
-  (*         NumSet.fold (fun addr s1 ->                                                            *)
-  (*           loop (n-1) (NumSet.remove addr elements) ((Some addr)::tuple) s1                     *)
-  (*           ) elements num in                                                                    *)
-  (*     loop n addr_set [] 0L                                                                      *)
-  (*   end else 0L                                                                                  *)
-  
   (* Computes two lists where each item i is the number of possible *)
   (* cache states of cache set i for a shared-memory *)
   (* and the disjoint-memory (blurred) adversary *)
@@ -304,25 +229,12 @@ module Make (A: AgeAD.S) = struct
         let concr = concretize_set env addr_set in
         (* remove impossible *)
         let concr = List.filter (is_poss_state env) concr in
-        let num_concr = Int64.of_int (List.length concr) in
+        let num_concr = List.length concr in
         let num_disjoint = IntSetSet.cardinal (
             List.fold_left (fun set state -> 
               IntSetSet.add (fst (get_state_ages env state)) set) IntSetSet.empty concr
           ) in
-        let num_disjoint = Int64.of_int (num_disjoint) in
-        (* let num_tpls,num_bl =                                                        *)
-        (*   let rec loop i (num,num_blurred) =                                         *)
-        (*     if i > env.assoc then (num,num_blurred)                                  *)
-        (*     else                                                                     *)
-        (*       let this_num =                                                         *)
-        (*         num_tuples env i addr_set in                                         *)
-        (*       let this_bl = if this_num = 0L then 0L else 1L in                      *)
-        (*       loop (i+1) (Int64.add num this_num, Int64.add num_blurred this_bl) in  *)
-        (*   loop 0 (0L,0L) in                                                          *)
-        (* Printf.printf "%d. ACC count: %Ld, new: %d" set_num num_tpls num_concr;      *)
-        (* Printf.printf "\tACCD count: %Ld, new: %d\n" num_bl num_disjoint;            *)
-        (* List.iter (fun s -> Printf.printf "\n"; NumMap.iter (fun k v -> Printf.printf " %Ld -> %d " k v) s) concr; *)
-        (num_concr::nums,num_disjoint::bl_nums)
+        ((Int64.of_int num_concr)::nums, (Int64.of_int num_disjoint)::bl_nums)
       ) cache_sets ([],[])
       
   let count_cstates env = 
@@ -427,8 +339,6 @@ module Make (A: AgeAD.S) = struct
   let strip_bot = function
     | Bot -> raise Bottom
     | Nb x -> x
-  
-  
   
   
   (* The permutation belonging to a cache miss: age of accessed block is set *)
@@ -609,8 +519,6 @@ module Make (A: AgeAD.S) = struct
       end
     | _ -> A.print_delta c2.ages fmt c1.ages
       
-
-  (* let is_var cache addr = A.is_var cache.ages (get_block_addr cache addr) *)
 
   (* For this domain, we don't care about time *)
   let elapse env d = env
