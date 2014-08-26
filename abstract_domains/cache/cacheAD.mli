@@ -13,6 +13,7 @@ type cache_param = {
   ls: int; (** line size *)
   ass: int; (** associativity *)
   str: replacement_strategy; (** strategy *)
+  opt_precision: bool;
  } (** the cache parameters are given in bytes *) 
 
 (** The signature of the cache abstract domain *)

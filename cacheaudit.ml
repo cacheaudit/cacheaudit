@@ -21,6 +21,7 @@ let print_ass = ref false
 let analyze = ref true
 let interval_cache = ref false
 let do_traces = ref true
+let opt_precision = ref false
 
 
 type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
@@ -127,7 +128,10 @@ let speclist = [
     ("--inst-plru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.PLRU), 
       "set the cache replacement strategy to PLRU"
       ^"\n\n  Controlling and disabling aspects of the analysis:");
-   
+    ("--precise-update", Arg.Unit (fun () -> opt_precision := true),
+      "gain precision by performing the best abstract transformer upon cache update.\
+      Can lead to decreased performance which can make the analysis infeasible.
+      Not recommended e.g. if the associativity is >= 8 and cache is small");
     ("--no-trace-time", Arg.Unit (fun () -> do_traces := false),
       "disable tracking of traces and time");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
@@ -220,12 +224,12 @@ let _ =
     ) in
   if !print_ass then print_assembly (read_assembly bits);
   let data_cache_params = {CacheAD.cs = !data_cache_s; CacheAD.ls = !data_line_s;
-    CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy} in
+    CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy; opt_precision = !opt_precision} in
   let inst_cache_strategy = match !inst_cache_strategy_opt with
     | Some v -> ref v 
     | None -> data_cache_strategy in
   let inst_cache_params = {CacheAD.cs = !inst_cache_s; CacheAD.ls = !inst_line_s;
-    CacheAD.ass = !inst_assoc; CacheAD.str = !inst_cache_strategy} in
+    CacheAD.ass = !inst_assoc; CacheAD.str = !inst_cache_strategy; opt_precision = !opt_precision} in
   let inst_cache_analysis = match !inst_cache_analysis_opt with
     | Some v -> ref v
     | None -> data_cache_analysis in
