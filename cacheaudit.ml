@@ -24,7 +24,7 @@ let do_traces = ref true
 let opt_precision = ref false
 
 
-type cache_age_analysis = IntAges | SetAges | OctAges | RelAges
+type cache_age_analysis = IntAges | SetAges
 
 let data_cache_analysis = ref SetAges
 let inst_cache_analysis_opt = ref None
@@ -99,12 +99,8 @@ let speclist = [
     ("--plru", Arg.Unit (fun () -> data_cache_strategy := CacheAD.PLRU), 
       "set the cache replacement strategy to PLRU");
     ("--interval-cache", Arg.Unit (fun () -> data_cache_analysis := IntAges), 
-      "use the interval abstract domain for the cache") ;
-    ("--rset-cache", Arg.Unit (fun () -> data_cache_analysis := RelAges), 
-      "use the relational set abstract domain for the cache") ;
-    ("--oct-cache", Arg.Unit (fun () -> data_cache_analysis := OctAges), 
-      "use the octagon abstract domain for the cache"
-       ^"\n\n  Options for instruction caches (default are data cache options):");
+      "use the interval abstract domain for the cache"
+      ^"\n\n  Options for instruction caches (default are data cache options):");
     ("--inst-cache", Arg.Unit (fun () -> architecture := Split),
      "enable instruction cache tracking (separate caches for data and instructions)");
     ("--shared-cache", Arg.Unit (fun () -> architecture := Joint), 
@@ -117,10 +113,6 @@ let speclist = [
      "set the instruction cache associativity");
     ("--inst-interval-cache", Arg.Unit (fun () -> inst_cache_analysis_opt := Some IntAges), 
       "use the interval abstract domain for instruction cache") ;
-    ("--inst-rset-cache", Arg.Unit (fun () -> inst_cache_analysis_opt := Some RelAges), 
-      "use the relational set abstract domain for instruction cache") ;
-    ("--inst-oct-cache", Arg.Unit (fun () -> inst_cache_analysis_opt := Some OctAges), 
-      "use the octagon abstract domain for instruction cache") ;
     ("--inst-lru", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.LRU), 
       "set the instruction cache replacement strategy to LRU");
     ("--inst-fifo", Arg.Unit (fun () -> inst_cache_strategy_opt := Some CacheAD.FIFO), 
@@ -129,7 +121,7 @@ let speclist = [
       "set the cache replacement strategy to PLRU"
       ^"\n\n  Controlling and disabling aspects of the analysis:");
     ("--precise-update", Arg.Unit (fun () -> opt_precision := true),
-      "gain precision by performing the best abstract transformer upon cache update.\
+      "gain precision by performing the best abstract transformer upon cache update.
       Can lead to decreased performance which can make the analysis infeasible.
       Not recommended e.g. if the associativity is >= 8 and cache is small");
     ("--no-trace-time", Arg.Unit (fun () -> do_traces := false),
@@ -143,9 +135,9 @@ let speclist = [
        Default is normal");
     ("--log-one-ad",Arg.Tuple [Arg.Set_string temp_log_level; 
       Arg.String (fun ad -> Logger.set_ad_ll !temp_log_level ad)], 
-      "modify the output of one AD. --log-one-ad [ quiet|normal|debug ] SomeAD, \
-      where SomeAD is one of ageAD, architectureAD, cacheAD, flagAD, \
-      memAD, stackAD, traceAD, valAD, and iterator"
+      "[ quiet|normal|debug ] SomeAD 
+      modify the output of SomeAD, where SomeAD is one of ageAD, architectureAD, cacheAD,
+      flagAD, memAD, stackAD, traceAD, valAD, and iterator"
       ^"\n\n  Asynchronious attacker:");
     ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), 
       "attacker may interrupt each d instruction (or more than d)");
@@ -243,13 +235,7 @@ let _ =
       (* according to the configurations and the command-line arguments *)
        (* function generating a cache AD used for data or instruction caches *)
       let generate_cache cache_analysis attacker =
-        let cad = match !cache_analysis with
-          | OctAges -> IFDEF INCLUDEOCT THEN 
-      (module CacheAD.Make (SimpleOctAD.OctAD) : CacheAD.S) 
-            ELSE (failwith "Ocatgon library not included. Try make clean; make oct=1.") END
-          | RelAges ->
-            (module CacheAD.Make (RelAgeAD.RelAgeAD) : CacheAD.S)
-          | (SetAges | IntAges) -> 
+        let cad = 
             (* Generate the age abstract domain *)
             let age = 
               if !cache_analysis = SetAges then
