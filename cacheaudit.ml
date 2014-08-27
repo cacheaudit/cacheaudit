@@ -102,9 +102,11 @@ let speclist = [
       "use the interval abstract domain for the cache"
       ^"\n\n  Options for instruction caches (default are data cache options):");
     ("--inst-cache", Arg.Unit (fun () -> architecture := Split),
-     "enable instruction cache tracking (separate caches for data and instructions)");
+     "enable instruction cache tracking (separate caches for data 
+    and instructions)");
     ("--shared-cache", Arg.Unit (fun () -> architecture := Joint), 
-     "enable instruction cache tracking (shared caches for data and instructions");
+     "enable instruction cache tracking (shared caches for data 
+    and instructions");
     ("--inst-cache-size", (Arg.Int (fun n -> inst_cache_s := n)),
      "set the instruction cache size (in bytes)");
     ("--inst-line-size", (Arg.Int (fun n -> inst_line_s := n)),
@@ -121,28 +123,31 @@ let speclist = [
       "set the cache replacement strategy to PLRU"
       ^"\n\n  Controlling and disabling aspects of the analysis:");
     ("--precise-update", Arg.Unit (fun () -> opt_precision := true),
-      "gain precision by performing the best abstract transformer upon cache update.
-      Can lead to decreased performance which can make the analysis infeasible.
-      Not recommended e.g. if the associativity is >= 8 and cache is small");
+                "gain precision by performing the best abstract transformer 
+      upon cache update. Can lead to decreased performance which can make 
+      the analysis infeasible. Not recommended e.g. if the associativity 
+      is >= 8 and cache is small");
     ("--no-trace-time", Arg.Unit (fun () -> do_traces := false),
       "disable tracking of traces and time");
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--no-outer-unroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), 
-      "overwrites the --unroll option, so that outer loops are not unrolled"
+      "overrules the --unroll option, so that outer loops 
+      are not unrolled"
       ^"\n\n  Logging:");
     ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
-      "set the general log level. Options are quiet, normal and debug. \
+      "set the general log level. Options are quiet, normal and debug. 
        Default is normal");
     ("--log-one-ad",Arg.Tuple [Arg.Set_string temp_log_level; 
       Arg.String (fun ad -> Logger.set_ad_ll !temp_log_level ad)], 
       "[ quiet|normal|debug ] SomeAD 
-      modify the output of SomeAD, where SomeAD is one of ageAD, architectureAD, cacheAD,
-      flagAD, memAD, stackAD, traceAD, valAD, and iterator"
+      modify the output of SomeAD, where SomeAD is one of ageAD, architectureAD,
+       cacheAD, flagAD, memAD, stackAD, traceAD, valAD, and iterator"
       ^"\n\n  Asynchronious attacker:");
     ("--instrAttacker", Arg.Int (fun d -> attacker := Instructions d), 
       "attacker may interrupt each d instruction (or more than d)");
     ("--oneInstrInterrupt", Arg.Unit (fun () -> attacker:=OneInstrInterrupt),
-      "attacker that can interrupt only once per round, based on the number of instructions");
+      "attacker that can interrupt only once per round, 
+      based on the number of instructions");
     ("--oneTimedInterrupt", Arg.Unit (fun () -> attacker:=OneTimedInterrupt),
       "attacker that can interrupt only once per round, based on time");
     ("--accessAttacker", Arg.Unit (fun () -> attacker := Access false), 
