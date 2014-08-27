@@ -15,5 +15,5 @@ val prod : int64 list -> big_int
     images in [pfn] *)
 val partition : NumSet.t -> (NumSet.elt -> int) -> NumSet.t IntMap.t
 
-(** [i -- j] returns the list [i; i+1; ... ; j-1]*)
+(** [i -- j] returns the list [\[i; i+1; ... ; j-1\]] *)
 val (--) : int -> int -> int list

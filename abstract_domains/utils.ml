@@ -15,7 +15,6 @@ let partition elts pfn =
   let naset = NumSet.add addr naset in
   IntMap.add bnr naset csets) elts IntMap.empty
 
-(* [i -- j] returns the list [i; i+1; ... ; j-1]*)
 let (--) i j = 
   let rec aux n acc =
     if n < i then acc else aux (n-1) (n :: acc)
