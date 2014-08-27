@@ -1,5 +1,5 @@
 
-CacheAudit 0.1
+CacheAudit 0.2
 ======================================================================
 
 CacheAudit is a static analyzer of cache side-channels. CacheAudit takes as
@@ -111,22 +111,6 @@ ages of memory blocks. This can be changed using the following options:
 
 `--interval-cache`      use a less precise but more efficient interval
 			representation
-
-`--rset-cache` 	        use the relational set abstract domain.
-		      	Relational sets improve precision of the
-		      	analysis at the expense of increased execution
-		      	time. An example for which noticable improvements
-		      	can be observed is e.g. the Knapsack-algorithm in
-		      	`examples/Problems`.
-
-`--oct-cache` 	      	use the Octagon abstract domain for tracking
-			cache states (requires installation of
-			CacheAudit using the Octagon option). This
-			cache domain does not implement counting
-			itself; rather, it creates a file with suffix
-			`.latte` which can be used as input for the
-			[LattE](https://www.math.ucdavis.edu/~mkoeppe/latte/)
-			tool for lattice point enumeration.
 
 One can also change the number of times cycles in the CFG are unrolled using 
 the `--unroll` option. Default value is 100.
