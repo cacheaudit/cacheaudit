@@ -15,7 +15,6 @@ int main(){
   
 //   unsigned char xyz[(KEYSIZE + 7)/8] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   unsigned char key[(KEYSIZE + 7)/8];
-  unsigned char bla[257 -(KEYSIZE + 7)/8];
   //unsigned char xyz[(KEYSIZE + 7)/8];
   //unsigned char key[(KEYSIZE + 7)/8] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 

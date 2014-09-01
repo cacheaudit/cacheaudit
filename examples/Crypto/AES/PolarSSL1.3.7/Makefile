@@ -3,7 +3,7 @@ CFLAGS=-g -m32 -fno-stack-protector
 
 LIBS=
 
-TESTSRC = aes_test.c
+TESTSRC = test_aes.c
 HEADERS = config.h
 
 
