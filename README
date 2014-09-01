@@ -19,7 +19,7 @@ Requirements
 CacheAudit is written in [OCaml](http://ocaml.org) and needs the
 corresponding environment to compile.  We have tested CacheAudit with
 OCaml 4.00.0 on Ubuntu Linux and Mac OSX 10.8, with 32-bit target
-executables compiled using `gcc` on Ubuntu Linux. 
+executables compiled using `gcc` 4.8.2 on Ubuntu Linux. 
 
 
 
