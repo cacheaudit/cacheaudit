@@ -6,6 +6,4 @@ Can be recompiled using the Makefile. If you do so,
 when using cacheaudit, make sure to specify the correct start address 
 (e.g. do nm target | grep "T main").
 
-In the archive folder old implementations of AES are stored,
-which are superseeded by the contents of PolarSSL1.3.7/.
 
