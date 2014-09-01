@@ -1,14 +1,11 @@
-Different Versions of AES from the polarSSL library.
+AES implementation taken from the PolarSSL library
 
-VERSIONS:
-- aes_inlined.c: one block computation with inlined key schedule
-- aes_nosched.c: onle block without key schedule
-- aes_nosched_preloading.c: one block computation without key schedule and with preloading
+The PolarSSL1.3.7 folder contains the currently analyzed implementations.
+Pre-compiled executables are included.
+Can be recompiled using the Makefile. If you do so,
+when using cacheaudit, make sure to specify the correct start address 
+(e.g. do nm target | grep "T main").
 
-IDEAS:
-- We could consider fixing the Message (e.g. to 0) to separate leakage of key from leakage of payload
+In the archive folder old implementations of AES are stored,
+which are superseeded by the contents of PolarSSL1.3.7/.
 
-
-NOTE: 
-- Careful with the compilation, preloading might be optimized out.
-- Old implementation did not preload FT0!

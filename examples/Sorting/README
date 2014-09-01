@@ -1,9 +1,7 @@
-All binaries produced on Linux for 32 bit architecture:
-gcc -m32 input.c -o output
+Sorting algorithms taken from 
+http://www.codebeach.com/2008/09/sorting-algorithms-in-c.html
 
-For a precise analysis, use --unroll 300
-
-NOTE:
-Things to do:
-1) Make number of unfoldings configurable.
-2) Also, it would make sense to specify the number of cache sets rather than the overall cache size (as is right now)
+Pre-compiled executables are included.
+Can be recompiled using the Makefile. If you do so,
+when using cacheaudit, make sure to specify the correct start address
+(e.g. do nm target | grep "T main").
