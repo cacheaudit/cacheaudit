@@ -82,7 +82,7 @@ $(EXECUTABLE): $(CMO_FILES) $(addsuffix .ml, $(EXECUTABLE))
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) -o $@ $+
 
 clean: 
-	rm -f depend $(EXECUTABLE) */*/*.cmo */*/*.cmx */*/*.cmi */*/*~ */*/*.annot */*.cmo */*.cmx */*.cmi */*~ */*.annot *.cmo *.cmx *.cmi *~ *.annot */*.html */*.css */*.o
+	rm -f depend $(EXECUTABLE) */*/*.cmo */*/*.cmx */*/*.cmi */*/*~ */*/*.annot */*.cmo */*.cmx */*.cmi */*~ */*.annot *.cmo *.cmx *.cmi *~ *.annot */*.html */*.css */*.o */*/*.o
 
 depend: 
 	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli abstract_domains/*/*.ml abstract_domains/*/*.mli *.ml *.mli> depend
@@ -91,13 +91,36 @@ ifneq ($(MAKECMDGOALS),clean)
    -include depend
 endif
 
+MLI_DOC_FILES = logger.mli \
+	x86_frontend/asmUtil.mli \
+	x86_frontend/x86Util.mli \
+	x86_frontend/x86Print.mli \
+	x86_frontend/x86Parse.mli \
+	x86_frontend/elf.mli \
+	x86_frontend/macho.mli \
+	x86_frontend/x86Headers.mli \
+	iterator/cfg.mli \
+	abstract_domains/stackAD.mli \
+	abstract_domains/numeric/valAD.mli \
+	abstract_domains/utils.mli \
+	abstract_domains/cache/ageAD.mli \
+	abstract_domains/flagAD.mli \
+	abstract_domains/cache/traceAD.mli \
+	abstract_domains/cache/cacheAD.mli \
+	abstract_domains/cache/asynchronousAttacker.mli \
+	abstract_domains/cache/accessAD.mli \
+	abstract_domains/memAD.mli \
+	iterator/iterator.mli \
+	abstract_domains/architectureAD.mli \
+	config.mli
+
 #ml files without mli that should be in the doc
-INTERFACE_FILES = abstract_domains/AD.ml iterator/abstrInstr.ml abstract_domains/numeric/numAD.ml
+ML_DOC_FILES = abstract_domains/AD.ml iterator/abstrInstr.ml abstract_domains/numeric/numAD.ml
 
 doc:
 	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ \
 	$(OCAMLINCLUDE) -t "CacheAudit: Static Analysis of Cache Side-Channels" \
-	*.mli iterator/*.mli $(INTERFACE_FILES) abstract_domains/*.mli abstract_domains/numeric/*.mli abstract_domains/cache/*.mli x86_frontend/*.mli
+	$(MLI_DOC_FILES) $(ML_DOC_FILES)
 
 test:	$(EXECUTABLE)
 	cd tests; ./run.sh;
@@ -111,4 +134,4 @@ help:
 	@echo "  - make test    : Run tests."
 	@echo "  - make help    : Show this dialog."
 
-.PHONY: all clean dep test help
+.PHONY: all clean depend test help
