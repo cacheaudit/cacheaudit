@@ -1,7 +1,0 @@
-Sorting algorithms taken from 
-http://www.codebeach.com/2008/09/sorting-algorithms-in-c.html
-
-Pre-compiled executables are included.
-Can be recompiled using the Makefile. If you do so,
-when using cacheaudit, make sure to specify the correct start address
-(e.g. do nm target | grep "T main").

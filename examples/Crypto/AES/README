@@ -1,9 +1,0 @@
-AES implementation taken from the PolarSSL library
-
-The PolarSSL1.3.7 folder contains the currently analyzed implementations.
-Pre-compiled executables are included.
-Can be recompiled using the Makefile. If you do so,
-when using cacheaudit, make sure to specify the correct start address 
-(e.g. do nm target | grep "T main").
-
-
