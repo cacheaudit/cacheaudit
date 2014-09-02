@@ -42,8 +42,8 @@ let compute parse virtual_start sections bits =
 let read_exec file =
   let bits = AsmUtil.read_from_file file in
   try compute Elf.parse Elf.virtual_start Elf.sections bits
-  with Elf.NonElfFile -> 
-    compute Macho.parse Macho.virtual_start Macho.sections bits
+  with Elf.NonElfFile ->
+      failwith "Only ELF executables supported"
 
 let starting_offset x = x.start_offset
 

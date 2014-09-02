@@ -38,7 +38,6 @@ ML_FILES := \
 	x86_frontend/x86Parse.ml \
 	x86_frontend/execInterfaces.ml \
 	x86_frontend/elf.ml \
-	x86_frontend/macho.ml \
 	x86_frontend/x86Headers.ml \
 	iterator/cfg.ml\
   iterator/abstrInstr.ml\

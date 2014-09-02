@@ -193,7 +193,6 @@ let _ =
     end
   in
   let bits, mem =
-    try (
       let mem = read_exec !bin_name in
       if !start_addr = -1 then failwith ("No starting address given");
       Printf.printf "Start address (e.g. of main) is 0x%x\n" !start_addr;
@@ -213,12 +212,7 @@ let _ =
       Printf.printf "Data cache replacement strategy: %s\n" rep_strat;
       Printf.printf "Offset of first instruction is 0x%x (%d bytes in the file)\n" 
         !start_addr !start_addr;
-      (get_bits mem), Some mem) 
-    with Macho.NonMachOFile -> (
-      Printf.printf "Not an ELF, or Mach-O file, entry point not determined\n";
-      if !start_addr= -1 then start_addr:=0;
-      (read_from_file !bin_name), None 
-    ) in
+      (get_bits mem), Some mem in
   if !print_ass then print_assembly (read_assembly bits);
   let data_cache_params = {CacheAD.cs = !data_cache_s; CacheAD.ls = !data_line_s;
     CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy; opt_precision = !opt_precision} in
