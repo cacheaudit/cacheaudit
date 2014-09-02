@@ -13,7 +13,8 @@ VARIANTS = rom preloading
 KEYSIZES = 128 192 256
 EXECUTABLES = $(foreach s, $(KEYSIZES), $(foreach v,$(VARIANTS), $(BASENAME)-$(s)-$(v)))
 
-all: $(EXECUTABLES);
+all: $(EXECUTABLES)
+	@echo CacheAudit Warning: Analysis may not work with newly compiled files. Please refer to ../../../README
 
 $(BASENAME)-%: $(TESTSRC) $(HEADERS) $(CIPHERS_C)
 	$(CC) $(TESTSRC) $(CIPHERS_C) $(CFLAGS) -o $@ \

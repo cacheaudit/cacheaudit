@@ -12,6 +12,7 @@ EXECUTABLES = $(foreach s, $(ARRSIZES), \
 			sort-$(f)-$(s)))
 
 all: $(EXECUTABLES)
+	@echo CacheAudit Warning: Analysis may not work with newly compiled files. Please refer to ../../README
 
 sort-%: $(FILES_C)
 	$(CC) $(word 2, $(subst -, ,$@)).c $(CFLAGS) -o $@ \
