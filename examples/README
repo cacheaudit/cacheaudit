@@ -3,6 +3,4 @@ Example Portfolio:
 - Software finalists of the eSTREAM stream cipher competition (http://www.ecrypt.eu.org/stream/)
 - Sorting algorithms (http://www.codebeach.com/2008/09/sorting-algorithms-in-c.html)
 
-Pre-compiled executables and corresponding configuration files are included. They can be recompiled using the Makefile. If you do so, when using cacheaudit, make sure to specify the correct start address (e.g. do nm target | grep "T main").
-
-
+Pre-compiled executables and corresponding configuration files are included. Executables can be recompiled using the given Makefiles, however this has been tested only on a Linux 3.13.0-34 with GCC 4.8.2 on Ubuntu 14.04; compilation on any other system may not work. If you do so, when using cacheaudit, make sure to specify the correct start address (e.g. do nm target | grep "T main").
