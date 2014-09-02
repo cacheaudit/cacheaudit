@@ -1,6 +1,25 @@
 Example Portfolio:
-- AES implementation taken from PolarSSL 1.3.7 (https://polarssl.org/)
+------------------
+
+- AES implementation from PolarSSL 1.3.7 (https://polarssl.org/)
 - Software finalists of the eSTREAM stream cipher competition (http://www.ecrypt.eu.org/stream/)
 - Sorting algorithms (http://www.codebeach.com/2008/09/sorting-algorithms-in-c.html)
 
-Pre-compiled executables and corresponding configuration files are included. Executables can be recompiled using the given Makefiles, however this has been tested only on a Linux 3.13.0-34 with GCC 4.8.2 on Ubuntu 14.04; compilation on any other system may not work. If you do so, when using cacheaudit, make sure to specify the correct start address (e.g. do nm target | grep "T main").
+
+
+
+Compiling the executables: 
+-------------------------- 
+
+- The distribution contains pre-compiled (Linux 32-bit) executables
+  and corresponding configuration files that specify the entry point
+  for the x86 parser (here: the address of main()).
+
+- The distribution also contains the sources of all examples, together
+  with Makefiles for recompilation. However, this has been tested only
+  on a Linux 3.13.0-34 with GCC 4.8.2 on Ubuntu 14.04; compilation on
+  any other system need not work because the compiler may produce
+  commands that are currently not supported by CacheAudit's x86
+  parser. Moreover, it requires the user to determine the parser entry
+  point for the resulting executable (e.g. do nm target | grep "T
+  main").
