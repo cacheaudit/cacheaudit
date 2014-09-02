@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2014, IMDEA Software Institute.         *)
+(* See ../../LICENSE for authorship and licensing information *)
+
 (** Trace abstract domain: keeps track of the possible traces, i.e., successions of cache
     {i hits} and {i misses}
  *)

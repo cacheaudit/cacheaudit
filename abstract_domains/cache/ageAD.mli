@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2014, IMDEA Software Institute.         *)
+(* See ../../LICENSE for authorship and licensing information *)
+
 (** Age abstract domain: keeps track of the ages of variables 
 representing lines of memory
 

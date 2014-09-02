@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2014, IMDEA Software Institute.         *)
+(* See ../LICENSE for authorship and licensing information    *)
+
 (* Data structures and parsing of elf files *)
 
 (* Module parameters *******************************************************)

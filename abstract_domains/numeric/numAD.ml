@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2014, IMDEA Software Institute.         *)
+(* See ../../LICENSE for authorship and licensing information *)
+
 (** The base type of the numeric abstract domains used in CacheAudit *)
 open X86Types
 open AD.DS

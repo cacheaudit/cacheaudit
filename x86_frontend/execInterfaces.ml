@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2014, IMDEA Software Institute.         *)
+(* See ../LICENSE for authorship and licensing information    *)
+
 (* What a module reading an executable object should return *)
 
 type section = 
