@@ -148,17 +148,14 @@ module Make (A: AgeAD.S) = struct
   let calc_poss_init_ages strategy assoc =
     let permut = get_permutation strategy in
     let rec loop ready todo = 
-      if IntListSet.is_empty todo then begin
-        Printf.printf "%d states\n" (IntListSet.cardinal ready);
-        ready end
+      if IntListSet.is_empty todo then 
+        ready
       else 
         let elt = IntListSet.choose todo in
-        List.iter (fun i -> Printf.printf "%d " i) elt; Printf.printf "{ ";
         let ready = IntListSet.add elt ready in
         let todo = IntListSet.remove elt todo in
         (* hit successors *)
         let ages_in = touched_compl assoc elt in 
-        IntSet.iter (fun i -> Printf.printf "%d " i) ages_in; Printf.printf "}\n";
         let successors = IntSet.fold (fun i succ ->
           IntListSet.add (List.map (permut assoc i) elt) succ
           ) ages_in IntListSet.empty in
