@@ -82,6 +82,7 @@ module Make (A: AgeAD.S) = struct
     | FIFO -> fifo_permut
     | PLRU -> plru_permut
    
+  (* apply function f to all elements of intset iset *)
   let intset_map f iset = 
     IntSet.fold (fun x st -> IntSet.add (f x) st) iset IntSet.empty
   
@@ -101,7 +102,7 @@ module Make (A: AgeAD.S) = struct
     num_sets : int; (* computed from the previous three *)
     
     strategy : replacement_strategy;
-    poss_ages : IntSetSet.t
+    poss_init_ages : IntListSet.t;
   }
   
   let var_to_string x = Printf.sprintf "%Lx" x 
@@ -130,6 +131,44 @@ module Make (A: AgeAD.S) = struct
         loop ready todo in
     loop IntSetSet.empty (IntSetSet.singleton IntSet.empty) 
 
+  (* give the complement of the ages of an initial state: *)
+  (* set of ages of the elements in cache*)
+  let touched_compl assoc untouched  =
+    let all_ages = List.fold_left (fun s x -> 
+      IntSet.add x s) IntSet.empty (0 -- assoc) in
+    List.fold_left (fun touched a -> 
+      if a = assoc then touched 
+      else IntSet.remove a touched) all_ages untouched
+  
+  (* Calculates the possible ages of the initial blocks. *)
+  (* Works only under the assumption that the initial blocks are disjoint *)
+  (* from the accessed locations. *)
+  (* If age != associativity, then that location is filled filled with an*)
+  (* element from the initial state or is empty if initial state is empty *)
+  let calc_poss_init_ages strategy assoc =
+    let permut = get_permutation strategy in
+    let rec loop ready todo = 
+      if IntListSet.is_empty todo then begin
+        Printf.printf "%d states\n" (IntListSet.cardinal ready);
+        ready end
+      else 
+        let elt = IntListSet.choose todo in
+        List.iter (fun i -> Printf.printf "%d " i) elt; Printf.printf "{ ";
+        let ready = IntListSet.add elt ready in
+        let todo = IntListSet.remove elt todo in
+        (* hit successors *)
+        let ages_in = touched_compl assoc elt in 
+        IntSet.iter (fun i -> Printf.printf "%d " i) ages_in; Printf.printf "}\n";
+        let successors = IntSet.fold (fun i succ ->
+          IntListSet.add (List.map (permut assoc i) elt) succ
+          ) ages_in IntListSet.empty in
+        (* miss successor *)
+        let miss_elt = List.map (fun a -> if a = assoc then a else succ a) elt in
+        let successors = IntListSet.add miss_elt successors in
+        let todo = IntListSet.diff (IntListSet.union todo successors) ready in
+        loop ready todo in
+    loop IntListSet.empty (IntListSet.singleton (0 -- assoc)) 
+
   (* Determine the set in which an address is cached *)
   let get_set_addr env addr =
     calc_set_addr env.num_sets addr
@@ -145,6 +184,7 @@ module Make (A: AgeAD.S) = struct
     let rec init_csets csets i = match i with
     | 0 -> csets
     | n -> init_csets (IntMap.add (n - 1) NumSet.empty csets) (n - 1) in
+    let poss_init_ages = calc_poss_init_ages strategy ass in
     { cache_sets = init_csets IntMap.empty ns;
       ages = A.init ass (calc_set_addr ns) var_to_string;
       handled_addrs = NumSet.empty;
@@ -153,7 +193,7 @@ module Make (A: AgeAD.S) = struct
       assoc = ass;
       num_sets = ns;
       strategy = strategy;
-      poss_ages = calc_poss_ages strategy ass
+      poss_init_ages = poss_init_ages
     }
   
   (* Gives the block address *)
@@ -195,9 +235,15 @@ module Make (A: AgeAD.S) = struct
         let d = d || (IntSet.mem age age_set) in (* check for duplicates *)
         (IntSet.add age age_set,d)) state (IntSet.empty,false)
   
+  let num_poss_states env state_ages = 
+      IntListSet.fold (fun istate num -> 
+        if IntSet.equal (touched_compl env.assoc istate) state_ages then succ num 
+        else num) env.poss_init_ages 0 
+  
+  
   let is_poss_state env state = 
     let state_ages, duplicate = get_state_ages env state in
-    (not duplicate) && (IntSetSet.mem state_ages env.poss_ages) 
+    (not duplicate) && (num_poss_states env state_ages > 0)
   
   (* Give the abstraction of [concr] *)
   let abstract_set env concr = 
@@ -225,10 +271,11 @@ module Make (A: AgeAD.S) = struct
         (* remove impossible *)
         let concr = List.filter (is_poss_state env) concr in
         let num_concr = List.length concr in
-        let num_disjoint = IntSetSet.cardinal (
-            List.fold_left (fun set state -> 
-              IntSetSet.add (fst (get_state_ages env state)) set) IntSetSet.empty concr
-          ) in
+        let valid_agesets = List.fold_left (fun set state -> 
+          IntSetSet.add (fst (get_state_ages env state)) 
+            set) IntSetSet.empty concr in
+        let num_disjoint = IntSetSet.fold (fun ageset n -> 
+              n + num_poss_states env ageset) valid_agesets 0 in
         ((Int64.of_int num_concr)::nums, (Int64.of_int num_disjoint)::bl_nums)
       ) cache_sets ([],[])
       
@@ -276,9 +323,9 @@ module Make (A: AgeAD.S) = struct
         ) env.cache_sets;
     Format.printf "\n";
     let num, bl_num = count_cstates env in
-    Format.fprintf fmt "\nNumber of valid cache configurations: ";
+    Format.fprintf fmt "\nNumber of valid cache configurations (shared memory): ";
     print_num fmt num;
-    Format.fprintf fmt "\nNumber of valid cache configurations (blurred): ";
+    Format.fprintf fmt "\nNumber of valid cache configurations (disjoint memory): ";
     print_num fmt bl_num
   
     let print_delta c1 fmt c2 = match get_log_level CacheLL with
