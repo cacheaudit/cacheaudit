@@ -267,7 +267,10 @@ module Make (A: AgeAD.S) = struct
         let concr = concretize_set env addr_set in
         (* remove impossible *)
         let concr = List.filter (is_poss_state env) concr in
-        let num_concr = List.length concr in
+        (* let num_concr = List.length concr in *)
+         let num_concr = List.fold_left (fun num state -> 
+           num + num_poss_states env (fst (get_state_ages env state))
+            ) 0 concr in
         let valid_agesets = List.fold_left (fun set state -> 
           IntSetSet.add (fst (get_state_ages env state)) 
             set) IntSetSet.empty concr in
