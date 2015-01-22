@@ -105,7 +105,7 @@ let pp_block_addr fmt n =
   else if n = addr_ending_block then Format.fprintf fmt "@ FINAL"
   else Format.fprintf fmt "@<6>0x%x" n
  
-let pp_block_header fmt b =
+ let pp_block_header fmt b =
   Format.fprintf fmt "Start: %a @ End: %a @ Next: %a@."
     pp_block_addr b.start_addr pp_block_addr b.end_addr
     pp_block_addr b.next_block_addr
@@ -140,19 +140,6 @@ let ctx_apply_t ctx = function
   | ReturningEdge -> strip_first ctx
   | CallingEdge addr -> addr::ctx
 
-(* Takes a section and an X86Types.address types and returns the value stored there *)
-(* May raise X86Headers.InvalidVirtualAddress *)
-let strip_lookup sect addr =
-  match addr.addrBase with
-    | Some _ -> failwith "Relative addressing failure"
-    | None -> match addr.addrIndex with
-	| Some _ -> failwith "Relative addressing failure"
-	| None -> match addr.segBase with
-	    | Some _ ->  failwith "Relative addressing failure"
-	    | None -> 
-	      let y = X86Headers.lookup sect addr.addrDisp in
-	      let x=X86Headers.virtual_to_offset sect y
-	      in x 
 
 (* The function that checks if we should recurse (If the edge hasn't been already added) *)
 let rec_call edge edges f =
@@ -173,42 +160,27 @@ let getedges sections bs =
       if get_log_level CfgLL = Debug then
         Format.printf "Context %a @<6>%x %a@." pp_context context (get_byte b) X86Print.pp_instr i;
       match i with 
-	| Jcc (_,x) -> 
+      | Jcc (_,x) -> 
 	  let tgt = Int64.to_int x in
 	  let edge1 = (context, InternalEdge, src, tgt) in 
 	  let edge2 = (context, InternalEdge, src, nsrc) in
 	  let nedges = rec_call edge1 edges (getaux context ret (goto b tgt)) in
-    rec_call edge2 nedges (getaux context ret nb)
-	(* Three cases JmpInd *)
-	| Jmp (Imm x) ->
+	  rec_call edge2 nedges (getaux context ret nb)
+      | Jmp (Imm x) ->
 	  let tgt = Int64.to_int x in 
 	  let edge = (context, InternalEdge, src,tgt) in
-    rec_call edge edges (getaux context ret (goto b tgt))
-	| Jmp (Address x) ->
-	  (try
-      let tgt = strip_lookup sections x in 
-		  let edge = (context, InternalEdge, src,tgt) in
-      rec_call edge edges (getaux context ret (goto b tgt))
-	   with X86Headers.InvalidVirtualAddress -> EdgeSet.add (context,InternalEdge,src,addr_error_block) edges)
-	| Jmp (Reg _) -> failwith "Relative addressing failure"
-	| Call (Imm x) ->  
-	  let tgt = Int64.to_int x in 
-	  let edge = (context, CallingEdge(src), src,tgt) in
-    let nedges = if first_equals src context then failwith "Recursion not supported" 
-                 else rec_call edge edges (getaux (src::context) nsrc (goto b tgt)) in
+	  rec_call edge edges (getaux context ret (goto b tgt))
+      | Jmp _ -> failwith "Relative addressing failure"
+      | Call (Imm x) ->  
+	let tgt = Int64.to_int x in 
+	let edge = (context, CallingEdge(src), src,tgt) in
+	let nedges = if first_equals src context then failwith "Recursion not supported" 
+          else rec_call edge edges (getaux (src::context) nsrc (goto b tgt)) in
     (* now we add the edges to the rest of the current context *)
-    getaux context ret nb nedges
-	| Call (Address x) ->  
-	  let nedges = (try
-      let tgt = strip_lookup sections x in 
-	    let edge = (context, CallingEdge(src), src,tgt) in
-      if first_equals src context then failwith "Recursion not supported"
-      else rec_call edge edges (getaux (src::context) nsrc (goto b tgt))
-	   with X86Headers.InvalidVirtualAddress -> EdgeSet.add (context,InternalEdge,src,addr_error_block) edges) in
-    getaux context ret nb nedges
-	| Call (Reg _) -> failwith "Relative addressing failure"
-	| Ret -> EdgeSet.add (context, ReturningEdge, src, ret) edges  (*return to calling context *)
-	| _ -> getaux context ret nb edges
+	getaux context ret nb nedges
+      | Call _ ->  failwith "Relative addressing failure"
+      | Ret -> EdgeSet.add (context, ReturningEdge, src, ret) edges  (*return to calling context *)
+      | _ -> getaux context ret nb edges
     else edges
   in getaux [] addr_ending_block bs EdgeSet.empty
 
