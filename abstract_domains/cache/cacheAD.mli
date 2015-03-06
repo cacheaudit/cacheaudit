@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2015, IMDEA Software Institute.             *)
+(* See ../../LICENSE for authorship and licensing information     *)
+
 (** Cache abstract domain: keeps track of CPU cache configurations *)
 
 open AD.DS

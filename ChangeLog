@@ -1,0 +1,14 @@
+CacheAudit ChangeLog
+
+= Version 0.2 released 2014-09-01
+   * full support of PLRU
+   * adapt to make sure write-through + no write-allocate is used
+   * cache update made permutation-based (takes permutation as a parameter)
+   * supports precision optimizations for cache update using the 
+     best abstract transformer and a reduction
+   * counting of cache states simplified
+   * additional x86 instructions supported
+   * significant refactoring of the whole codebase
+   * dropped support for Octagon and RelSets domains for tracking ages in cache
+   * eSTREAM competition added to examples
+   * examples can be readily built with makefiles

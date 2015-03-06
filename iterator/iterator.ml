@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2015, IMDEA Software Institute.          *)
+(* See ../LICENSE for authorship and licensing information     *)
+
 (* An iterator for analysis of executables *)
 
 (*number of times loops are unrolled before fp computation begins *)

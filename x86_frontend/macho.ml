@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2015, IMDEA Software Institute.          *)
+(* See ../LICENSE for authorship and licensing information     *)
+
 (* Data structures and parsing of MACH-O files *)
 
 (* Module parameters *******************************************************)

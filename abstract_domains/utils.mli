@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2015, IMDEA Software Institute.          *)
+(* See ../LICENSE for authorship and licensing information     *)
+
 (** Some shared functions *)
 
 open Big_int

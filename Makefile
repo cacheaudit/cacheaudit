@@ -82,22 +82,24 @@ $(EXECUTABLE): $(CMO_FILES) $(addsuffix .ml, $(EXECUTABLE))
 	$(OCAMLC) $(OCAMLINCLUDE) $(OCAMLLIB) -o $@ $+
 
 clean: 
-	rm -f depend $(EXECUTABLE) */*/*.cmo */*/*.cmx */*/*.cmi */*/*~ */*/*.annot */*.cmo */*.cmx */*.cmi */*~ */*.annot *.cmo *.cmx *.cmi *~ *.annot */*.html */*.css */*.o
+	rm -f depend $(EXECUTABLE) */*/*.cmo */*/*.cmx */*/*.cmi */*/*~ */*/*.annot */*.cmo */*.cmx */*.cmi */*~ */*.annot *.cmo *.cmx *.cmi *~ *.annot */*.html */*.css */*.o */*/*.o
 
 depend: 
 	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli abstract_domains/*/*.ml abstract_domains/*/*.mli *.ml *.mli> depend
 
-ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(MAKECMDGOALS), clean)
    -include depend
 endif
 
-#ml files without mli that should be in the doc
-INTERFACE_FILES = abstract_domains/AD.ml iterator/abstrInstr.ml abstract_domains/numeric/numAD.ml
+MLI_DOC_FILES = *.mli iterator/*.mli abstract_domains/*.mli abstract_domains/numeric/*.mli abstract_domains/cache/*.mli x86_frontend/*.mli
 
-doc:
+#ml files without mli that should be in the doc
+ML_DOC_FILES = abstract_domains/AD.ml iterator/abstrInstr.ml abstract_domains/numeric/numAD.ml
+
+doc: all
 	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ \
 	$(OCAMLINCLUDE) -t "CacheAudit: Static Analysis of Cache Side-Channels" \
-	*.mli iterator/*.mli $(INTERFACE_FILES) abstract_domains/*.mli abstract_domains/numeric/*.mli abstract_domains/cache/*.mli x86_frontend/*.mli
+	$(MLI_DOC_FILES) $(ML_DOC_FILES)
 
 test:	$(EXECUTABLE)
 	cd tests; ./run.sh;
@@ -111,4 +113,4 @@ help:
 	@echo "  - make test    : Run tests."
 	@echo "  - make help    : Show this dialog."
 
-.PHONY: all clean dep test help
+.PHONY: all clean test help

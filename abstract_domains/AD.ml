@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2015, IMDEA Software Institute.          *)
+(* See ../LICENSE for authorship and licensing information     *)
+
 (** The base type of all abstract domains used in CacheAudit *)
 
 module type S = sig 

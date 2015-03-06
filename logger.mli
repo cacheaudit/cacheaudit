@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2015, IMDEA Software Institute.         *)
+(* See ./LICENSE for authorship and licensing information     *)
+
 (** The logger module stores the log level specified with each of the ADs *)
 
 (** Different log levels. Quiet means the bare minimum. Normal adds useful information and Debug everything else. *)

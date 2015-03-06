@@ -1,3 +1,6 @@
+(* Copyright (c) 2013-2015, IMDEA Software Institute.          *)
+(* See ../LICENSE for authorship and licensing information     *)
+
 (* Executable infos, such as starting offset and translation from virtual addresses to offsets in the file  *)
 open ExecInterfaces
 
@@ -43,7 +46,8 @@ let read_exec file =
   let bits = AsmUtil.read_from_file file in
   try compute Elf.parse Elf.virtual_start Elf.sections bits
   with Elf.NonElfFile -> 
-    compute Macho.parse Macho.virtual_start Macho.sections bits
+    failwith "Only ELF executables supported"
+	(* compute Macho.parse Macho.virtual_start Macho.sections bits *)
 
 let starting_offset x = x.start_offset
 
