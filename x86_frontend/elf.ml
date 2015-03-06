@@ -39,30 +39,15 @@ type elf_header = {
   e_phoff : int; (* offset of program header table *)
   e_shoff : int; (* offset of section header table *)
   e_phnum : int; (* the number of entries in the program header table *)
-  e_shnum : int; (* the number of entries in the section header table *)
   e_shstrndx : elf32_half; (* section header table index of the entry associated with the section name string table *)
 }
 
-(* type elf32_shdr = {                                                   *)
-(*   sh_name : string; (* read through an index into the string table *) *)
-(*   sh_type : elf32_word;                                               *)
-(*   sh_addr : elf32_addr;                                               *)
-(*   sh_offset : int;                                                    *)
-(* (* and more *)                                                        *)
-(* }                                                                     *)
-
-(* String header table entries *)
 type elf32_shdr = {
-sh_name        : Int64.t;
-sh_type        : Int64.t;
-sh_flags       : Int64.t;
-sh_addr        : Int64.t;
-sh_offset      : Int64.t;
-sh_size        : Int64.t;
-sh_link        : Int64.t;
-sh_info        : Int64.t;
-sh_addralign   : Int64.t;
-sh_entsize     : Int64.t;
+  sh_name : string; (* read through an index into the string table *)
+  sh_type : elf32_word;
+  sh_addr : elf32_addr;
+  sh_offset : int;
+(* and more *)
 }
 
 type elf32_phdr = {
@@ -162,7 +147,6 @@ let parse_header bits =
   let e_shentsize, bits = read_uint bits 16 in
   let e_shnum, bits = read_uint bits 16 in
   let e_shstrndx, bits = read_uint bits 16 in
-  Printf.printf "e_shstrndx %d\n" e_shstrndx;
   { e_ident = e_ident;
     e_type = (match e_type with
         0 -> Et_none
@@ -175,39 +159,8 @@ let parse_header bits =
     e_phoff = off_to_int e_phoff;
     e_shoff = off_to_int e_shoff;
     e_phnum = e_phnum;
-    e_shnum = e_shnum;
     e_shstrndx = e_shstrndx;
 }
-
-let parse_sh bits =
-  let sh_name, bits = read_uint32 bits 32 in
-  let sh_type, bits = read_uint32 bits 32 in
-  let sh_flags, bits = read_uint32 bits 32 in
-  let sh_addr, bits = read_uint32 bits 32 in
-  let sh_offset, bits = read_uint32 bits 32 in
-  let sh_size, bits = read_uint32 bits 32 in
-  let sh_link, bits = read_uint32 bits 32 in
-  let sh_info, bits = read_uint32 bits 32 in
-  let sh_addralign, bits = read_uint32 bits 32 in
-  let sh_entsize, bits = read_uint32 bits 32 in
-   {
-    sh_name = sh_name;
-    sh_type = sh_type;
-    sh_flags = sh_flags;
-    sh_addr = sh_addr;
-    sh_offset = sh_offset;
-    sh_size = sh_size;
-    sh_link = sh_link;
-    sh_info = sh_info;
-    sh_addralign = sh_addralign;
-    sh_entsize = sh_entsize;
-  }, bits
-
-let rec parse_shtable n bits acc =
-  if n>0 then
-    let sh, bits = parse_sh bits in
-    parse_shtable (n-1) bits (sh::acc)
-  else List.rev acc
 
 let parse_ph bits =
   let p_type, bits = read_uint32 bits 32 in
@@ -235,11 +188,10 @@ let parse bits =
   let bits = goto bits 0 in
   let header = parse_header bits in
   let bits_ph = goto bits header.e_phoff in
-  let bits_sh = goto bits header.e_shoff in
   Printf.printf "Number of program headers: %d\n" header.e_phnum;
   { elf_header = header;
     program_header = parse_phtable header.e_phnum bits_ph [];
-    section_header = parse_shtable header.e_shnum bits_sh [];
+    section_header = [];
   }
 
 let read file = parse (read_from_file file)
@@ -248,10 +200,7 @@ let virtual_start e = e.elf_header.e_entry
 
 open ExecInterfaces
 
-let sections e = 
-  List.iter (fun s -> Printf.printf "name %Lx, type %Lx, addr %Lx\n" s.sh_name s.sh_type s.sh_addr;) e.section_header;
-  List.map (fun s -> 
-      (* Printf.printf "\n%Lx\n" s.p_vaddr; *)
+let sections e = List.map (fun s -> 
       { start_addr = s.p_vaddr;
         end_addr = s.p_lastaddr;
         offset = s.p_offset;
