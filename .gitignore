@@ -1,0 +1,9 @@
+*.cmo
+*.cmx
+*.cmi
+*.annot
+*~
+*.html
+*/*.css
+*/*.o
+depend
