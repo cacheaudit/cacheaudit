@@ -111,6 +111,7 @@ let rec read_instr_body bits seg_override =
   | 0x0D ->
         let imm, bits = read_uint32 bits 32 in
         Arith(Or, Reg EAX, Imm imm), bits
+  | 0x19 -> arith_to_rm Subb
   | 0x1C -> let imm, bits = read_uint32 bits 8 in
         Arithb(Subb, Reg AL, Imm imm), bits
   | 0x21 -> arith_to_rm And
