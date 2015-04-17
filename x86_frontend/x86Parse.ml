@@ -121,6 +121,8 @@ let rec read_instr_body bits seg_override =
   | 0x2B -> arith_from_rm Sub
   | 0x2C -> let imm, bits = read_uint32 bits 8 in
         Arithb(Sub, Reg AL, Imm imm), bits
+  | 0x2D -> let imm, bits = read_uint32 bits 32 in
+        Arith(Sub, Reg EAX, Imm imm), bits
   | 0x31 -> arith_to_rm Xor
   | 0x33 -> arith_from_rm Xor
   | 0x34 -> let imm, bits = read_uint32 bits 8 in
