@@ -88,7 +88,9 @@ depend:
 	$(OCAMLDEP) $(OCAMLINCLUDE) iterator/*.ml iterator/*.mli x86_frontend/*.ml x86_frontend/*.mli *.mli abstract_domains/*.ml abstract_domains/*.mli abstract_domains/*/*.ml abstract_domains/*/*.mli *.ml *.mli> depend
 
 ifneq ($(MAKECMDGOALS), clean)
+ifneq ($(MAKECMDGOALS), help)
    -include depend
+endif
 endif
 
 MLI_DOC_FILES = *.mli iterator/*.mli abstract_domains/*.mli abstract_domains/numeric/*.mli abstract_domains/cache/*.mli x86_frontend/*.mli
@@ -97,7 +99,7 @@ MLI_DOC_FILES = *.mli iterator/*.mli abstract_domains/*.mli abstract_domains/num
 ML_DOC_FILES = abstract_domains/AD.ml iterator/abstrInstr.ml abstract_domains/numeric/numAD.ml
 
 doc: all
-	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d documentation/ \
+	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d doc/ \
 	$(OCAMLINCLUDE) -t "CacheAudit: Static Analysis of Cache Side-Channels" \
 	$(MLI_DOC_FILES) $(ML_DOC_FILES)
 

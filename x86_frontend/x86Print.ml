@@ -113,8 +113,9 @@ let pp_address fmt addr =
   | true, None, Some (Scale1, r), None -> fprintf fmt "[%a]" pp_reg32 r
   | true, None, Some (sc, r), None -> fprintf fmt "[%a*%a]" pp_scale sc pp_reg32 r
   | false, None, None, None -> fprintf fmt "[%a]" pp_addr addr.addrDisp
-  | false, None, None, Some sr -> fprintf fmt "[%a:%a]" pp_segment_reg sr pp_addr addr.addrDisp
-  | _ , _ , _  , Some sr -> raise (Print "Unknown segment override displacement")
+  | _, None, None, Some sr -> fprintf fmt "[%a:%a]" pp_segment_reg sr pp_addr addr.addrDisp
+  | _ , _ , _  , Some sr -> fprintf fmt "[%a:%a] %B %B" pp_segment_reg sr pp_addr addr.addrDisp (addr.addrBase = None) (addr.addrIndex = None);
+   raise (Print "Unknown segment override displacement")
   | false, Some r, None, None -> fprintf fmt "[%a+%a]" pp_addr addr.addrDisp pp_reg32 r
   | false, Some r1, Some (Scale1, r2), None -> fprintf fmt "[%a+%a+%a]"
 	pp_addr addr.addrDisp pp_reg32 r1 pp_reg32 r2

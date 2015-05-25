@@ -169,6 +169,9 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   (* which are described by addr. The resulting addresses are possible evaluations *)
   (* of base + index*scale + disp *)
   let get_addresses env addr =
+    match addr.segBase with 
+    | Some sb -> failwith "Segment override not supported"
+    | None -> ();
     let base = match addr.addrBase with
                  Some reg ->  unFinite (get_reg32 env reg)
                | None -> [(0L, env.vals)] in
