@@ -1,4 +1,3 @@
-PREPROCESSOR= camlp4o pa_macro.cmo
 
 EXECUTABLE= cacheaudit 
 
@@ -14,10 +13,8 @@ else
 endif
 
 
-OCAMLC += -dtypes -pp "${PREPROCESSOR}"
-OCAMLDEP= ocamldep -pp "${PREPROCESSOR}" $(DEP_FLAGS)
-#OCAMLC += -dtypes
-#OCAMLDEP= ocamldep $(DEP_FLAGS)
+OCAMLC += -dtypes 
+OCAMLDEP= ocamldep $(DEP_FLAGS)
 
 OCAMLYACC= ocamlyacc -v
 OCAMLLEX= ocamllex
@@ -99,7 +96,7 @@ MLI_DOC_FILES = *.mli iterator/*.mli abstract_domains/*.mli abstract_domains/num
 ML_DOC_FILES = abstract_domains/AD.ml iterator/abstrInstr.ml abstract_domains/numeric/numAD.ml
 
 doc: all
-	-ocamldoc -pp "${PREPROCESSOR}" -html -colorize-code -I /opt/local/lib/ocaml  -d doc/ \
+	-ocamldoc -html -colorize-code -I /opt/local/lib/ocaml  -d doc/ \
 	$(OCAMLINCLUDE) -t "CacheAudit: Static Analysis of Cache Side-Channels" \
 	$(MLI_DOC_FILES) $(ML_DOC_FILES)
 
