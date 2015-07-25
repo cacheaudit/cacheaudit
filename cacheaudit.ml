@@ -26,6 +26,8 @@ let interval_cache = ref false
 let do_traces = ref true
 let opt_precision = ref false
 
+let stub_rules_file = ref ""
+
 
 type cache_age_analysis = IntAges | SetAges
 
@@ -135,7 +137,11 @@ let speclist = [
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--no-outer-unroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), 
       "overrules the --unroll option, so that outer loops 
-      are not unrolled"
+      are not unrolled");
+    ("--stub-config", Arg.String (fun s -> 
+      stub_rules_file := s), 
+      "specify file which controlles stubbing: skipping analysis for a code 
+      segment and emulating the memory accesses indicated by the file"
       ^"\n\n  Logging:");
     ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
       "set the general log level. Options are quiet, normal and debug. 
@@ -173,7 +179,7 @@ let _ =
   let start_values =
     begin
       try
-        let sa,sv,cp = Config.config (!bin_name^".conf") in
+        let sa,sv,cp = Config.parse_conffile (!bin_name^".conf") in
         Printf.printf "Configuration file %s.conf parsed\n" !bin_name;
         
         start_addr := if !start_addr <> -1 then !start_addr

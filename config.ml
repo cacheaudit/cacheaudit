@@ -2,6 +2,7 @@
 (* See ./LICENSE for authorship and licensing information     *)
 
 open X86Types
+open NumAD.DS
 
 (* help functions for trimming a string *)
 let left_pos s len =
@@ -53,6 +54,14 @@ type cache_params =
     inst_base_addr: int64;
 }
 
+type access_type = Instruction | Data
+type stub_t = {
+  first_addr : int64;
+  next_addr : int64;
+  accesses : (access_type * rw_t * int64) list;
+}
+
+
 let setInitialValue addr lower upper mem =
   let parse_interval_bound n =
     if Int64.compare n 0L = -1 then failwith "Negative numbers are not allowed"
@@ -63,24 +72,25 @@ let setInitialValue addr lower upper mem =
   if Int64.compare lower upper = 1 then failwith "lower bound should be lower or equal than upper bound"
   else (addr,lower,upper) :: mem
 
-
-
-let config filename =
-  let scanned = 
-    List.map (fun x ->
-        (* Remove whitespaces *)
-        let x = trim x in
+let remove_comments_whitespace lines = 
+  List.map (fun x ->
         (* Remove comments *)
         let x = if String.contains x '#' then
                   String.sub x 0 (String.index x '#')
                 else x
         in
-        if x = "" then ("",0L,0L)
+        (* Remove whitespaces *)
+        trim x) lines
+
+let parse_conffile filename =
+  let lines = remove_comments_whitespace (read_lines filename) in
+  (* Quick fix in order to accept intervals as starting values *)
+  let scanned = List.map (fun x ->
+      if x = "" then ("",0L,0L)
         else 
-          (* Quick fix in order to accept intervals as starting values *)
           try Scanf.sscanf x "%s %Li" (fun s i -> (s,i,i))
           with Scanf.Scan_failure _ -> Scanf.sscanf x "%s [%Li, %Li]" (fun s l h -> (s,l,h))
-        ) (read_lines filename) in
+        ) lines in
   (* scanned returns a list of strings with two numbers; the two numbers correspond to an interval *)
   let rec auxmatch lss (start,registers,cache) =
     match lss with
@@ -108,3 +118,53 @@ let config filename =
             )
   in let empty_cparams = {cache_s = 0; line_s = 0; assoc = 0; inst_cache_s = 0; inst_line_s = 0; inst_assoc = 0; inst_base_addr = (Int64.of_int 0)}
   in auxmatch scanned (None,([],[]),empty_cparams)
+
+
+exception StubParseFailed of string
+(* In the lists accesses come in reverse order; this will be fixed below *)
+let add_access stubs a =
+  match stubs with
+  | [] -> []
+  | s :: stbs -> {s with accesses = a :: s.accesses} :: stbs
+
+let parse_stubfile filename = 
+  try
+    let lines = remove_comments_whitespace (read_lines filename) in
+    let rec parse_lines lines state =
+      match lines with
+      | [] -> state
+      | l::ls -> 
+        let state =
+          try 
+            Scanf.sscanf l "range %Li %Li" (fun start next -> 
+              {first_addr = start; next_addr = next; accesses = []} :: state)
+          with Scanf.Scan_failure _ -> 
+            Scanf.sscanf l "%s %s %Li" (fun acctype rw addr ->
+              let acctype = match acctype with 
+              | "D" -> Data | "I" -> Instruction
+              | _ -> raise (StubParseFailed "Access type should be D or I") in
+              let rw = match rw with
+              | "R" -> Read | "W" -> Write
+              | _ -> raise (StubParseFailed "Access should be either R (read) or W (write)") in
+              add_access state (acctype, rw, addr)) in
+      parse_lines ls state in
+    let stubs = parse_lines lines [] in
+    (* Reverse the order of sequence of instructions *)
+    let stubs = List.map (fun stub -> 
+      {stub with accesses = List.rev stub.accesses}) stubs in
+    (* Sort stubs by address *)
+    let stubs = List.sort (fun s1 s2 -> Pervasives.compare s1.first_addr s2.first_addr) stubs in
+    (* Check for overlaps *)
+    let rec check_overlaps stubs result = 
+      let block_valid s1 = s1.first_addr < s1.next_addr in
+      match stubs with
+    | s1::stbs -> block_valid s1 &&
+        (match stbs with 
+        | s2::_ -> check_overlaps stbs (result && (s1.next_addr <= s2.first_addr))
+        | [] -> true)
+    | [] -> true in
+    if check_overlaps stubs true then
+      raise (StubParseFailed "Regions defined by stubs should be disjoint ranges");
+    stubs
+  with StubParseFailed msg -> failwith ("Failed parsing the stub file: " ^ msg)
+
