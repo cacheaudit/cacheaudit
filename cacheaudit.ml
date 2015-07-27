@@ -199,8 +199,8 @@ let _ =
         Printf.printf "Configuration file %s.conf not found\nUsing default values\n" !bin_name;
         ([],List.map (fun (a,b) -> a,b,b) [(X86Types.EAX, 1L); (X86Types.ECX, 0xbffff224L); (X86Types.EDX, 0xbffff1b4L); (X86Types.EBX, 0x2d3ff4L); 
                (X86Types.ESP, 0xbffff18cL); (X86Types.EBP, 0L); (X86Types.ESI, 0L); (X86Types.EDI, 0L)])
-    end
-  in
+    end in
+  let stubs = if !stub_rules_file = "" then [] else Config.parse_stubfile !stub_rules_file in
   let bits, mem =
     try (
       let mem = read_exec !bin_name in
@@ -242,7 +242,8 @@ let _ =
   match mem with
   | None -> ()
   | Some sections ->
-    if !print_cfg || Logger.get_log_level Logger.IteratorLL = Logger.Debug then Cfg.printcfg (Cfg.makecfg !start_addr sections);
+    let cfg = Cfg.makecfg !start_addr sections stubs in
+    if !print_cfg || Logger.get_log_level Logger.IteratorLL = Logger.Debug then Cfg.printcfg cfg;
     if !analyze then begin 
       (* Analysis will be performed. *)
       (* First, the proper abstract domains will be generated, *)
@@ -299,6 +300,6 @@ let _ =
       let iterate = Iter.iterate in
       let start = Sys.time () in 
       (* Run the analysis *)
-      iterate sections start_values data_cache_params (Some(inst_cache_params)) !instruction_base_addr (Cfg.makecfg !start_addr sections);
+      iterate sections stubs start_values data_cache_params (Some(inst_cache_params)) !instruction_base_addr cfg;
       Printf.printf "Analysis took %d seconds.\n" (int_of_float (Sys.time () -. start))
     end

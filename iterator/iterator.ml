@@ -3,6 +3,8 @@
 
 (* An iterator for analysis of executables *)
 
+open Config
+
 (*number of times loops are unrolled before fp computation begins *)
 let unroll_count = ref 300
 (* if set to false, then we don't unroll the outer loops *)
@@ -172,12 +174,12 @@ module Make(A:ArchitectureAD.S) = struct
     Bot -> false
   | Nb y -> A.subseteq x y
 
-  let read_and_interpret_instruction inv (addr, inst) = 
-    let newInv = A.read_instruction inv addr in
-    (* interpret_instruction interpret the effect of all non jump instructions over
-    * an incoming non-bottom environment *)
-    (* may raise Bottom *)
-    let rec interpret_instruction inv (addr, inst) = try (
+  (* interpret_instruction interpret the effect of all non jump instructions over
+   * an incoming non-bottom environment *)
+  (* may raise Bottom *)
+  let rec interpret_instruction inv stubs (addr, inst) = try (
+      (* Record an instruction read (for instruction cache tracking) *)
+      let inv = A.read_instruction inv (Int64.of_int addr) in
       let ftrace inv2 = match get_log_level IteratorLL with
         | Quiet -> instructions_interpreted := !instructions_interpreted + 1;
                    Format.printf "\r %6d instructions interpreted%! %a" !instructions_interpreted (A.print_delta inv) inv2; inv2
@@ -193,14 +195,24 @@ module Make(A:ArchitectureAD.S) = struct
               Format.printf "Just before Halt, we have %a\n" A.print inv;
               raise Bottom
       | Leave -> 
-          let inv = interpret_instruction inv (addr,Mov(Reg ESP, Reg EBP)) in
-          interpret_instruction inv (addr,Pop(Reg EBP))
+          let inv = interpret_instruction inv stubs (addr,Mov(Reg ESP, Reg EBP)) in
+          interpret_instruction inv stubs (addr,Pop(Reg EBP))
       | Ret -> inv
+      | Simulate -> (* simulate accesses described in stubs *) begin
+        match Config.get_stub addr stubs with
+        | None -> assert false 
+        (* there should be a stub at addr, or cfg did something wrong *)
+        | Some stub -> 
+          List.fold_left (fun inv (acctype, rw, accaddr) -> 
+            if acctype = Config.Instruction then
+              A.read_instruction inv accaddr 
+            else
+              A.touch_data inv accaddr rw) inv stub.accesses
+        end
       | i -> ftrace (A.interpret_instruction inv i)
       ) with e -> (Format.fprintf Format.err_formatter "@[<v 2>\nError while processing %a %a @, in environment %a@]@."
           pp_block_addr addr X86Print.pp_instr inst A.print inv;
-          raise e) in
-    interpret_instruction newInv (addr, inst)
+          raise e)
 
 
   let find_out_edge oe x = List.find (fun bo -> bo.start_addr = x) oe
@@ -216,11 +228,11 @@ module Make(A:ArchitectureAD.S) = struct
          with Not_found -> res) ) [] output
   
   (* returns a list of out_edges * non-empty env for that edge *)
-  let interpret_block inv b = 
+  let interpret_block inv stubs b = 
     if !trace then Format.printf "Entering block %a@\n" pp_block_header b;
     try (
     let last_inv = List.fold_left 
-      (fun inv a -> read_and_interpret_instruction inv a) inv b.content in
+      (fun inv a -> interpret_instruction inv stubs a) inv b.content in
     match b.out_edges with
       [] -> assert(b.content = []);[] (*we only have error and final blocks that don't have out edges. TODO: treat the Halt instruction... *)
     | [oe] -> (match b.jump_command with
@@ -281,7 +293,7 @@ module Make(A:ArchitectureAD.S) = struct
   let env_remove pb b env =
     if List.mem b pb then env else BlockMap.remove b env
 
-  let iterate concr_mem start_values data_cache_params inst_cache_params inst_base_addr cfg =
+  let iterate concr_mem stubs start_values data_cache_params inst_cache_params inst_base_addr cfg =
     if get_log_level IteratorLL <> Quiet then trace:= true;
     if get_log_level IteratorLL = Debug then Format.printf "CFG of %d blocks \n" (List.length cfg);
     let start_block = List.hd cfg in
@@ -304,7 +316,7 @@ module Make(A:ArchitectureAD.S) = struct
 	      if BlockMap.mem b env then
           let in_inv = BlockMap.find b env in
 	  (* out_invs : (Cfg.basicblock * A.t) list *)
-          let out_invs = interpret_block in_inv b in
+          let out_invs = interpret_block in_inv stubs b in
           next_i pb (List.fold_left (fun e (ob,oinv) -> env_add ob oinv e) 
 		       (env_remove pb b env) out_invs) w
         else ( if !trace then Format.printf "Block %a with empty incoming env is

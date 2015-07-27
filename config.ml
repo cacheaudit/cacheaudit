@@ -4,6 +4,16 @@
 open X86Types
 open NumAD.DS
 
+let logged_addresses = ref []
+
+(** Appends an address to the list of addresses that are logged.  The
+    ordering of values in the log file corresponds to the ordering of
+    that list.  Whenever there is a call to print, all addresses are
+    logged *)
+let log_address addr =
+  logged_addresses := !logged_addresses @ [addr]
+
+
 (* help functions for trimming a string *)
 let left_pos s len =
   let rec aux i =
@@ -43,6 +53,10 @@ try
 with End_of_file ->
   close_in chan; !lines
 
+type reg_init_values = (X86Types.reg32 * int64 * int64) list
+type mem_init_values = (int64 * int64 * int64) list
+type mem_param = mem_init_values * reg_init_values
+
 type cache_params =
 {
     cache_s: int; (* in bytes *)
@@ -56,11 +70,12 @@ type cache_params =
 
 type access_type = Instruction | Data
 type stub_t = {
-  first_addr : int64;
-  next_addr : int64;
+  first_addr : int;
+  next_addr : int;
   accesses : (access_type * rw_t * int64) list;
 }
 
+type stubs_t = stub_t list
 
 let setInitialValue addr lower upper mem =
   let parse_interval_bound n =
@@ -107,7 +122,7 @@ let parse_conffile filename =
       | ("inst_line_s",i,_) -> (st,vals,{ca with inst_line_s = Int64.to_int i})
       | ("inst_assoc",i,_) -> (st,vals,{ca with inst_assoc = Int64.to_int i})
       | ("INST_BASE",i,_) -> (st,vals,{ca with inst_base_addr = i})
-      | ("LOG",i,_) -> MemAD.log_address i; (st,vals,ca)
+      | ("LOG",i,_) -> log_address i; (st,vals,ca)
       | ("",0L,_)  -> (st,vals,ca)
       | (str, l, h) ->
                   try (
@@ -136,7 +151,7 @@ let parse_stubfile filename =
       | l::ls -> 
         let state =
           try 
-            Scanf.sscanf l "range %Li %Li" (fun start next -> 
+            Scanf.sscanf l "range %i %i" (fun start next -> 
               {first_addr = start; next_addr = next; accesses = []} :: state)
           with Scanf.Scan_failure _ -> 
             Scanf.sscanf l "%s %s %Li" (fun acctype rw addr ->
@@ -158,13 +173,19 @@ let parse_stubfile filename =
     let rec check_overlaps stubs result = 
       let block_valid s1 = s1.first_addr < s1.next_addr in
       match stubs with
-    | s1::stbs -> block_valid s1 &&
-        (match stbs with 
+    | s1::stbs -> let result = result && block_valid s1  in
+        begin match stbs with 
         | s2::_ -> check_overlaps stbs (result && (s1.next_addr <= s2.first_addr))
-        | [] -> true)
-    | [] -> true in
-    if check_overlaps stubs true then
+        | [] -> result end
+    | [] -> result in
+    if not (check_overlaps stubs true) then
       raise (StubParseFailed "Regions defined by stubs should be disjoint ranges");
     stubs
   with StubParseFailed msg -> failwith ("Failed parsing the stub file: " ^ msg)
 
+let get_stub addr stubs = 
+  List.fold_left (fun stub_found stub ->
+    if stub_found = None && stub.first_addr = addr then
+        Some stub
+      else 
+        None) None stubs

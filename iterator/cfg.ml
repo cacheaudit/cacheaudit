@@ -22,6 +22,8 @@
   multiple connections to the same prebasicblock with different edge contexts.
 *)
 
+open Config
+
 module IntSet = Set.Make( 
   struct
     let compare = Pervasives.compare
@@ -153,38 +155,42 @@ let rec_call edge edges f =
    getaddresses: section,  bits |-> EdgeSet
    Collects edges of the CFG in form (source address, target address)
 *)
-let getedges sections bs =
+let getedges sections bs stubs =
   if get_log_level CfgLL = Debug then Format.printf "getedges \n";
   let rec getaux context ret b edges = 
-    if more b then
-      let i,nb = X86Parse.read_instr b in
-      let src = get_byte b in
-      let nsrc = get_byte nb in
-      if get_log_level CfgLL = Debug then
-        Format.printf "Context %a @<6>%x %a@." pp_context context (get_byte b) X86Print.pp_instr i;
-      match i with 
-      | Jcc (_,x) -> 
-	  let tgt = Int64.to_int x in
-	  let edge1 = (context, InternalEdge, src, tgt) in 
-	  let edge2 = (context, InternalEdge, src, nsrc) in
-	  let nedges = rec_call edge1 edges (getaux context ret (goto b tgt)) in
-	  rec_call edge2 nedges (getaux context ret nb)
-      | Jmp (Imm x) ->
-	  let tgt = Int64.to_int x in 
-	  let edge = (context, InternalEdge, src,tgt) in
-	  rec_call edge edges (getaux context ret (goto b tgt))
-      | Jmp _ -> failwith "Relative addressing failure"
-      | Call (Imm x) ->  
-	let tgt = Int64.to_int x in 
-	let edge = (context, CallingEdge(src), src,tgt) in
-	let nedges = if first_equals src context then failwith "Recursion not supported" 
-          else rec_call edge edges (getaux (src::context) nsrc (goto b tgt)) in
-    (* now we add the edges to the rest of the current context *)
-	getaux context ret nb nedges
-      | Call _ ->  failwith "Relative addressing failure"
-      | Ret -> EdgeSet.add (context, ReturningEdge, src, ret) edges  (*return to calling context *)
-      | _ -> getaux context ret nb edges
-    else edges
+    match get_stub (get_byte b) stubs with
+    (* If current code is supposed to be stubbed, skip it *)
+    | Some s -> getaux context ret (goto b s.next_addr) edges
+    | None ->
+      if not (more b) then edges
+      else
+        let i,nb = X86Parse.read_instr b in
+        let src = get_byte b in
+        let nsrc = get_byte nb in
+        if get_log_level CfgLL = Debug then
+          Format.printf "Context %a @<6>%x %a@." pp_context context (get_byte b) X86Print.pp_instr i;
+        match i with 
+        | Jcc (_,x) -> 
+      let tgt = Int64.to_int x in
+      let edge1 = (context, InternalEdge, src, tgt) in 
+      let edge2 = (context, InternalEdge, src, nsrc) in
+      let nedges = rec_call edge1 edges (getaux context ret (goto b tgt)) in
+      rec_call edge2 nedges (getaux context ret nb)
+        | Jmp (Imm x) ->
+      let tgt = Int64.to_int x in 
+      let edge = (context, InternalEdge, src,tgt) in
+      rec_call edge edges (getaux context ret (goto b tgt))
+        | Jmp _ -> failwith "Relative addressing failure"
+        | Call (Imm x) ->  
+      let tgt = Int64.to_int x in 
+      let edge = (context, CallingEdge(src), src,tgt) in
+      let nedges = if first_equals src context then failwith "Recursion not supported" 
+            else rec_call edge edges (getaux (src::context) nsrc (goto b tgt)) in
+          (* now we add the edges to the rest of the current context *)
+          getaux context ret nb nedges
+        | Call _ ->  failwith "Relative addressing failure"
+        | Ret -> EdgeSet.add (context, ReturningEdge, src, ret) edges  (*return to calling context *)
+        | _ -> getaux context ret nb edges
   in getaux [] addr_ending_block bs EdgeSet.empty
 
 (* 
@@ -195,11 +201,15 @@ let getedges sections bs =
    basic block ends  <=> (1) Jmp x etc  *or* (2) next address in getaddresses bs 
 *)   
 
-let collectbasicblocks edges bs =
+let collectbasicblocks edges bs stubs =
   (* Collect all nonnegative jmp targets *)
   let targets = EdgeSet.fold (fun (_,_,_,tgt) set -> if tgt>=0 then IntSet.add tgt set else set) edges IntSet.empty in
   let rec read_block init ad = 
-    let c,nb = X86Parse.read_instr (goto bs ad) in
+    let c,nb = 
+      (* Check whether current code is supposed to be stubbed *)
+      match get_stub ad stubs with 
+      | Some s -> X86Types.Simulate, (goto bs s.next_addr)
+      | None -> X86Parse.read_instr (goto bs ad) in
     let nad = get_byte nb in
     match c with                          (* block termination condition 1 *)
       | Jmp _ | Jcc _ | Call _ | Ret | Halt -> (([(ad,c)],nad), None)
@@ -264,7 +274,7 @@ let clone_functions cfg =
 (* Builds cfg from section info and start address
    using the method described in the top of the file *)
 
-let makecfg start sections=
+let makecfg start sections stubs =
   let bs = goto (X86Headers.get_bits sections) start in
   let makeblock (commands, nb) = new_block (fst (List.hd commands)) 
       (fst (last commands)) nb commands in
@@ -272,9 +282,9 @@ let makecfg start sections=
      post_edges are those that correspond to blocks that end by being jmped to.
      post_edges are determined when computing basic blocks *)
   let pre_edges = EdgeSet.add ([],InternalEdge,addr_starting_block, start) 
-                              (getedges sections bs) in 
+                              (getedges sections bs stubs) in 
   if get_log_level CfgLL = Debug then Format.printf "got Edges\n";
-  let pre_blocks, post_edges = collectbasicblocks pre_edges bs in
+  let pre_blocks, post_edges = collectbasicblocks pre_edges bs stubs in
   let edges = EdgeSet.union pre_edges post_edges in
   let start_block = new_block addr_starting_block addr_starting_block 0 [] in
   let basicblocks = 

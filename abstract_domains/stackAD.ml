@@ -9,7 +9,7 @@ module type S =
   sig
     include AD.S
 
-    val init : X86Headers.t -> MemAD.mem_param -> CacheAD.cache_param -> t
+    val init : X86Headers.t -> Config.mem_param -> CacheAD.cache_param -> t
     val get_vals : t -> op32 -> (int, t) finite_set
     val test : t -> condition -> t add_bottom * t add_bottom
     val call : t -> op32 -> int -> (int, t) finite_set

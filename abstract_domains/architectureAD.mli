@@ -47,8 +47,11 @@ sig
   
 
   (** Records the addresses of operations, which is required for instruction caches *)
-  val read_instruction: t -> int -> t
-
+  val read_instruction: t -> int64 -> t
+  
+  (** Records the touch (read/write) of a data address *)
+  val touch_data: t -> int64 -> NumAD.DS.rw_t -> t
+  
   (** Signals from the iterator to the cache the time consumed by an
       instruction *)
   val elapse : t -> int -> t

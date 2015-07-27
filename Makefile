@@ -40,6 +40,7 @@ ML_FILES := \
 	x86_frontend/elf.ml \
 	x86_frontend/macho.ml \
 	x86_frontend/x86Headers.ml \
+	config.ml\
 	iterator/cfg.ml\
   iterator/abstrInstr.ml\
   abstract_domains/AD.ml\
@@ -55,8 +56,7 @@ ML_FILES := \
 	abstract_domains/cache/accessAD.ml\
 	abstract_domains/memAD.ml\
 	iterator/iterator.ml\
-	abstract_domains/architectureAD.ml\
-	config.ml
+	abstract_domains/architectureAD.ml
 
 all: $(EXECUTABLE)
 

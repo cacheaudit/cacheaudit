@@ -4,17 +4,9 @@
 open X86Types
 open AbstrInstr
 open AD.DS
+open Config
 
 (** Memory abstract domain: maps machine operations to operations on integer variables *)
-
-(** List of initial values for registers. Register * lower bound * upper bound *)
-type reg_init_values = (X86Types.reg32 * int64 * int64) list
-
-(** List of initial values for memory addresses. Adress * lower bound * upper bound *)
-type mem_init_values = (int64 * int64 * int64) list
-
-(** Parameters for the Memory Abstract Domain initialization *)
-type mem_param = mem_init_values * reg_init_values
 
 module type S =
 sig
@@ -26,7 +18,7 @@ sig
        - [mem] are initial values of registers
        - [dcp] is the configuration of the data cache, and
   *)
-  val init: (int64 -> int64 option) -> mem_param -> CacheAD.cache_param -> t
+  val init: (int64 -> int64 option) -> Config.mem_param -> CacheAD.cache_param -> t
     
  (** [get_vals env op] returns a finite set of possible values for an op32 
       operand (which is a register/memory address/immediate), and the 
@@ -54,9 +46,3 @@ module Make :
   functor (F : FlagAD.S) ->
     functor (C : CacheAD.S) -> S
 
-
-(** Appends an address to the list of addresses that are logged.  The
-    ordering of values in the log file corresponds to the ordering of
-    that list.  Whenever there is a call to print, all addresses are
-    logged *)
-val log_address: int64 -> unit
