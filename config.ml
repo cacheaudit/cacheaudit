@@ -136,34 +136,28 @@ let parse_conffile filename =
 
 
 exception StubParseFailed of string
-(* In the lists accesses come in reverse order; this will be fixed below *)
-let add_access stubs a =
-  match stubs with
-  | [] -> []
-  | s :: stbs -> {s with accesses = a :: s.accesses} :: stbs
 
 let parse_stubfile filename = 
   try
     let lines = remove_comments_whitespace (read_lines filename) in
-    let rec parse_lines lines state =
-      match lines with
-      | [] -> state
-      | l::ls -> 
-        let state =
-          try 
-            Scanf.sscanf l "range %i %i" (fun start next -> 
-              {first_addr = start; next_addr = next; accesses = []} :: state)
-          with Scanf.Scan_failure _ -> 
-            Scanf.sscanf l "%s %s %Li" (fun acctype rw addr ->
-              let acctype = match acctype with 
-              | "D" -> Data | "I" -> Instruction
-              | _ -> raise (StubParseFailed "Access type should be D or I") in
-              let rw = match rw with
-              | "R" -> Read | "W" -> Write
-              | _ -> raise (StubParseFailed "Access should be either R (read) or W (write)") in
-              add_access state (acctype, rw, addr)) in
-      parse_lines ls state in
-    let stubs = parse_lines lines [] in
+    let stubs = List.fold_right (fun l state -> 
+      try 
+        Scanf.sscanf l "range %i %i" (fun start next -> 
+          {first_addr = start; next_addr = next; accesses = []} :: state)
+      with Scanf.Scan_failure _ -> 
+        Scanf.sscanf l "%s %s %Li" (fun acctype rw addr ->
+          let acctype = match acctype with 
+          | "D" -> Data | "I" -> Instruction
+          | _ -> raise (StubParseFailed "Access type should be D or I") in
+          let rw = match rw with
+          | "R" -> Read | "W" -> Write
+          | _ -> raise (StubParseFailed "Access should be either R (read) or W (write)") in
+          match state with
+          | s :: stbs -> {s with 
+            accesses = (acctype, rw, addr) :: s.accesses} :: stbs
+          | _ -> raise (StubParseFailed "Wrong stub format. Expected format:\
+          \nrange 0xe5d 0xe6b\nI R 0xe3c\nD W 0xe3d\nrange ..."))
+         ) lines [] in
     (* Reverse the order of sequence of instructions *)
     let stubs = List.map (fun stub -> 
       {stub with accesses = List.rev stub.accesses}) stubs in
@@ -173,11 +167,11 @@ let parse_stubfile filename =
     let rec check_overlaps stubs result = 
       let block_valid s1 = s1.first_addr < s1.next_addr in
       match stubs with
-    | s1::stbs -> let result = result && block_valid s1  in
-        begin match stbs with 
-        | s2::_ -> check_overlaps stbs (result && (s1.next_addr <= s2.first_addr))
-        | [] -> result end
-    | [] -> result in
+      | s1::stbs -> let result = result && block_valid s1  in
+          begin match stbs with 
+          | s2::_ -> check_overlaps stbs (result && (s1.next_addr <= s2.first_addr))
+          | [] -> result end
+      | [] -> result in
     if not (check_overlaps stubs true) then
       raise (StubParseFailed "Regions defined by stubs should be disjoint ranges");
     stubs

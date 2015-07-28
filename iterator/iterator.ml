@@ -202,12 +202,18 @@ module Make(A:ArchitectureAD.S) = struct
         match Config.get_stub addr stubs with
         | None -> assert false 
         (* there should be a stub at addr, or cfg did something wrong *)
-        | Some stub -> 
+        | Some stub -> begin
+          assert (List.length stub.accesses <> 0);
           List.fold_left (fun inv (acctype, rw, accaddr) -> 
-            if acctype = Config.Instruction then
+            if acctype = Config.Instruction then begin
+              if get_log_level IteratorLL = Debug then 
+                Format.printf "Simulating 0x%Lx instruction read\n" accaddr;
               A.read_instruction inv accaddr 
-            else
-              A.touch_data inv accaddr rw) inv stub.accesses
+            end else begin
+              if get_log_level IteratorLL = Debug then 
+                Format.printf "Simulating 0x%Lx data %s\n" accaddr
+                  (if rw = NumAD.DS.Read then "read" else "write");
+              A.touch_data inv accaddr rw end) inv stub.accesses end
         end
       | i -> ftrace (A.interpret_instruction inv i)
       ) with e -> (Format.fprintf Format.err_formatter "@[<v 2>\nError while processing %a %a @, in environment %a@]@."
