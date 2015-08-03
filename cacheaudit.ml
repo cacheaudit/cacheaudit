@@ -85,7 +85,7 @@ let speclist = [
       representation" s)), 
       "set the address (in bytes) where we start parsing");
     ("--end", Arg.String (fun s -> end_addr := int_of_string s), 
-      "set the oddress (in bytes) where we stop parsing");
+      "set the address (in bytes) where we stop parsing");
     ("--cfg", Arg.Unit (fun () -> print_cfg := true; analyze := false;), 
       "prints the control flow graph only, no analysis performed"
       ^"\n\n  Options for data cache configuration:");
