@@ -418,6 +418,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
     let env = if rw = NumAD.DS.Read then env else
       (* We write to memory but we don't know what; *)
       (* set the value of the variable to top *)
+      (* Warning: if this variable has an initial value, it will be read next time *)
       {env with vals = F.delete_var env.vals addr} in
     {env with cache = C.touch env.cache addr rw}
         
