@@ -160,7 +160,11 @@ let getedges sections bs stubs =
   let rec getaux context ret b edges = 
     match get_stub (get_byte b) stubs with
     (* If current code is supposed to be stubbed, skip it *)
-    | Some s -> getaux context ret (goto b s.next_addr) edges
+    | Some s -> 
+      if get_log_level CfgLL = Debug then 
+          Format.printf "Context %a @<6>%x %a@." pp_context 
+            context (get_byte b) X86Print.pp_instr (X86Types.Simulate);
+      getaux context ret (goto b s.next_addr) edges
     | None ->
       if not (more b) then edges
       else
