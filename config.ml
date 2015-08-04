@@ -88,14 +88,16 @@ let setInitialValue addr lower upper mem =
   else (addr,lower,upper) :: mem
 
 let remove_comments_whitespace lines = 
-  List.map (fun x ->
+  let lines = List.map (fun x ->
         (* Remove comments *)
         let x = if String.contains x '#' then
                   String.sub x 0 (String.index x '#')
                 else x
         in
         (* Remove whitespaces *)
-        trim x) lines
+        trim x) lines in
+  (* Remove empty lines *)
+  List.filter (fun x -> x <> "") lines
 
 let parse_conffile filename =
   let lines = remove_comments_whitespace (read_lines filename) in
