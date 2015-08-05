@@ -166,17 +166,6 @@ let parse_stubfile filename =
       {stub with accesses = List.rev stub.accesses}) stubs in
     (* Sort stubs by address *)
     let stubs = List.sort (fun s1 s2 -> Pervasives.compare s1.first_addr s2.first_addr) stubs in
-    (* Check for overlaps *)
-    let rec check_overlaps stubs result = 
-      let block_valid s1 = s1.first_addr < s1.next_addr in
-      match stubs with
-      | s1::stbs -> let result = result && block_valid s1  in
-          begin match stbs with 
-          | s2::_ -> check_overlaps stbs (result && (s1.next_addr <= s2.first_addr))
-          | [] -> result end
-      | [] -> result in
-    if not (check_overlaps stubs true) then
-      raise (StubParseFailed "Regions defined by stubs should be disjoint ranges");
     stubs
   with StubParseFailed msg -> failwith ("Failed parsing the stub file: " ^ msg)
 
