@@ -7,7 +7,7 @@ open Config
 
 let bin_name = ref ""
 let start_addr = ref(-1 )
-let end_addr = ref 0
+let end_addr = ref (-1)
 let data_cache_s = ref 0
 let data_line_s = ref 0
 let data_assoc = ref 0
@@ -48,23 +48,6 @@ let attacker = ref Final
 type architecture_model = Joint | Split | NoInstructionCache
 
 let architecture = ref NoInstructionCache
-
-let more_to_parse b = more b && (!end_addr=0 || get_byte b <= !end_addr)
-
-(*let debug bits =
-  let nubits=goto bits !start_addr in
-  Format.printf "Address %Lx\n" (fst (AsmUtil.read_uint32 nubits 32))*)
-
-let read_assembly bits =
-  let rec read_instr_list b =
-    if more_to_parse b then
-      let addr = get_byte b in
-      let i,nb = X86Parse.read_instr b in
-      match i with
-    X86Types.Ret -> [(addr,i)]
-      | _ -> (addr, i)::read_instr_list nb
-    else []
-  in read_instr_list (goto bits !start_addr)
 
 let usage = "Usage: " ^ Sys.argv.(0) ^ " BINARY [OPTION]"
 (* function which handles binary names (anonymous arguments) *)
@@ -230,7 +213,7 @@ let _ =
   match mem with
   | None -> ()
   | Some sections ->
-    let cfg = Cfg.makecfg !start_addr sections in
+    let cfg = Cfg.makecfg !start_addr !end_addr sections in
     if !print_cfg || Logger.get_log_level Logger.IteratorLL = Logger.Debug then Cfg.printcfg cfg;
     if !analyze then begin 
       (* Analysis will be performed. *)

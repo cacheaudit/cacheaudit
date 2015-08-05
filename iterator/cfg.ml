@@ -153,12 +153,16 @@ let rec_call edge edges f =
    getaddresses: section,  bits |-> EdgeSet
    Collects edges of the CFG in form (source address, target address)
 *)
-let getedges sections bs =
+let getedges sections bs endaddr =
   if get_log_level CfgLL = Debug then Format.printf "getedges \n";
   let rec getaux context ret b edges = 
-    if more b then
+    if not (more b) then edges else
+    let src = get_byte b in
+    (* Check whether this is not the end address and the analysis should stop here *)
+    if src = endaddr then
+      EdgeSet.add (context, ReturningEdge, src, ret) edges
+    else begin
       let i,nb = X86Parse.read_instr b in
-      let src = get_byte b in
       let nsrc = get_byte nb in
       if get_log_level CfgLL = Debug then
         Format.printf "Context %a @<6>%x %a@." pp_context context (get_byte b) X86Print.pp_instr i;
@@ -184,8 +188,8 @@ let getedges sections bs =
       | Call _ ->  failwith "Relative addressing failure"
       | Ret -> EdgeSet.add (context, ReturningEdge, src, ret) edges  (*return to calling context *)
       | _ -> getaux context ret nb edges
-    else edges
-  in getaux [] addr_ending_block bs EdgeSet.empty
+  end in
+  getaux [] addr_ending_block bs EdgeSet.empty
 
 (* 
    val collectbasicblocks : bits -> ((int * instr) list , int list) list
@@ -195,13 +199,16 @@ let getedges sections bs =
    basic block ends  <=> (1) Jmp x etc  *or* (2) next address in getaddresses bs 
 *)   
 
-let collectbasicblocks edges bs =
+let collectbasicblocks edges bs endaddr =
   (* Collect all nonnegative jmp targets *)
   let targets = EdgeSet.fold (fun (_,_,_,tgt) set -> if tgt>=0 then IntSet.add tgt set else set) edges IntSet.empty in
   let rec read_block init ad = 
     let c,nb = X86Parse.read_instr (goto bs ad) in
     let nad = get_byte nb in
-    match c with                          (* block termination condition 1 *)
+    (* Check whether this is not the end address => block terminates *)
+    if ad = endaddr then
+       (([(ad,c)],nad), None)
+    else match c with                          (* block termination condition 1 *)
       | Jmp _ | Jcc _ | Call _ | Ret | Halt -> (([(ad,c)],nad), None)
       | _ -> 
 	     if IntSet.mem nad targets                     (* block termination condition 2 *)
@@ -264,7 +271,7 @@ let clone_functions cfg =
 (* Builds cfg from section info and start address
    using the method described in the top of the file *)
 
-let makecfg start sections=
+let makecfg start endaddr sections=
   let bs = goto (X86Headers.get_bits sections) start in
   let makeblock (commands, nb) = new_block (fst (List.hd commands)) 
       (fst (last commands)) nb commands in
@@ -272,9 +279,9 @@ let makecfg start sections=
      post_edges are those that correspond to blocks that end by being jmped to.
      post_edges are determined when computing basic blocks *)
   let pre_edges = EdgeSet.add ([],InternalEdge,addr_starting_block, start) 
-                              (getedges sections bs) in 
+                              (getedges sections bs endaddr) in 
   if get_log_level CfgLL = Debug then Format.printf "got Edges\n";
-  let pre_blocks, post_edges = collectbasicblocks pre_edges bs in
+  let pre_blocks, post_edges = collectbasicblocks pre_edges bs endaddr in
   let edges = EdgeSet.union pre_edges post_edges in
   let start_block = new_block addr_starting_block addr_starting_block 0 [] in
   let basicblocks = 
