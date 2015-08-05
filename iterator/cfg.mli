@@ -22,7 +22,7 @@ type basicblock = {
 type t=basicblock list
 
 (** Creates control flow graph from a given starting address in the binary executable (typically: [main]) *)
-val makecfg : int -> X86Headers.t -> Config.stub_t list -> t
+val makecfg : int -> int -> X86Headers.t -> Config.stub_t list -> t
 
 (** Prettyprinter for basic block addresses *)
 val pp_block_addr : Format.formatter -> int -> unit

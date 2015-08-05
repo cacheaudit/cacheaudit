@@ -7,7 +7,7 @@ open Config
 
 let bin_name = ref ""
 let start_addr = ref(-1 )
-let end_addr = ref 0
+let end_addr = ref (-1)
 let data_cache_s = ref 0
 let data_line_s = ref 0
 let data_assoc = ref 0
@@ -20,7 +20,6 @@ let inst_cache_strategy_opt = ref None
 let instruction_base_addr = ref (Int64.of_int 0)
 
 let print_cfg = ref false
-let print_ass = ref false
 let analyze = ref true
 let interval_cache = ref false
 let do_traces = ref true
@@ -52,27 +51,6 @@ type architecture_model = Joint | Split | NoInstructionCache
 
 let architecture = ref NoInstructionCache
 
-let more_to_parse b = more b && (!end_addr=0 || get_byte b <= !end_addr)
-
-(*let debug bits =
-  let nubits=goto bits !start_addr in
-  Format.printf "Address %Lx\n" (fst (AsmUtil.read_uint32 nubits 32))*)
-
-let read_assembly bits =
-  let rec read_instr_list b =
-    if more_to_parse b then
-      let addr = get_byte b in
-      let i,nb = X86Parse.read_instr b in
-      match i with
-    X86Types.Ret -> [(addr,i)]
-      | _ -> (addr, i)::read_instr_list nb
-    else []
-  in read_instr_list (goto bits !start_addr)
-
-
-let print_assembly bs = 
-    List.iter (function (n,b) -> Format.printf "@<6>%n\t%x\t%a@\n" n n X86Print.pp_instr b) bs
-    
 let usage = "Usage: " ^ Sys.argv.(0) ^ " BINARY [OPTION]"
 (* function which handles binary names (anonymous arguments) *)
 let anon_fun = (fun x ->  if !bin_name = "" then bin_name := x
@@ -87,7 +65,7 @@ let speclist = [
       representation" s)), 
       "set the address (in bytes) where we start parsing");
     ("--end", Arg.String (fun s -> end_addr := int_of_string s), 
-      "set the oddress (in bytes) where we stop parsing");
+      "set the address (in bytes) where we stop parsing");
     ("--cfg", Arg.Unit (fun () -> print_cfg := true; analyze := false;), 
       "prints the control flow graph only, no analysis performed"
       ^"\n\n  Options for data cache configuration:");
@@ -228,7 +206,6 @@ let _ =
       if !start_addr= -1 then start_addr:=0;
       (read_from_file !bin_name), None 
     ) in
-  if !print_ass then print_assembly (read_assembly bits);
   let data_cache_params = {CacheAD.cs = !data_cache_s; CacheAD.ls = !data_line_s;
     CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy; opt_precision = !opt_precision} in
   let inst_cache_strategy = match !inst_cache_strategy_opt with
@@ -242,7 +219,7 @@ let _ =
   match mem with
   | None -> ()
   | Some sections ->
-    let cfg = Cfg.makecfg !start_addr sections stubs in
+    let cfg = Cfg.makecfg !start_addr !end_addr sections stubs in
     if !print_cfg || Logger.get_log_level Logger.IteratorLL = Logger.Debug then Cfg.printcfg cfg;
     if !analyze then begin 
       (* Analysis will be performed. *)
