@@ -20,7 +20,6 @@ let inst_cache_strategy_opt = ref None
 let instruction_base_addr = ref (Int64.of_int 0)
 
 let print_cfg = ref false
-let print_ass = ref false
 let analyze = ref true
 let interval_cache = ref false
 let do_traces = ref true
@@ -67,10 +66,6 @@ let read_assembly bits =
     else []
   in read_instr_list (goto bits !start_addr)
 
-
-let print_assembly bs = 
-    List.iter (function (n,b) -> Format.printf "@<6>%n\t%x\t%a@\n" n n X86Print.pp_instr b) bs
-    
 let usage = "Usage: " ^ Sys.argv.(0) ^ " BINARY [OPTION]"
 (* function which handles binary names (anonymous arguments) *)
 let anon_fun = (fun x ->  if !bin_name = "" then bin_name := x
@@ -222,7 +217,6 @@ let _ =
       if !start_addr= -1 then start_addr:=0;
       (read_from_file !bin_name), None 
     ) in
-  if !print_ass then print_assembly (read_assembly bits);
   let data_cache_params = {CacheAD.cs = !data_cache_s; CacheAD.ls = !data_line_s;
     CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy; opt_precision = !opt_precision} in
   let inst_cache_strategy = match !inst_cache_strategy_opt with
@@ -236,7 +230,8 @@ let _ =
   match mem with
   | None -> ()
   | Some sections ->
-    if !print_cfg || Logger.get_log_level Logger.IteratorLL = Logger.Debug then Cfg.printcfg (Cfg.makecfg !start_addr sections);
+    let cfg = Cfg.makecfg !start_addr sections in
+    if !print_cfg || Logger.get_log_level Logger.IteratorLL = Logger.Debug then Cfg.printcfg cfg;
     if !analyze then begin 
       (* Analysis will be performed. *)
       (* First, the proper abstract domains will be generated, *)
@@ -293,6 +288,6 @@ let _ =
       let iterate = Iter.iterate in
       let start = Sys.time () in 
       (* Run the analysis *)
-      iterate sections start_values data_cache_params (Some(inst_cache_params)) !instruction_base_addr (Cfg.makecfg !start_addr sections);
+      iterate sections start_values data_cache_params (Some(inst_cache_params)) !instruction_base_addr cfg;
       Printf.printf "Analysis took %d seconds.\n" (int_of_float (Sys.time () -. start))
     end
