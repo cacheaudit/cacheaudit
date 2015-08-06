@@ -162,7 +162,6 @@ let parse_stubfile filename =
          ) lines [] in
     (* Reverse the order of sequence of instructions *)
     let stubs = List.map (fun stub -> 
-      Printf.printf "stub ranges from 0x%x to 0x%x\n" stub.first_addr stub.next_addr;
       {stub with accesses = List.rev stub.accesses}) stubs in
     (* Sort stubs by address *)
     List.sort (fun s1 s2 -> Pervasives.compare s1.first_addr s2.first_addr) stubs
