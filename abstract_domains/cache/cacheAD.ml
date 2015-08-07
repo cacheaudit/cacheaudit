@@ -555,6 +555,7 @@ module Make (A: AgeAD.S) = struct
 
   (* Same as touch, but returns two possible configurations, one for the hit and the second for the misses *)
   let touch_hm env orig_addr rw = 
+    assert (orig_addr >= 0L);
     let block = get_block_addr env orig_addr in
     let env = if is_handled env block then env 
       else add_new_address env block in

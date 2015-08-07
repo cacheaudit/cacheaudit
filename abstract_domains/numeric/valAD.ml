@@ -520,10 +520,10 @@ module Make (O:VALADOPT) = struct
   let interval_flag_test env arith_op dstvar dvals srcvar svals =
     let dvals, svals = to_interval dvals, to_interval svals in
     if arith_op <> Sub then failwith "interval_flag_test: TEST instruction for intervals not implemented";
+    (* The following corresponds to the flag setting of SUB DST SRC *)
     let dl,dh = get_bounds dvals in
     let sl,sh = get_bounds svals in
     (* Intersection between the two intervals *)
-    let meetZF = var_meet_ab dvals svals in
     let ndh = min dh (Int64.pred sh) in
     let nsl = max (Int64.succ dl) sl in
     let nsh = min (Int64.pred dh) sh in
@@ -538,10 +538,11 @@ module Make (O:VALADOPT) = struct
       else let flgs = {cf = false; zf = false} in
         FlagMap.add flgs (set_or_interval ndl dh) dstmap,
         FlagMap.add flgs (set_or_interval sl nsh) srcmap in
-    (* meet <> empty then ZF can be set *)
-      match meetZF with
-      | Bot -> dstmap,srcmap
-      | Nb z -> let flgs = {cf = false; zf = true} in
+    (* if the intersection of src and dst is not empty, then ZF can be set *)
+    let meetZF = var_meet_ab dvals svals in
+    match meetZF with
+    | Bot -> dstmap,srcmap
+    | Nb z -> let flgs = {cf = false; zf = true} in
       FlagMap.add flgs z dstmap, FlagMap.add flgs z dstmap
 
   (* perform TEST or CMP *)
