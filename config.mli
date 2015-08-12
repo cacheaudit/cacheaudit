@@ -14,20 +14,33 @@ type mem_init_values = (int64 * int64 * int64) list
 (** Parameters for the Memory Abstract Domain initialization *)
 type mem_param = mem_init_values * reg_init_values
 
-type cache_params = {
-  cache_s : int;
-  line_s : int;
-  assoc : int;
-  inst_cache_s : int;
-  inst_line_s : int;
-  inst_assoc : int;
-  inst_base_addr : int64;
+(* type cache_params = {     *)
+(*   cache_s : int;          *)
+(*   line_s : int;           *)
+(*   assoc : int;            *)
+(*   inst_cache_s : int;     *)
+(*   inst_line_s : int;      *)
+(*   inst_assoc : int;       *)
+(*   inst_base_addr : int64; *)
+(* }                         *)
+
+type config_options =
+{
+    start_addr: int option;
+    end_addr: int option;
+    cache_s: int option; (* in bytes *)
+    line_s: int option;  (* same as "data block size"; in bytes *)
+    assoc: int option;
+    inst_cache_s: int option; (* in bytes *)
+    inst_line_s: int option;  (* same as "data block size"; in bytes *)
+    inst_assoc: int option;
+    inst_base_addr: int64 option;
+    mem_params: mem_param;
 }
 
 (** Parse the configuration file, which contains the cache parameters and start address *)
 val parse_conffile :
-  string ->
-  int option * mem_param * cache_params
+  string -> config_options
 
 
 type access_type = Instruction | Data
@@ -45,3 +58,4 @@ val get_stub : int -> stub_t list -> stub_t option
 val parse_stubfile : string -> stubs_t
 
 val logged_addresses : int64 list ref
+
