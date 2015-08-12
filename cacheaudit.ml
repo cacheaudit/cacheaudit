@@ -152,9 +152,9 @@ let _ =
     Format.printf "%s: No such file or directory\n" (!bin_name);
     exit 1
   end;
-  let start_values =
-    begin
-      try
+  let start_values = ref ([],List.map (fun (a,b) -> a,b,b) [(X86Types.EAX, 0L); (X86Types.ECX, 0L); (X86Types.EDX, 0L); (X86Types.EBX, 0L);
+               (X86Types.ESP, 0xbffff138L); (X86Types.EBP, 0xbffff2c8L); (X86Types.ESI, 0L); (X86Types.EDI, 0L)]) in
+      (try
         let configs = Config.config (!bin_name^".conf") in
         Printf.printf "Configuration file %s.conf parsed\n" !bin_name;
         
@@ -167,12 +167,9 @@ let _ =
         if !inst_cache_s <= 0 && configs.cache_s <> None then inst_cache_s := un_option configs.inst_cache_s;
         if !inst_line_s <= 0 && configs.cache_s <> None then inst_line_s := un_option configs.inst_line_s;
         if !inst_assoc <= 0 && configs.cache_s <> None then inst_assoc := un_option configs.inst_assoc;
-        configs.mem_params
+        if configs.mem_params <> ([],[]) then start_values := configs.mem_params
       with Sys_error _ ->
-        Printf.printf "Configuration file %s.conf not found\nUsing default values\n" !bin_name;
-        ([],List.map (fun (a,b) -> a,b,b) [(X86Types.EAX, 0L); (X86Types.ECX, 0L); (X86Types.EDX, 0L); (X86Types.EBX, 0L);
-               (X86Types.ESP, 0xbffff138L); (X86Types.EBP, 0xbffff2c8L); (X86Types.ESI, 0L); (X86Types.EDI, 0L)])
-    end in
+        Printf.printf "Configuration file %s.conf not found\nUsing default values\n" !bin_name);
   let bits, mem =
     try (
       let mem = read_exec !bin_name in
@@ -271,6 +268,6 @@ let _ =
       let iterate = Iter.iterate in
       let start = Sys.time () in 
       (* Run the analysis *)
-      iterate sections start_values data_cache_params (Some(inst_cache_params)) !instruction_base_addr cfg;
+      iterate sections !start_values data_cache_params (Some(inst_cache_params)) !instruction_base_addr cfg;
       Printf.printf "Analysis took %d seconds.\n" (int_of_float (Sys.time () -. start))
     end

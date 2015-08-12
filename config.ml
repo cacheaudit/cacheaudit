@@ -42,17 +42,6 @@ try
 with End_of_file ->
   close_in chan; !lines
 
-(* type cache_params =                                              *)
-(* {                                                                *)
-(*     cache_s: int; (* in bytes *)                                 *)
-(*     line_s: int;  (* same as "data block size"; in bytes *)      *)
-(*     assoc: int;                                                  *)
-(*     inst_cache_s: int; (* in bytes *)                            *)
-(*     inst_line_s: int;  (* same as "data block size"; in bytes *) *)
-(*     inst_assoc: int;                                             *)
-(*     inst_base_addr: int64;                                       *)
-(* }                                                                *)
-
 type config_options =
 {
     start_addr: int option;
