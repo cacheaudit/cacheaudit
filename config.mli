@@ -14,15 +14,11 @@ type mem_init_values = (int64 * int64 * int64) list
 (** Parameters for the Memory Abstract Domain initialization *)
 type mem_param = mem_init_values * reg_init_values
 
-(* type cache_params = {     *)
-(*   cache_s : int;          *)
-(*   line_s : int;           *)
-(*   assoc : int;            *)
-(*   inst_cache_s : int;     *)
-(*   inst_line_s : int;      *)
-(*   inst_assoc : int;       *)
-(*   inst_base_addr : int64; *)
-(* }                         *)
+
+val left_pos : string -> int -> int option
+val right_pos : string -> int -> int option
+val trim : string -> string
+val read_lines : string -> string list
 
 type config_options =
 {
