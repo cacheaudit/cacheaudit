@@ -138,6 +138,10 @@ let speclist = [
    
   ]
 
+let un_option = function
+        | None -> assert false
+        | Some x -> x 
+
 let _ =
   Arg.parse speclist anon_fun usage;
   if !bin_name="" then begin
@@ -151,22 +155,19 @@ let _ =
   let start_values =
     begin
       try
-        let sa,sv,cp = Config.config (!bin_name^".conf") in
+        let configs = Config.config (!bin_name^".conf") in
         Printf.printf "Configuration file %s.conf parsed\n" !bin_name;
         
-        start_addr := if !start_addr <> -1 then !start_addr
-          else begin match sa with
-          | None -> failwith ("No starting address given")
-          | Some s -> s 
-          end;
-        instruction_base_addr := cp.inst_base_addr;
-        data_cache_s := if !data_cache_s <= 0 then cp.cache_s else !data_cache_s;
-        data_line_s := if !data_line_s <= 0 then cp.line_s else !data_line_s;
-        data_assoc := if !data_assoc <= 0 then cp.assoc else !data_assoc;
-        inst_cache_s := if !inst_cache_s <= 0 then cp.inst_cache_s else !inst_cache_s;
-        inst_line_s := if !inst_line_s <= 0 then cp.inst_line_s else !inst_line_s;
-        inst_assoc := if !inst_assoc <= 0 then cp.inst_assoc else !inst_assoc;
-        sv
+        if !start_addr == -1 && configs.start_addr <> None then start_addr := un_option configs.start_addr;
+        if !end_addr == -1 && configs.end_addr <> None then end_addr := un_option configs.end_addr;
+        if configs.inst_base_addr <> None then instruction_base_addr := un_option configs.inst_base_addr;
+        if !data_cache_s <= 0 && configs.cache_s <> None then data_cache_s := un_option configs.cache_s;
+        if !data_line_s <= 0 && configs.cache_s <> None then data_line_s := un_option configs.line_s;
+        if !data_assoc <= 0 && configs.cache_s <> None then data_assoc := un_option configs.assoc;
+        if !inst_cache_s <= 0 && configs.cache_s <> None then inst_cache_s := un_option configs.inst_cache_s;
+        if !inst_line_s <= 0 && configs.cache_s <> None then inst_line_s := un_option configs.inst_line_s;
+        if !inst_assoc <= 0 && configs.cache_s <> None then inst_assoc := un_option configs.inst_assoc;
+        configs.mem_params
       with Sys_error _ ->
         Printf.printf "Configuration file %s.conf not found\nUsing default values\n" !bin_name;
         ([],List.map (fun (a,b) -> a,b,b) [(X86Types.EAX, 0L); (X86Types.ECX, 0L); (X86Types.EDX, 0L); (X86Types.EBX, 0L);

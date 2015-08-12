@@ -42,15 +42,29 @@ try
 with End_of_file ->
   close_in chan; !lines
 
-type cache_params =
+(* type cache_params =                                              *)
+(* {                                                                *)
+(*     cache_s: int; (* in bytes *)                                 *)
+(*     line_s: int;  (* same as "data block size"; in bytes *)      *)
+(*     assoc: int;                                                  *)
+(*     inst_cache_s: int; (* in bytes *)                            *)
+(*     inst_line_s: int;  (* same as "data block size"; in bytes *) *)
+(*     inst_assoc: int;                                             *)
+(*     inst_base_addr: int64;                                       *)
+(* }                                                                *)
+
+type config_options =
 {
-    cache_s: int; (* in bytes *)
-    line_s: int;  (* same as "data block size"; in bytes *)
-    assoc: int;
-    inst_cache_s: int; (* in bytes *)
-    inst_line_s: int;  (* same as "data block size"; in bytes *)
-    inst_assoc: int;
-    inst_base_addr: int64;
+    start_addr: int option;
+    end_addr: int option;
+    cache_s: int option; (* in bytes *)
+    line_s: int option;  (* same as "data block size"; in bytes *)
+    assoc: int option;
+    inst_cache_s: int option; (* in bytes *)
+    inst_line_s: int option;  (* same as "data block size"; in bytes *)
+    inst_assoc: int option;
+    inst_base_addr: int64 option;
+    mem_params: MemAD.mem_param;
 }
 
 let setInitialValue addr lower upper mem =
@@ -82,29 +96,33 @@ let config filename =
           with Scanf.Scan_failure _ -> Scanf.sscanf x "%s [%Li, %Li]" (fun s l h -> (s,l,h))
         ) (read_lines filename) in
   (* scanned returns a list of strings with two numbers; the two numbers correspond to an interval *)
-  let rec auxmatch lss (start,registers,cache) =
+  (* let rec auxmatch lss (start,registers,cache) = *)
+  let rec auxmatch lss configs =
     match lss with
-    | [] -> (start,registers,cache)        
+    | [] -> configs
     | l::ls -> 
-    (let (st,(mem,regs),ca) = auxmatch ls (start,registers,cache)
-    in let vals = (mem,regs)
-    in match l with
-      | ("START",i,_) ->  (Some (Int64.to_int i), vals, ca)
-      | ("cache_s",i,_) -> (st,vals,{ca with cache_s = Int64.to_int i})
-      | ("line_s",i,_) -> (st,vals,{ca with line_s = Int64.to_int i})
-      | ("assoc",i,_) -> (st,vals,{ca with assoc = Int64.to_int i})
-      | ("inst_cache_s",i,_) -> (st,vals,{ca with inst_cache_s = Int64.to_int i})
-      | ("inst_line_s",i,_) -> (st,vals,{ca with inst_line_s = Int64.to_int i})
-      | ("inst_assoc",i,_) -> (st,vals,{ca with inst_assoc = Int64.to_int i})
-      | ("INST_BASE",i,_) -> (st,vals,{ca with inst_base_addr = i})
-      | ("LOG",i,_) -> MemAD.log_address i; (st,vals,ca)
-      | ("",0L,_)  -> (st,vals,ca)
+     let cfgs = match l with
+      | ("START",i,_) -> {configs with start_addr = Some (Int64.to_int i)}
+      | ("END",i,_) ->  {configs with end_addr = Some (Int64.to_int i)}
+      | ("cache_s",i,_) -> {configs with cache_s = Some (Int64.to_int i)}
+      | ("line_s",i,_) -> {configs with line_s = Some (Int64.to_int i)}
+      | ("assoc",i,_) -> {configs with assoc = Some (Int64.to_int i)}
+      | ("inst_cache_s",i,_) -> {configs with inst_cache_s = Some (Int64.to_int i)}
+      | ("inst_line_s",i,_) -> {configs with inst_line_s = Some (Int64.to_int i)}
+      | ("inst_assoc",i,_) -> {configs with inst_assoc = Some (Int64.to_int i)}
+      | ("INST_BASE",i,_) -> {configs with inst_base_addr = Some i}
+      | ("LOG",i,_) -> MemAD.log_address i; configs
+      | ("",0L,_)  -> configs
       | (str, l, h) ->
+        let mem,regs = configs.mem_params in
                   try (
-                    (st, (mem,(X86Util.string_to_reg32 str, l, h) :: regs),ca)
+                    {configs with mem_params = (mem, (X86Util.string_to_reg32 str, l, h) :: regs)}
                   ) with Invalid_argument arg -> try (
-                    (st,(setInitialValue (Int64.of_string str) l h mem, regs), ca)
+                    {configs with mem_params = (setInitialValue (Int64.of_string str) l h mem, regs)}
                   ) with Failure arg -> failwith (Printf.sprintf "Configuration not supported. %s is not a valid register or a memory location" arg)
-            )
-  in let empty_cparams = {cache_s = 0; line_s = 0; assoc = 0; inst_cache_s = 0; inst_line_s = 0; inst_assoc = 0; inst_base_addr = (Int64.of_int 0)}
-  in auxmatch scanned (None,([],[]),empty_cparams)
+     in auxmatch ls cfgs in
+  let empty_params = 
+        {start_addr = None; end_addr = None; cache_s = None; line_s = None;
+        assoc = None; inst_cache_s = None; inst_line_s = None; 
+        inst_assoc = None; inst_base_addr = None; mem_params = ([],[]);}
+      in auxmatch scanned empty_params
