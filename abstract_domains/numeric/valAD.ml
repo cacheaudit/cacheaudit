@@ -270,6 +270,8 @@ module Make (O:VALADOPT) = struct
   let fmap_find_with_defval key defval fm = try(
     FlagMap.find key fm) with Not_found -> defval
   
+  (* Returns three maps which hold possible (flags,values)-combinations *)
+  (* for the destination, source variables and result *)
   let perform_op op dstset srcset cf_test zf_test = 
     let compute_op dst = NumSet.fold (fun src (dmap,smap,rmap) -> 
       let result = op dst src in
@@ -428,6 +430,11 @@ module Make (O:VALADOPT) = struct
     | Nb n -> FlagMap.add {cf = false; zf = false} n retmap
     | _ -> retmap in
     
+    (* Logical operations should be covered by one of the upper cases *)
+    (match aop with 
+    | And | Or | Xor -> assert (not (FlagMap.is_empty retmap))
+    | _ -> ());
+    
     let modulo_add = fun x -> Int64.sub x two32 in
     let modulo_sub = fun x -> Int64.add two32 x in
     let retmap = match aop with 
@@ -517,9 +524,8 @@ module Make (O:VALADOPT) = struct
   
   (* interval_flag_test takes two intervals and a flag combination and returns
    * the corresponding intervals *)
-  let interval_flag_test env arith_op dstvar dvals srcvar svals =
+  let interval_cmp env dstvar dvals srcvar svals =
     let dvals, svals = to_interval dvals, to_interval svals in
-    if arith_op <> Sub then failwith "interval_flag_test: TEST instruction for intervals not implemented";
     (* The following corresponds to the flag setting of SUB DST SRC *)
     let dl,dh = get_bounds dvals in
     let sl,sh = get_bounds svals in
@@ -549,16 +555,22 @@ module Make (O:VALADOPT) = struct
   let test_cmp env flags fop dstvar dvals srcvar svals =
     let arith_op = match fop with
     | Atest -> And | Acmp -> Sub in
-    let dstmap,srcmap =
-      match dvals,svals with
-      | FSet dset, FSet sset ->
-          let oper = arithop_to_int64op arith_op in
-          let dstmap,srcmap,_ = perform_op oper dset sset is_cf is_zf in
-          dstmap,srcmap
-      | _,_ ->
-          interval_flag_test env arith_op dstvar dvals srcvar svals in
-    store_vals env dstvar dstmap srcvar srcmap
-
+    let oper = arithop_to_int64op arith_op in
+    match dvals,svals with
+    | FSet dset, FSet sset ->
+        let dstmap,srcmap,_ = perform_op oper dset sset is_cf is_zf in
+        store_vals env dstvar dstmap srcvar srcmap
+    | _,_ ->
+      if fop = Acmp then
+        let dstmap,srcmap = interval_cmp env dstvar dvals srcvar svals in
+        store_vals env dstvar dstmap srcvar srcmap
+      else if srcvar = (VarOp dstvar) then
+        (* Operation is "TEST X X". *)
+        (* The result will be the same as "AND X X" because when dst = src,*)
+        (*  AND does not change any values but only sets the flags *)
+          interval_arith env And oper dstvar dvals svals 
+        else
+          failwith "general TEST instruction for intervals not implemented"
 
   let rotate_left value offset =
     let bin = Int64.shift_left value offset in
