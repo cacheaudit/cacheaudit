@@ -549,7 +549,7 @@ module Make (O:VALADOPT) = struct
     match meetZF with
     | Bot -> dstmap,srcmap
     | Nb z -> let flgs = {cf = false; zf = true} in
-      FlagMap.add flgs z dstmap, FlagMap.add flgs z dstmap
+      FlagMap.add flgs z dstmap, FlagMap.add flgs z srcmap
 
   (* perform TEST or CMP *)
   let test_cmp env flags fop dstvar dvals srcvar svals =
