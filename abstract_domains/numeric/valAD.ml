@@ -617,6 +617,10 @@ module Make (O:VALADOPT) = struct
         let fm = FlagMap.add {cf = false; zf = true} top_env fm in
         FlagMap.add {cf = false; zf = false} top_env fm
 
+  (* Nullify bits corresponding to the mask *)
+  let nullify_mask mask x = 
+    Int64.logand (Int64.lognot mask) x
+  
   (* Implements the effects of MOV *)
   let mov env flags dstvar mkvar dst_vals srcvar mkcvar src_vals =
     let new_env = match mkvar, mkcvar with
@@ -638,7 +642,7 @@ module Make (O:VALADOPT) = struct
                     (* Align cv values in order to write them into v *)
                     let cvSet = set_map (fun x -> Int64.shift_left x v_shift) ss in
                     (* Nullify the 8 bits corresponding to the mask *)
-                    let varSet = set_map (fun x -> Int64.logand (Int64.lognot v_mask) x) ds in
+                    let varSet = set_map (fun x -> nullify_mask v_mask x) ds in
                     (* Create a list of set combining all the posible values with the mask in place *)
                     let doOp x = set_map (fun y -> Int64.logor x y) varSet in
                     let setList = NumSet.fold (fun x r -> doOp x :: r) cvSet [] in
@@ -672,19 +676,22 @@ module Make (O:VALADOPT) = struct
       | NoMask -> assert false
       | Mask msk -> msk in
       let (v_mask, v_shift) = mask_to_intoff msk in
-      let newval = bool_to_int64 flags.cf in
-      let newval = Int64.shift_left newval v_shift in
-      let val_set = set_map (fun x -> Int64.logor newval 
-        (Int64.logand (Int64.lognot v_mask) x)) dset in
       begin match cc with
-        | (true,B) ->
+        | (true,B)| (true,Z) ->
+          let flag = if cc = (true,B) then flags.cf else flags.zf in 
+          let newval = bool_to_int64 flag in
+          (* shift the result according to the mask *)
+          let newval = Int64.shift_left newval v_shift in
+          (* clear the byte referred to by the mask and put the result there *)
+          let val_set = set_map (fun x -> Int64.logor newval 
+            (nullify_mask v_mask x)) dset in
           let new_env = VarMap.add dstvar (FSet val_set) env in 
           FlagMap.singleton flags new_env 
         | _ -> failwith "ValAD: SET with an unsupported condition"
+
       end
     | _ ->
-      (* For the time being we return top, *)
-      (* until a more precise solution is implemented*)
+      (* For SET with intervals we are imprecise and return top *)
       let top_env = (VarMap.add dstvar top env) in
       FlagMap.singleton flags top_env
 
