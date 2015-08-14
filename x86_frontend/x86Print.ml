@@ -157,6 +157,7 @@ let pp_instr fmt = function
   | Test (dst, src) -> fprintf fmt "@[@ TEST@ %a,@ %a@]" pp_op32 dst pp_op32 src
   | Inc gop -> fprintf fmt "@[@ INC@ %a@]" pp_op32 gop
   | Dec gop -> fprintf fmt "@[@ DEC@ %a@]" pp_op32 gop
+  | Neg gop -> fprintf fmt "@[@ NEG@ %a@]" pp_op32 gop
   | Jcc (cc, imm) -> fprintf fmt "@[@ J%a@ %a@]" pp_cc cc pp_addr imm
   | Set (cc, src) -> fprintf fmt "@[@ SET%a@ %a@]" pp_cc cc pp_op8 src
   | Jmp dst -> fprintf fmt "@[@ JMP@ %a@]" pp_genop_addr32 dst

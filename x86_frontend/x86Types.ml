@@ -225,7 +225,6 @@ type arith_op =
   | Subb (* Sub with borrow *)
   | Xor
 
-
 (** Bitwise shift operations *)
 type shift_op =
     Rol
@@ -244,6 +243,7 @@ type instr =
   | Test of op32 * op32 (* tests the logical AND of the arguments *)
   | Inc of op32
   | Dec of op32
+  | Neg of op32
   | Jcc of cc * int64
   | Set of cc * op8
   | Jmp of op32
