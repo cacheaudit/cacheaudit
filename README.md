@@ -1,5 +1,5 @@
 
-CacheAudit 0.2
+CacheAudit
 ======================================================================
 
 CacheAudit is a static analyzer of cache side-channels. CacheAudit takes as
@@ -55,7 +55,9 @@ For analyzing an executable using CacheAudit, the user needs to
 provide an starting point for the binary parser. Typically, this
 starting point will be the address of a function, such as `main` and
 can either be given in the configuration file ( e.g. `START 0x3b4`) or
-as a command-line parameter (`--start 0x3b4`).
+as a command-line parameter (`--start 0x3b4`). In a similar way, the end point 
+of the analysis can be specified by `END` in the configuratin file or 
+`--end` command-line parameter.
 
 The starting point of the x86 parser on an Linux ELF executable is
 specified as an offset from the base address `0x08048000` of the `.text`
