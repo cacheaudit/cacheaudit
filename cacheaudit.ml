@@ -118,8 +118,9 @@ let speclist = [
       are not unrolled");
     ("--stub-config", Arg.String (fun s -> 
       stub_rules_file := s), 
-      "specify file which controlles stubbing: skipping analysis for a code 
-      segment and emulating the memory accesses indicated by the file"
+      "specify file which controls stubbing: skipping analysis for a code 
+      segment and emulating the memory accesses indicated by the file.
+      Use this feature with care, it makes the analysis unsound."
       ^"\n\n  Logging:");
     ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
       "set the general log level. Options are quiet, normal and debug. 
