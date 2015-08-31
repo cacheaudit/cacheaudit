@@ -177,7 +177,4 @@ let pp_instr fmt = function
   | Shift (sop, dst, offset) -> fprintf fmt "@[@ %a@ %a,@ %a@]" pp_shift_op sop pp_op32 dst pp_op8 offset
   | Halt -> fprintf fmt "@[ HALT @]"
   | Skip -> fprintf fmt "@[ SKIP @]"
-  (* | FlagSet (f, v) -> if v then fprintf fmt "@[@ Set %a@]" pp_flag f   *)
-  (*                          else fprintf fmt "@[@ Clear %a@]" pp_flag f *)
-  (* | _ -> raise (PrintExn "x86Print: Unsupported instruction") *)
-
+  | Simulate -> fprintf fmt "@[ SIM @]"

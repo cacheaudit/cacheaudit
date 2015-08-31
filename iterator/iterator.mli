@@ -19,7 +19,8 @@ module Make :
 	  cache, and a control flow graph. *)
       val iterate :
         X86Headers.t -> 
-        MemAD.mem_param ->
+        Config.stub_t list ->
+        Config.mem_param ->
         CacheAD.cache_param ->
         CacheAD.cache_param option -> int64 -> 
 	Cfg.basicblock list -> unit

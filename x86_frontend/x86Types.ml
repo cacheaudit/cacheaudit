@@ -260,5 +260,5 @@ type instr =
   | Shift of shift_op * op32 * op8
   | Halt
   | Skip
-  (* | FlagSet of flag*bool (*sets the flag to the bool value *) *)
+  | Simulate (* This dummy instruction indicates a location of stubbing *)
 

@@ -6,6 +6,7 @@ open AbstrInstr
 open AD.DS
 open NumAD.DS
 open Logger
+open Config
 
 (* times added to the time for memory accesses *)
 let time_instr = 1 (* number of cycles of one instriction *)
@@ -15,19 +16,10 @@ let time_effective_load = 0;
 (* Operand type, which may be a 8 or 32-bit operand*)
 type op_t = Op8 of X86Types.op8 | Op32 of X86Types.op32
 
-(* List of initial values for registers *)
-type reg_init_values = (X86Types.reg32 * int64 * int64) list
-
-(* List of initial values for memory addresses  *)
-type mem_init_values = (int64 * int64 * int64) list
-
-(* Parameters for the Memory Abstract Domain initialization *)
-type mem_param = mem_init_values * reg_init_values
-
 module type S =
   sig
     include AD.S
-  val init: (int64 -> int64 option) -> mem_param -> CacheAD.cache_param -> t
+  val init: (int64 -> int64 option) -> Config.mem_param -> CacheAD.cache_param -> t
   val get_vals: t -> op32 -> (int,t) finite_set
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val interpret_instruction : t -> X86Types.instr -> t
@@ -37,10 +29,10 @@ end
   
 
 
-let logged_addresses = ref []
+(* let logged_addresses = ref []                    *)
 
-let log_address addr =
-  logged_addresses := !logged_addresses @ [addr]
+(* let log_address addr =                           *)
+(*   logged_addresses := !logged_addresses @ [addr] *)
 
 module MemSet = Set.Make(Int64)
 
@@ -59,7 +51,7 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   let pp_vars fmt v = 
     MemSet.iter (Format.fprintf fmt "%a, @," X86Print.pp_addr) v
 
-  let log_vars mem = List.iter (F.log_var mem.vals) !logged_addresses
+  let log_vars mem = List.iter (F.log_var mem.vals) !Config.logged_addresses
 
   let print fmt mem = 
     if MemSet.is_empty mem.memory then Format.fprintf fmt "%a %a"
@@ -422,7 +414,13 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   (* pass the elapsed time to the cache domain which keeps  track of it *)
   let elapse env d = {env with cache = C.elapse env.cache d}
 
-  let touch env addr rw = {env with cache = C.touch env.cache addr rw}
+  let touch env addr rw = 
+    let env = if rw = NumAD.DS.Read then env else
+      (* We write to memory but we don't know what; *)
+      (* set the value of the variable to top *)
+      (* Warning: if this variable has an initial value, it will be read next time *)
+      {env with vals = F.delete_var env.vals addr} in
+    {env with cache = C.touch env.cache addr rw}
         
 end 
 

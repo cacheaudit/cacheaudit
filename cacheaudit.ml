@@ -25,6 +25,8 @@ let interval_cache = ref false
 let do_traces = ref true
 let opt_precision = ref false
 
+let stub_rules_file = ref ""
+
 
 type cache_age_analysis = IntAges | SetAges
 
@@ -113,7 +115,12 @@ let speclist = [
     ("--unroll", Arg.Int (fun u -> Iterator.unroll_count:=u), "number of loop unrollings");
     ("--no-outer-unroll", Arg.Unit (fun () -> Iterator.unroll_outer_loop:=false), 
       "overrules the --unroll option, so that outer loops 
-      are not unrolled"
+      are not unrolled");
+    ("--stub-config", Arg.String (fun s -> 
+      stub_rules_file := s), 
+      "specify file which controls stubbing: skipping analysis for a code 
+      segment and emulating the memory accesses indicated by the file.
+      Use this feature with care, it makes the analysis unsound."
       ^"\n\n  Logging:");
     ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
       "set the general log level. Options are quiet, normal and debug. 
@@ -155,7 +162,7 @@ let _ =
   let start_values = ref ([],List.map (fun (a,b) -> a,b,b) [(X86Types.EAX, 0L); (X86Types.ECX, 0L); (X86Types.EDX, 0L); (X86Types.EBX, 0L);
                (X86Types.ESP, 0xbffff138L); (X86Types.EBP, 0xbffff2c8L); (X86Types.ESI, 0L); (X86Types.EDI, 0L)]) in
       (try
-        let configs = Config.config (!bin_name^".conf") in
+        let configs = Config.parse_conffile (!bin_name^".conf") in
         Printf.printf "Configuration file %s.conf parsed\n" !bin_name;
         
         if !start_addr == -1 && configs.start_addr <> None then start_addr := un_option configs.start_addr;
@@ -170,6 +177,9 @@ let _ =
         if configs.mem_params <> ([],[]) then start_values := configs.mem_params
       with Sys_error _ ->
         Printf.printf "Configuration file %s.conf not found\nUsing default values\n" !bin_name);
+
+    let stubs = if !stub_rules_file = "" then [] else Config.parse_stubfile !stub_rules_file in
+
   let bits, mem =
     try (
       let mem = read_exec !bin_name in
@@ -210,7 +220,7 @@ let _ =
   match mem with
   | None -> ()
   | Some sections ->
-    let cfg = Cfg.makecfg !start_addr !end_addr sections in
+    let cfg = Cfg.makecfg !start_addr !end_addr sections stubs in
     if !print_cfg || Logger.get_log_level Logger.IteratorLL = Logger.Debug then Cfg.printcfg cfg;
     if !analyze then begin 
       (* Analysis will be performed. *)
@@ -268,6 +278,6 @@ let _ =
       let iterate = Iter.iterate in
       let start = Sys.time () in 
       (* Run the analysis *)
-      iterate sections !start_values data_cache_params (Some(inst_cache_params)) !instruction_base_addr cfg;
+      iterate sections stubs !start_values data_cache_params (Some(inst_cache_params)) !instruction_base_addr cfg;
       Printf.printf "Analysis took %d seconds.\n" (int_of_float (Sys.time () -. start))
     end

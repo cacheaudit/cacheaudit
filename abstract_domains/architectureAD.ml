@@ -8,7 +8,7 @@ open Logger
 
 (* Architecture abstract domain. Right now it allows two different caches for instructions and data *)
 
-let instruction_addr_base = ref (Int64.of_int 0)
+let address_base = ref Int64.zero
 
 
 
@@ -21,7 +21,8 @@ module type S =
     val call : t -> op32 -> int -> (int,t) finite_set 
     val return : t -> (int,t) finite_set
     val interpret_instruction : t -> X86Types.instr -> t
-    val read_instruction: t -> int -> t
+    val read_instruction: t -> int64 -> t
+    val touch_data: t -> int64 -> NumAD.DS.rw_t -> t
     val elapse : t -> int -> t
   end
 
@@ -35,7 +36,7 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
   }
 
   let init concr_mem start_values data_cache_params inst_cache_params addr_base = 
-    instruction_addr_base := addr_base;
+    address_base := addr_base;
     {
       call_ad = ST.init concr_mem start_values data_cache_params;
       inst_ad = IC.init (match inst_cache_params with
@@ -90,9 +91,10 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
     inst_ad = IC.elapse env.inst_ad t
   }
   
-  (* Note: in the following "touch" we only do reads *)
-  let read_instruction env addr = { env with inst_ad = (IC.touch env.inst_ad (Int64.add (Int64.of_int addr) !instruction_addr_base) NumAD.DS.Read) }
-
+  let read_instruction env addr = { env with inst_ad = IC.touch env.inst_ad (Int64.add addr !address_base) NumAD.DS.Read }
+  
+  let touch_data env addr rw = {env with call_ad = ST.touch env.call_ad (Int64.add addr !address_base) rw }
+  
 
 end
 
@@ -101,7 +103,7 @@ module MakeShared (ST: StackAD.S) = struct
   type t = ST.t
 
   let init concr_mem start_values data_cache_params inst_cache_params addr_base =
-    instruction_addr_base := addr_base;
+    address_base := addr_base;
     ST.init concr_mem start_values data_cache_params
 
   (* Redirect all usual stack calls to the stackAD *)
@@ -118,8 +120,11 @@ module MakeShared (ST: StackAD.S) = struct
     
   let print_delta env1 form env2 = ST.print_delta env1 form env2
   
-  (* Note: in the following "touch" we only do reads *)
-  let read_instruction env addr = ST.touch env (Int64.add (Int64.of_int addr) !instruction_addr_base) NumAD.DS.Read
+  let touch env addr rw = ST.touch env (Int64.add addr !address_base) rw
+  
+  let read_instruction env addr = touch env (Int64.add addr !address_base) NumAD.DS.Read
+  
+  let touch_data = touch
 
 end
 

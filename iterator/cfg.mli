@@ -3,6 +3,8 @@
 
 (** Module for creating and printing control flow graphs *)
 
+open Config
+
 (** Type for basic blocks. A final jump command is stored in
     [jump_command] and is not contained in the block's content *)
 type basicblock = {
@@ -20,7 +22,7 @@ type basicblock = {
 type t=basicblock list
 
 (** Creates control flow graph from a given starting address in the binary executable (typically: [main]) *)
-val makecfg : int -> int -> X86Headers.t -> t
+val makecfg : int -> int -> X86Headers.t -> Config.stub_t list -> t
 
 (** Prettyprinter for basic block addresses *)
 val pp_block_addr : Format.formatter -> int -> unit
@@ -33,3 +35,4 @@ val pp_block : Format.formatter -> basicblock -> unit
 
 (** Prettyprinter for the entire control flow graph *)
 val printcfg : t -> unit
+
