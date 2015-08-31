@@ -42,9 +42,6 @@ module Make (CA : CacheAD.S) = struct
     let compare n1 n2 = 
       Pervasives.compare (n1.value, n1.parent_UIDs) (n2.value,n2.parent_UIDs)
   end   
-  
-  and TrieSet : Set.S  with type elt = Trie.t
-    = Set.Make(Trie)
 
   type t = {
     traces : Trie.t add_top;
