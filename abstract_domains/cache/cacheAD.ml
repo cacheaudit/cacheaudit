@@ -105,34 +105,13 @@ module Make (A: AgeAD.S) = struct
     num_sets : int; (* computed from the previous three *)
     
     strategy : replacement_strategy;
-    poss_init_ages : IntListSet.t;
+    poss_init_ages : IntListSet.t; (* ages of the initial blocks *)
   }
   
   let var_to_string x = Printf.sprintf "%Lx" x 
   
   let calc_set_addr num_sets addr = 
     Int64.to_int (Int64.rem addr (Int64.of_int num_sets))
-    
-  (* Return a set containing sets of possible age allocations within a cache set *)
-  (* depending on the replacement strategy *)
-  let calc_poss_ages strategy assoc = 
-    let permut = get_permutation strategy in
-    let rec loop ready todo = 
-      if IntSetSet.is_empty todo then ready
-      else 
-        let elt = IntSetSet.choose todo in
-        let ready = IntSetSet.add elt ready in
-        let todo = IntSetSet.remove elt todo in
-        (* hit successors *)
-        let successors = IntSet.fold (fun i succ ->
-          IntSetSet.add (intset_map (permut assoc i) elt) succ
-          ) elt IntSetSet.empty in
-        (* miss successor *)
-        let miss_elt = IntSet.remove assoc (IntSet.add 0 (intset_map succ elt)) in
-        let successors = IntSetSet.add miss_elt successors in
-        let todo = IntSetSet.diff (IntSetSet.union todo successors) ready in
-        loop ready todo in
-    loop IntSetSet.empty (IntSetSet.singleton IntSet.empty) 
 
   (* give the complement of the ages of an initial state: *)
   (* set of ages of the elements in cache*)
@@ -143,11 +122,19 @@ module Make (A: AgeAD.S) = struct
       if a = assoc then touched 
       else IntSet.remove a touched) all_ages untouched
   
-  (* Calculates the possible ages of the initial blocks. *)
-  (* Works only under the assumption that the initial blocks are disjoint *)
-  (* from the accessed locations. *)
-  (* If age != associativity, then that location is filled filled with an*)
-  (* element from the initial state or is empty if initial state is empty *)
+  (* Calculates the possible ages that the initial blocks can have throughout 
+     the computation. Possible ages are lists, where l[i] = a means that
+     i'th initial block has age a. 
+     Examples:
+        initially: [0; 2; ...; assoc - 1]; 
+        all initial blocks were evicted: [assoc; ...; assoc];
+        all evicted but initial block 1 which has age 3: [assoc; 3; assoc; ...; assoc]
+     The complements are the sets of ages of elements in the cache.
+     
+     Works under the assumption that the initial blocks are disjoint 
+     from the accessed locations. 
+     If age != associativity, then that location is filled filled with an
+     element from the initial state or is empty if initial state is empty *)
   let calc_poss_init_ages strategy assoc =
     let permut = get_permutation strategy in
     let rec loop ready todo = 
