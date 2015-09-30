@@ -22,21 +22,21 @@ module Make (CA : CacheAD.S) = struct
   type 'a parent_t = Root | Single of 'a | Couple of 'a * 'a
   
   module rec Trie : sig 
-    type t = {
-      parents : t parent_t;
+    type 'a t = {
+      parents : 'a t parent_t;
       parent_UIDs : IntSet.t;
       node_UID : int;
-      value: cache_st option;
+      value: 'a;
       num_traces: big_int;
     }  
-    val compare : t -> t -> int
+    val compare : 'a t -> 'a t -> int
   end
    = struct
-    type t = {
-      parents : t parent_t;
+    type 'a t = {
+      parents : 'a t parent_t;
       parent_UIDs : IntSet.t;
       node_UID : int;
-      value: cache_st option;
+      value: 'a;
       num_traces: big_int;
     }
     let compare n1 n2 = 
@@ -44,9 +44,10 @@ module Make (CA : CacheAD.S) = struct
   end   
 
   type t = {
-    traces : Trie.t add_top;
+    traces : cache_st option Trie.t add_top;
     cache : CA.t;
     times: IntSet.t add_top;
+    block_trace : int64 list add_top;
   }
   
   
@@ -54,14 +55,12 @@ module Make (CA : CacheAD.S) = struct
   (* and the unique IDs of the parents*)
   let hash_node_parents value parent_UIDs = 
     Hashtbl.hash (value, parent_UIDs)
-    
-  module HT = struct
-    type t = Trie.t
+  
+  module HitMissHashtbl = Hashtbl.Make(struct
+    type t = cache_st option Trie.t
     let hash node = hash_node_parents node.Trie.value node.Trie.parent_UIDs
     let equal n1 n2 = (Trie.compare n1 n2 = 0)
-  end
-  
-  module HashTable = Hashtbl.Make(HT)
+  end)
   
   let is_dummy n = (n.Trie.value = None)
   
@@ -104,22 +103,21 @@ module Make (CA : CacheAD.S) = struct
     }
     
   (* A hash table holding all nodes exactly once *)
-  let hash_table = HashTable.create 500
+  let hitmiss_hashtbl = HitMissHashtbl.create 500
   
   (* Find the value in the hash table or add it; return the node *)
   let find_or_add node = try
-    HashTable.find hash_table node
+    HitMissHashtbl.find hitmiss_hashtbl node
     with Not_found -> 
-      HashTable.add hash_table node node;
+      HitMissHashtbl.add hitmiss_hashtbl node node;
       node
     
-  let root =  
-    let node = create_node Root (Some N) in
-    HashTable.add hash_table node node;
-    node
-    
-  let init cache_param =
-    { traces = Nt root; cache = CA.init cache_param; times = Nt (IntSet.singleton 0)} 
+  let init cache_param = { 
+      traces = Nt (find_or_add (create_node Root (Some N))); 
+      cache = CA.init cache_param; 
+      times = Nt (IntSet.singleton 0);
+      block_trace = Nt [];
+    } 
         
   let get_single_parent = function
     | Single p -> p
@@ -172,13 +170,19 @@ module Make (CA : CacheAD.S) = struct
     | Nt tms1,Nt tms2 ->
       let tms = IntSet.union tms1 tms2 in
       if IntSet.cardinal tms < max_times then Nt tms else Tp
-    | _,_ -> Tp
+    | _, _ -> Tp
+  
+  let join_btrace t1 t2 = 
+    match t1, t2 with
+    | Nt x, Nt y -> if x = y then Nt x else Tp
+    | _, _ -> Tp 
   
   let join env1 env2 =
     let traces = join_traces env1.traces env2.traces in
     let cache = CA.join env1.cache env2.cache in
     let times = join_times env1.times env2.times in
-    {traces = traces; cache = cache; times = times}
+    let block_trace = join_btrace env1.block_trace env2.block_trace in
+    {traces = traces; cache = cache; times = times; block_trace = block_trace}
         
   let widen env1 env2 = 
     let cache = CA.widen env1.cache env2.cache in
@@ -188,8 +192,9 @@ module Make (CA : CacheAD.S) = struct
       | Nt node1, Nt node2 -> 
         if node1.Trie.node_UID = node2.Trie.node_UID then Nt node1
         else Tp 
-    | _,_ -> Tp in
-    {cache = cache; traces = traces; times = times}
+      | _,_ -> Tp in
+    let block_trace = join_btrace env1.block_trace env2.block_trace in 
+    {cache = cache; traces = traces; times = times; block_trace = block_trace}
   
   let rec subseteq_traces trace1 trace2 =
     match trace1,trace2 with
@@ -212,9 +217,14 @@ module Make (CA : CacheAD.S) = struct
     | Nt tms1,Nt tms2 -> IntSet.subset tms1 tms2
     | _,Tp -> true
     | _,_ -> false in 
+    let subseteq_block_trace = match env1.block_trace, env2.block_trace with
+    | Nt bt1, Nt bt2 -> bt1 = bt2
+    | _, Tp -> true
+    | _, _ -> false in
     (CA.subseteq env1.cache env2.cache) &&
     subeq_times &&
-    subseteq_traces env1.traces env2.traces
+    (subseteq_traces env1.traces env2.traces) &&
+    subseteq_block_trace
   
   
   let print fmt env =
@@ -232,7 +242,10 @@ module Make (CA : CacheAD.S) = struct
     | Nt tms ->
       let numtimes = float_of_int (IntSet.cardinal tms) in
       Format.fprintf fmt "%f, %f bits\n" 
-        numtimes ((log10 numtimes)/.(log10 2.))
+        numtimes ((log10 numtimes)/.(log10 2.));
+    Format.fprintf fmt "\nblock-traces: %s\n" (match env.block_trace with
+      | Tp -> "Top"
+      | Nt bt -> Printf.sprintf "1")
       
 
     (* N.B. This way of counting traces*)
@@ -263,7 +276,14 @@ module Make (CA : CacheAD.S) = struct
     | HM -> 
       join_times (add_time duration_M times) (add_time duration_H times)
   
+  let add_block block_trace block =
+    match block_trace with
+    | Nt bt -> Nt (block :: bt)
+    | Tp -> Tp
   
+  let get_block_addr env addr = 
+    CA.get_block_addr env.cache addr
+    
   let touch env addr rw =
     let c_hit,c_miss = CA.touch_hm env.cache addr rw in
     (* determine if status it is H or M or HM *)
@@ -280,23 +300,28 @@ module Make (CA : CacheAD.S) = struct
       else status in
     let traces = add env.traces status in
     let times = add_time_status status env.times in
-    {traces = traces; cache = cache; times = times}
+    let block_trace = 
+      add_block env.block_trace (get_block_addr env addr) in
+    {traces = traces; cache = cache; times = times; block_trace = block_trace}
 
   (* Hitmiss tracking for touch_hm *)
   let touch_hm env addr rw =
     let c_hit,c_miss = CA.touch_hm env.cache addr rw in
+    let block_trace = add_block env.block_trace (get_block_addr env addr) in
     let nu_hit = match c_hit with
       | Nb c -> 
 	Nb {traces = add env.traces H;
   	    cache = c ;
-  	    times = add_time_status H env.times}
+  	    times = add_time_status H env.times;
+        block_trace = block_trace}
       | Bot -> Bot
     in
     let nu_miss = match c_miss with
       | Nb c -> 
 	Nb {traces = add env.traces M; 
 	    cache = c ;
-  	    times = add_time_status M env.times}
+  	    times = add_time_status M env.times;
+        block_trace = block_trace}
       | Bot -> Bot
     in (nu_hit,nu_miss)
 

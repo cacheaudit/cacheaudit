@@ -268,6 +268,8 @@ module Make (CA : CacheAD.S) = struct
       | Nb c -> Nb {traces = add env.traces addr; cache = c ;}
       | Bot -> Bot
     in (nu_hit,nu_miss)
+    
+  let get_block_addr env addr = failwith "get_block_addr not implemented in AccessAD"
 
 
   let elapse env time = {env with cache = CA.elapse env.cache time}

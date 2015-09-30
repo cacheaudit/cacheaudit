@@ -41,6 +41,8 @@ module type S = sig
       have elapsed *)
   val count_cache_states : t -> Big_int.big_int
   (** Give the count of valid cache states *)
+  val get_block_addr : t -> int64 -> int64
+  (** Return the block address (tag + set index) *)
 end
 
 

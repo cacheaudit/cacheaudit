@@ -58,7 +58,9 @@ module InstructionBasedAttacker (C: CacheAD.S) : CacheAD.S = struct
 
   (* safe, but very imprecise, TODO *)
   let touch_hm env addr rw = let t = touch env addr rw in Nb t, Nb t
-
+  
+  let get_block_addr env addr = failwith "get_block_addr not implemented in InstructionBasedAttacker"
+  
   let leakage_of_attacker_state cs = 
     mult_big_int (C.count_cache_states cs.caches) cs.leakage
  
@@ -141,6 +143,8 @@ struct
   let touch x addr rw = { x with cache = C.touch x.cache addr rw }
 
   let touch_hm x addr rw = failwith "touch_hm not implemented in OneInstructionInterrupt"
+  let get_block_addr env addr = failwith "get_block_addr not implemented in in OneInstructionInterrupt"
+
 
   let elapse x _ = commands := !commands+1; {x with leakage = max_big_int x.leakage (C.count_cache_states x.cache)}
 
@@ -228,6 +232,8 @@ struct
                        }
 
   let touch_hm env d rw = failwith "touch_hm not implemented in OneTimeInterrupt"
+  let get_block_addr env addr = failwith "get_block_addr not implemented in in OneTimeInterrupt"
 
+  
   let elapse env d = age_and_observe env d
 end

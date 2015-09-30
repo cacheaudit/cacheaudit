@@ -36,6 +36,8 @@ module type S = sig
   val elapse : t -> int -> t
   (** Used to keep track of time, if neccessary *)
   val count_cache_states : t -> Big_int.big_int
+  val get_block_addr : t -> int64 -> int64
+  (** Return the block address (tag + set index) *)
 end
 
 (*** Flags for modifying precision ***)
