@@ -50,16 +50,16 @@ let do_concrete_hit = ref false
 (* perform a reduction which removes impossible states with "holes" *)
 let do_reduction = ref true
 
-type adversay = Blurred | SharedSpace
+type adversary = Disjoint | Shared
 
-let adversary = ref Blurred
+let adversary = ref Disjoint
 
 module Make (A: AgeAD.S) = struct
   (*** Permutations corresponding to replacement strategies ***)
   
   (* Permutation to apply when touching an element of age a in PLRU *)
   (* We assume an ordering correspond to the boolean encoding of the tree from *)
-  (* leaf to root. 0 is the most recent, corresponding to all 0 bits is the path *)
+  (* leaf to root. 0 is the most recent, corresponding to all 0 bits in the path *)
   let plru_permut assoc a n = if n=assoc then n else
     let rec f a n =  
       if a=0 then n 
@@ -72,12 +72,17 @@ module Make (A: AgeAD.S) = struct
   	else 2*(f (a/2) (n/2))
     in f a n
   
-  
+  (* Permutation to apply when touching an element of age a in LRU *)
+  (* The touched element is assigned age 0. Elements that are younger age, *)
+  (* elements that are older remain unchanged *)
+
   let lru_permut assoc a n = 
     if n = a then 0
     else if n < a then n+1
     else n
-  
+
+  (* Permutation corresponding to FIFO: Identity *)
+      
   let fifo_permut assoc a n = n
   
   let get_permutation strategy = match strategy with
@@ -112,21 +117,23 @@ module Make (A: AgeAD.S) = struct
   
   let calc_set_addr num_sets addr = 
     Int64.to_int (Int64.rem addr (Int64.of_int num_sets))
+    
 
-  (* give the complement of the ages of an initial state: *)
-  (* set of ages of the elements in cache*)
-  let touched_compl assoc untouched  =
-    let all_ages = List.fold_left (fun s x -> 
-      IntSet.add x s) IntSet.empty (0 -- assoc) in
+   (* give the complement of the ages of an initial state: 
+      corresponds to the set of ages of the elements loaded by the 
+      program *)
+       
+   let complement assoc untouched  =
+    let all_ages = IntSet.of_list (0 -- assoc) in
     List.fold_left (fun touched a -> 
       if a = assoc then touched 
       else IntSet.remove a touched) all_ages untouched
-  
+
   (* Calculates the possible ages that the initial blocks can have throughout 
      the computation. Possible ages are lists, where l[i] = a means that
      i'th initial block has age a. 
      Examples:
-        initially: [0; 2; ...; assoc - 1]; 
+        initially: [0; 1; ...; assoc - 1]; 
         all initial blocks were evicted: [assoc; ...; assoc];
         all evicted but initial block 1 which has age 3: [assoc; 3; assoc; ...; assoc]
      The complements are the sets of ages of elements in the cache.
@@ -135,23 +142,26 @@ module Make (A: AgeAD.S) = struct
      from the accessed locations. 
      If age != associativity, then that location is filled filled with an
      element from the initial state or is empty if initial state is empty *)
+            
   let calc_poss_init_ages strategy assoc =
     let permut = get_permutation strategy in
     let rec loop ready todo = 
       if IntListSet.is_empty todo then 
-        ready
-      else 
-        let elt = IntListSet.choose todo in
-        let ready = IntListSet.add elt ready in
-        let todo = IntListSet.remove elt todo in
-        (* hit successors *)
-        let ages_in = touched_compl assoc elt in 
+	ready
+    else
+      let elt = IntListSet.choose todo in
+      let ready = IntListSet.add elt ready in
+	(* compute hit successors: simulate a hit to every *)
+ 	(* age that is not occupied by a block from the initial *)
+ 	(* state (and that could hence be touched by the program) *)
+        let touched = complement assoc elt in 
         let successors = IntSet.fold (fun i succ ->
           IntListSet.add (List.map (permut assoc i) elt) succ
-          ) ages_in IntListSet.empty in
-        (* miss successor *)
+          ) touched IntListSet.empty in
+        (* compute miss successor: increase ages of all blocks by one *)
         let miss_elt = List.map (fun a -> if a = assoc then a else succ a) elt in
         let successors = IntListSet.add miss_elt successors in
+	(* update worklist *)
         let todo = IntListSet.diff (IntListSet.union todo successors) ready in
         loop ready todo in
     loop IntListSet.empty (IntListSet.singleton (0 -- assoc)) 
@@ -186,52 +196,46 @@ module Make (A: AgeAD.S) = struct
   (* Gives the block address *)
   let get_block_addr env addr = Int64.div addr (Int64.of_int env.line_size)
   
-  
+    
   (*** Functions for concretization, filtering and abstraction ***)
 
+  (* return a set of the ages of a concrete set state, *)
+  (* and a boolean value indicating whether there were duplicate ages (not assoc) *)
+  let get_ages env state = NumMap.fold (fun _ age (age_set,d) -> 
+    if age = env.assoc then (* assoc is always a possible age, don't consider it *)
+      (age_set,d)
+    else
+      let d = d || (IntSet.mem age age_set) in (* check for duplicates *)
+      (IntSet.add age age_set,d)) state (IntSet.empty,false)
+
+  (* For a given set of ages filled by the program, return the number of *)
+  (* cache states that can be distinguished by the adversary *)
+  let num_poss_states env ages = 
+      IntListSet.fold (fun istate num -> 
+        if IntSet.equal (complement env.assoc istate) ages then num+1 
+        else num) env.poss_init_ages 0 
+
+    
   (* Returns a list of concretizations corresponding to one cache set [cset]. *)
   (* Each concretization is a NumMap, mapping blocks to ages *)
   let concretize_set env cset =
-    let blocks = NumSet.elements cset in
-    let abstraction = List.map (fun blck -> 
-        A.get_values env.ages blck
-      ) blocks in
-    let lens = List.map List.length abstraction in
-    let num_concrete = List.fold_left (fun x prod -> prod * x) 1 lens in
-    let pos i n = 
-      let rec divide x n =  
-         if n = 0 then x
-         else divide (x/(List.nth lens (n-1))) (n-1) in
-      (divide i (n)) mod (List.nth lens n) in
+    (* cartesian is the Cartesian product of ages. Each tuple is a NumMap,
+       maping blocks to ages *)
+    let cartesian =
+      let addtoone b m =
+	List.map (fun a -> NumMap.add b a m) (A.get_values env.ages b) in
+      let addtoall b concs =
+	List.concat (List.map (addtoone b) concs) in
+      NumSet.fold addtoall cset [NumMap.empty] in
+    (* filters out blocks with impossible age combinations: 
+       "holes" and duplicates *)
+    let possible state =   
+      let state_ages, duplicate = get_ages env state in
+      (not duplicate) && (num_poss_states env state_ages > 0)
+    in List.filter possible cartesian
+
+
     
-    List.fold_left (fun concr i -> 
-        let state = 
-          List.fold_left (fun state n -> 
-            NumMap.add (List.nth blocks n) 
-              (List.nth (List.nth abstraction n) (pos i n)) state
-           ) NumMap.empty (0 -- (List.length blocks)) in
-        state :: concr
-        ) [] (0 -- num_concrete)
-  
-  (* return a set of the ages of a concrete set state, *)
-  (* and a boolean value indicating whether there were duplicate ages (not assoc) *)
-  let get_state_ages env state = NumMap.fold (fun _ age (age_set,d) -> 
-      if age = env.assoc then (* assoc is always a possible age, don't consider it *)
-        (age_set,d)
-      else
-        let d = d || (IntSet.mem age age_set) in (* check for duplicates *)
-        (IntSet.add age age_set,d)) state (IntSet.empty,false)
-  
-  let num_poss_states env state_ages = 
-      IntListSet.fold (fun istate num -> 
-        if IntSet.equal (touched_compl env.assoc istate) state_ages then succ num 
-        else num) env.poss_init_ages 0 
-  
-  
-  let is_poss_state env state = 
-    let state_ages, duplicate = get_state_ages env state in
-    (not duplicate) && (num_poss_states env state_ages > 0)
-  
   (* Give the abstraction of [concr] *)
   let abstract_set env concr = 
     let abstr,_ = 
@@ -247,43 +251,46 @@ module Make (A: AgeAD.S) = struct
   
   (*** Counting valid states ***)
   
-  (* Computes two lists where each item i is the number of possible *)
-  (* cache states of cache set i for a shared-memory *)
-  (* and the disjoint-memory (blurred) adversary *)
-  let cache_states_per_set env =
-    let cache_sets = Utils.partition (A.var_names env.ages) (get_set_addr env) in
-    IntMap.fold (fun set_num addr_set (nums,bl_nums) ->
-        (* concretize *)
-        let concr = concretize_set env addr_set in
-        (* remove impossible *)
-        let concr = List.filter (is_poss_state env) concr in
-        (* let num_concr = List.length concr in *)
-         let num_concr = List.fold_left (fun num state -> 
-           num + num_poss_states env (fst (get_state_ages env state))
-            ) 0 concr in
-        let valid_agesets = List.fold_left (fun set state -> 
-          IntSetSet.add (fst (get_state_ages env state)) 
-            set) IntSetSet.empty concr in
-        let num_disjoint = IntSetSet.fold (fun ageset n -> 
-              n + num_poss_states env ageset) valid_agesets 0 in
-        ((Int64.of_int num_concr)::nums, (Int64.of_int num_disjoint)::bl_nums)
-      ) cache_sets ([],[])
-      
-  let count_cstates env = 
-    let nums_cstates,bl_nums_cstates = cache_states_per_set env in
-      (Utils.prod nums_cstates,Utils.prod bl_nums_cstates)
-      
-      
-  (*** Printing ***)
+  let sum = List.fold_left ( + ) 0
+
+
+  (*** Counts the number of observations a disjoint memory space
+       adversary can make on a single cache set ***)
+  let count_set_disjoint env set =
+    let concr = concretize_set env set in
+    let age_sets = List.fold_left (fun set state -> 
+      IntSetSet.add (fst (get_ages env state)) 
+        set) IntSetSet.empty concr in
+    let observables = List.rev_map (fun ages -> num_poss_states env ages)
+      (IntSetSet.elements age_sets) in
+    sum observables
+
+  (*** Counts the number of observations a shared memory space
+       adversary can make on a single cache set ***)
+  let count_set_shared env set =
+    let concr = concretize_set env set in
+    let observables = List.rev_map
+      (fun cs -> num_poss_states env (fst (get_ages env cs))) concr in
+    sum observables
   
+  (*** Lifts counting from sets to cache states by taking the
+       product ***)
+  let count_caches env adversary =
+    let sets =  IntMap.fold (fun _ x xs -> x::xs) env.cache_sets [] in
+    let set_counter = match adversary with
+      | Disjoint -> count_set_disjoint env
+      | Shared -> count_set_shared env
+    in Utils.prod (List.rev_map (fun x -> Int64.of_int (set_counter x)) sets)
+
+  (* Legacy interface *)
+  let count_cache_states env = count_caches env !adversary
+      
+
+  (*** Printing ***)
+
+     
   let print_addr_set fmt = NumSet.iter (fun a -> Format.fprintf fmt "%Lx " a)
 
-  let count_cache_states env = 
-    let num_cstates,bl_num_cstates = count_cstates env in
-    match !adversary with
-    | Blurred -> bl_num_cstates
-    | SharedSpace -> num_cstates
-  
   (* [print num] prints [num], which should be positive, as well as how many
      bits it is. If [num <= 0], print an error message *)
   let print_num fmt num =
@@ -312,12 +319,13 @@ module Make (A: AgeAD.S) = struct
           end
         ) env.cache_sets;
     Format.printf "\n";
-    let num, bl_num = count_cstates env in
+    let sh_num = count_caches env Shared in
+    let dj_num = count_caches env Disjoint in
     Format.fprintf fmt "\nNumber of valid cache configurations (shared memory): ";
-    print_num fmt num;
+    print_num fmt sh_num;
     Format.fprintf fmt "\nNumber of valid cache configurations (disjoint memory): ";
-    print_num fmt bl_num
-  
+    print_num fmt dj_num
+
     let print_delta c1 fmt c2 = match get_log_level CacheLL with
     | Debug->
       let added_blocks = NumSet.diff c2.handled_addrs c1.handled_addrs
@@ -439,12 +447,8 @@ module Make (A: AgeAD.S) = struct
                 strip_bot (lift_combine A.join ages_young ages_old)
             ) cset env.ages in
           {env with ages = A.set_var ages block block_age} in
-        
         (* concretize *)
         let concr = concretize_set env cset in
-        (* remove impossible *)
-        let concr = List.filter (is_poss_state env) concr in
-        
         (* Permute values *)
         (* operation can be infeasible and may take forever;*)
         (* if so, don't use --precise-update *)
