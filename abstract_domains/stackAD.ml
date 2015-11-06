@@ -9,13 +9,14 @@ module type S =
   sig
     include AD.S
 
-    val init : X86Headers.t -> Config.mem_param -> CacheAD.cache_param -> t
+    val init : X86Headers.t -> Config.mem_param -> CacheAD.cache_param_t -> t
     val get_vals : t -> op32 -> (int, t) finite_set
     val test : t -> condition -> t add_bottom * t add_bottom
     val call : t -> op32 -> int -> (int, t) finite_set
     val return : t -> (int, t) finite_set
     val interpret_instruction : t -> X86Types.instr -> t
     val touch : t -> int64 -> NumAD.DS.rw_t -> t
+    val set_value: t -> int64 -> int64 -> t
     val elapse : t -> int -> t
   end
 
@@ -27,7 +28,7 @@ module Make (M: MemAD.S) = struct
   type t = M.t
 
   let init mem mem_params cache_params = M.init (fun addr -> 
-    if addr=Int64.zero then failwith "0 address raises seg fault \n"
+    if addr=Int64.zero then failwith "impossible memory address 0\n"
     else try Some(X86Headers.lookup mem addr) with 
         (*We then assume it is not initialzed*)
       X86Headers.InvalidVirtualAddress -> None) mem_params cache_params (*TDO check that it falls in the stack *)
@@ -94,6 +95,7 @@ module Make (M: MemAD.S) = struct
   let elapse = M.elapse
 
   let touch = M.touch 
+  let set_value = M.set_value
 end 
 
 

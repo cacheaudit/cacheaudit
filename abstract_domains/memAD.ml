@@ -19,11 +19,12 @@ type op_t = Op8 of X86Types.op8 | Op32 of X86Types.op32
 module type S =
   sig
     include AD.S
-  val init: (int64 -> int64 option) -> Config.mem_param -> CacheAD.cache_param -> t
+  val init: (int64 -> int64 option) -> Config.mem_param -> CacheAD.cache_param_t -> t
   val get_vals: t -> op32 -> (int,t) finite_set
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
   val interpret_instruction : t -> X86Types.instr -> t
   val touch : t -> int64 -> rw_t -> t
+  val set_value: t -> int64 -> int64 -> t
   val elapse : t -> int -> t
 end
   
@@ -89,26 +90,23 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
         X86Util.reg32_to_string (X86Util.int_to_reg32(-1-(Int64.to_int n)))
       ) with Invalid_argument "int_to_reg32" -> Format.sprintf "V%Lx" n
 
-  (* Adds variables and values for the registers in the value domain *)
-  let initRegs v regList = 
-    let varsadded = List.fold_left (fun vt x -> 
-      let r,_,_ = x in F.new_var vt (reg_to_var r)) v regList in
-    List.fold_left (fun vt x -> 
-      let r,l,h = x in F.set_var vt (reg_to_var r) l h) varsadded regList
-
-  (* Sets the initial values for certain addresses in the value domain *)
-  let initVals v memList =
-    let addresses_added = List.fold_left (fun vt x -> 
-      let var,_,_ = x in F.new_var vt var) v memList in
-    List.fold_left (fun vt x -> 
-      let addr,l,h = x in F.set_var vt addr l h) addresses_added memList
-
+  (* Adds variables and values for registers and values in the value domain *)
+  let init_vals v memList =
+    List.fold_left (fun venv (var,l,h) -> 
+      if (l = -1L) then (* symbolic value *)
+        F.set_symbolic venv var
+      else
+        F.set_var venv var l h
+      ) v memList 
+      
   let initMemory m memList =
     List.fold_left (fun m x -> let addr,_,_ = x in MemSet.add addr m) m memList
 
  (* Return an element of type t with initialized registers *)
-  let init iv (memList,regList) cache_params = {
-    vals = initVals (initRegs (F.init var_to_string) regList) memList;
+  let init iv (memList,regList) cache_params = 
+  let initregs = List.map (fun (r, l, h) -> (reg_to_var r), l, h) regList in
+  {
+    vals = init_vals (init_vals (F.init var_to_string) initregs) memList;
     memory = initMemory MemSet.empty memList;
     initial_values = iv;
     cache = C.init cache_params
@@ -152,7 +150,6 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   let get_reg32 env r = 
     F.get_var env.vals (reg_to_var r)
 
-  exception Is_Top
   let unFinite = function
     | Nt x -> NumMap.bindings x
     | Tp -> raise Is_Top
@@ -177,13 +174,14 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
     (* Combine all the base and index values and meet the enviroments *)
     assert(index <> []);
     let comb = List.concat (List.map (fun (x,e) -> List.map (fun (y,e') -> 
-      (Int64.add x y, F.meet e e')) index) base) in
+      let res = F.perform_one_arith Add false x y in
+      (res, F.meet e e')) index) base) in
     List.map (fun (x, e) -> (Int64.add addr.addrDisp x, e)) comb
       
     
   (* Create an unitialized variable; assume it is not already created. *) 
-  let create_var env n addr = 
-    {env with vals = F.new_var env.vals n; memory = MemSet.add n env.memory}
+  let create_var env addr = 
+    {env with vals = F.new_var env.vals addr; memory = MemSet.add addr env.memory}
   
   (* return the 32-bit register that contains the given 8-bit register *)
   let r8_to_r32 r = X86Util.int_to_reg32 ((X86Util.reg8_to_int r) mod 4)
@@ -236,12 +234,12 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
                 (* when we only read variable with initial value, there is*)
                 (*  no need to maintain  it in memory, treat it as a constant *)
                 | Some v -> Cons v, env 
-                | None -> VarOp a, create_var env a a
+                | None -> VarOp a, create_var env a
               end
           | Write -> let env =
               if MemSet.mem a env.memory then env
               else
-                let env = create_var env a a in
+                let env = create_var env a in
                   match  env.initial_values a with
                   | Some value ->  
                     (* we will be changing the content of the variable, so make*)
@@ -323,7 +321,8 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   let load_address env reg addr = let res = try( try (
       let addrList = get_addresses env addr in
       let regVar = reg_to_var reg in
-      let envList = List.map (fun (x,e) -> { env with vals = 
+      let envList = List.map (fun (x,e) -> 
+        { env with vals = 
         F.update_val e regVar NoMask (Cons x) NoMask Amov None }) addrList in
       list_join envList
     ) with Bottom -> failwith 
@@ -415,12 +414,22 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   let elapse env d = {env with cache = C.elapse env.cache d}
 
   let touch env addr rw = 
-    let env = if rw = NumAD.DS.Read then env else
-      (* We write to memory but we don't know what; *)
-      (* set the value of the variable to top *)
-      (* Warning: if this variable has an initial value, it will be read next time *)
-      {env with vals = F.delete_var env.vals addr} in
-    {env with cache = C.touch env.cache addr rw}
-        
+    let env = 
+        let env = if rw = NumAD.DS.Read then env else
+          (* We write to memory but we don't know what; *)
+          (* set the value of the variable to top *)
+          (* Warning: if this variable has an initial value, it will be read next time *)
+          let vals = F.delete_var env.vals addr in
+          {env with vals = vals} in
+        {env with cache = C.touch env.cache addr rw} in
+    env
+    
+  let set_value env addr value = 
+    let vals = 
+      if value = -1L then
+          F.set_symbolic env.vals addr
+      else 
+        F.set_var env.vals addr value value in
+    {env with vals = vals}
 end 
 

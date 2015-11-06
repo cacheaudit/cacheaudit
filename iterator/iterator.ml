@@ -202,19 +202,25 @@ module Make(A:ArchitectureAD.S) = struct
         match Config.get_stub addr stubs with
         | None -> assert false 
         (* there should be a stub at addr, or cfg did something wrong *)
-        | Some stub -> begin
+        | Some stub -> 
           assert (List.length stub.accesses <> 0);
-          List.fold_left (fun inv (acctype, rw, accaddr) -> 
-            if acctype = Config.Instruction then begin
-              if get_log_level IteratorLL = Debug then 
-                Format.printf "Simulating 0x%Lx instruction read\n" accaddr;
-              A.read_instruction inv accaddr 
-            end else begin
-              if get_log_level IteratorLL = Debug then 
-                Format.printf "Simulating 0x%Lx data %s\n" accaddr
-                  (if rw = NumAD.DS.Read then "read" else "write");
-              A.touch_data inv accaddr rw end) inv stub.accesses end
-        end
+          List.fold_left (fun inv (acctype, rw, accaddr, accval) ->
+            begin match accval with 
+            | None ->
+              begin match acctype with Instruction ->
+                if get_log_level IteratorLL = Debug then 
+                  Format.printf "Simulating 0x%Lx instruction read\n" accaddr;
+                A.read_instruction inv accaddr
+              | Data -> 
+                if get_log_level IteratorLL = Debug then 
+                  Format.printf "Simulating 0x%Lx data %s\n" accaddr
+                    (if rw = NumAD.DS.Read then "read" else "write");
+                A.touch_data inv accaddr rw end
+                
+            | Some v -> if get_log_level IteratorLL = Debug then 
+                Format.printf "Simulating 0x%Lx memory set to %Lx\n" accaddr v;
+              A.set_value inv accaddr v end
+          ) inv stub.accesses end
       | i -> ftrace (A.interpret_instruction inv i)
       ) with e -> (Format.fprintf Format.err_formatter "@[<v 2>\nError while processing %a %a @, in environment %a@]@."
           pp_block_addr addr X86Print.pp_instr inst A.print inv;

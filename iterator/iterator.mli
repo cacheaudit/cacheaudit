@@ -21,7 +21,7 @@ module Make :
         X86Headers.t -> 
         Config.stub_t list ->
         Config.mem_param ->
-        CacheAD.cache_param ->
-        CacheAD.cache_param option -> int64 -> 
+        CacheAD.cache_param_t ->
+        CacheAD.cache_param_t option -> int64 -> 
 	Cfg.basicblock list -> unit
     end

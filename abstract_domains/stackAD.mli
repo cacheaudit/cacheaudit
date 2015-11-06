@@ -20,7 +20,7 @@ sig
        - [dcp] is the configuration of the data caches
     *)
 
-  val init : X86Headers.t -> Config.mem_param -> CacheAD.cache_param -> t
+  val init : X86Headers.t -> Config.mem_param -> CacheAD.cache_param_t -> t
 
   (** For an op32 expression, returns a finite list of possible
       values, each value associated with an approximation of the
@@ -46,6 +46,9 @@ sig
     
   (** Signal to the cache that a memory location has been accessed *)  
   val touch : t -> int64 -> NumAD.DS.rw_t -> t
+  
+  val set_value: t -> int64 -> int64 -> t
+
       
   (** Signal from the iterator to the cache the
       time consumed by an instruction *)

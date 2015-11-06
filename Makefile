@@ -43,8 +43,8 @@ ML_FILES := \
   abstract_domains/AD.ml\
   abstract_domains/stackAD.ml\
 	abstract_domains/numeric/numAD.ml\
-	abstract_domains/numeric/valAD.ml\
 	abstract_domains/utils.ml\
+	abstract_domains/numeric/valAD.ml\
 	abstract_domains/cache/ageAD.ml\
 	abstract_domains/flagAD.ml\
 	abstract_domains/cache/traceAD.ml\

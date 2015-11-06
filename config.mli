@@ -43,7 +43,7 @@ type access_type = Instruction | Data
 type stub_t = {
   first_addr : int; (** first address of code to be stubbed *)
   next_addr : int; (** the next address (after code being stubbed) *)
-  accesses : (access_type * rw_t * int64) list; (**accesses to be emulated *)
+  accesses : (access_type * rw_t * int64 * int64 option) list; (**accesses to be emulated *)
 }
 
 type stubs_t = stub_t list

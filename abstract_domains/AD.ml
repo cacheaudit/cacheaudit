@@ -32,7 +32,7 @@ module DS = struct
   
   (** Adding a top element Tp to an abstract domain *)
   type 'a add_top = Nt of 'a | Tp
-  exception TopException
+  exception Is_Top
 
   (** Adding a bottom element to an abstract domain *)
   type 'a add_bottom = Nb of 'a | Bot

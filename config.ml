@@ -86,20 +86,17 @@ type access_type = Instruction | Data
 type stub_t = {
   first_addr : int;
   next_addr : int;
-  accesses : (access_type * rw_t * int64) list;
+  accesses : (access_type * rw_t * int64 * int64 option) list;
 }
 
 type stubs_t = stub_t list
 
-let setInitialValue addr lower upper mem =
-  let parse_interval_bound n =
-    if Int64.compare n 0L = -1 then failwith "Negative numbers are not allowed"
-    else if Int64.compare n 0xFFFFFFFFL = 1 then failwith "Numbers have to be in the 32bit range"
-    else n in
-  let lower = parse_interval_bound lower in
-  let upper = parse_interval_bound upper in
-  if Int64.compare lower upper = 1 then failwith "lower bound should be lower or equal than upper bound"
-  else (addr,lower,upper) :: mem
+let check_interval lower upper =
+  (* Allow the initial value -1, which signifies a symbolic value *)
+  if lower = upper && lower = -1L then true
+  else
+    let check_range n = n >= 0L && n <= 0xFFFFFFFFL in
+    check_range lower && check_range upper && (upper >= lower)
 
 let remove_comments_whitespace lines = 
   let lines = List.map (fun x ->
@@ -115,14 +112,15 @@ let remove_comments_whitespace lines =
 
 let parse_conffile filename =
   let lines = remove_comments_whitespace (read_lines filename) in
-  (* Quick fix in order to accept intervals as starting values *)
+  (* Accept intervals as starting values. *)
+  (* Scanned returns a list of strings with two numbers; *)
+  (* the two numbers correspond to an interval *)
   let scanned = List.map (fun x ->
       if x = "" then ("",0L,0L)
         else 
           try Scanf.sscanf x "%s %Li" (fun s i -> (s,i,i))
           with Scanf.Scan_failure _ -> Scanf.sscanf x "%s [%Li, %Li]" (fun s l h -> (s,l,h))
         ) lines in
-  (* scanned returns a list of strings with two numbers; the two numbers correspond to an interval *)
   (* let rec auxmatch lss (start,registers,cache) = *)
   let rec auxmatch lss configs =
     match lss with
@@ -141,13 +139,18 @@ let parse_conffile filename =
       | ("LOG",i,_) -> log_address i; configs
       | ("",0L,_)  -> configs
       | (str, l, h) ->
+        if not (check_interval l h) then 
+          failwith "Invalid range of initial values [%Lx, %Lx].\n 
+          Values should fit into 32 bits, first value <= second value";
         let mem,regs = configs.mem_params in
-                  try (
-                    {configs with mem_params = (mem, (X86Util.string_to_reg32 str, l, h) :: regs)}
-                  ) with Invalid_argument arg -> try (
-                    {configs with mem_params = (setInitialValue (Int64.of_string str) l h mem, regs)}
-                  ) with Failure arg -> failwith (Printf.sprintf "Configuration not supported. %s is not a valid register or a memory location" arg)
-  in auxmatch ls cfgs in
+        let mem_params = 
+          try (mem, (X86Util.string_to_reg32 str, l, h) :: regs)
+          with Invalid_argument _ -> try 
+            ((Int64.of_string str, l, h) :: mem, regs) 
+            with Failure arg -> failwith (Printf.sprintf "Configuration not 
+            supported. %s is not a valid register or a memory location" arg) in
+         { configs with mem_params = mem_params }
+    in auxmatch ls cfgs in
   let empty_params = 
         {start_addr = None; end_addr = None; cache_s = None; line_s = None;
         assoc = None; inst_cache_s = None; inst_line_s = None; 
@@ -164,19 +167,30 @@ let parse_stubfile filename =
         Scanf.sscanf l "range %i %i" (fun start next -> 
           {first_addr = start; next_addr = next; accesses = []} :: state)
       with Scanf.Scan_failure _ -> 
-        Scanf.sscanf l "%s %s %Li" (fun acctype rw addr ->
-          let acctype = match acctype with 
-          | "D" -> Data | "I" -> Instruction
-          | _ -> raise (StubParseFailed "Access type should be D or I") in
-          let rw = match rw with
-          | "R" -> Read | "W" -> Write
-          | _ -> raise (StubParseFailed "Access should be either R (read) or W (write)") in
-          match state with
-          | s :: stbs -> {s with 
-            accesses = (acctype, rw, addr) :: s.accesses} :: stbs
-          | _ -> raise (StubParseFailed "Wrong stub format. Expected format:\
-          \nrange 0xe5d 0xe6b\nI R 0xe3c\nD W 0xe3d\nrange ..."))
-         ) lines [] in
+        try (* Quick fix: setting values of variables. *)
+          (* TODO: allow inputting sth like "EAX 5"; now the same is "-1 5", *)
+          (* and is passed down as "data write access" *)
+          (* first integer is the memory location/register, second is the value; -1 means symbolic *)
+          Scanf.sscanf l "M %Li %Li" (fun addr value -> 
+            match state with
+            | s :: stbs -> {s with 
+              accesses = (Data, Write, addr, Some value) :: s.accesses} :: stbs
+            | _ -> raise (StubParseFailed "Wrong stub format. \n
+            Memory expected to be set as\nM -1 123\n (EAX is set to 123; value -1 would mean symbolic)"))
+        with Scanf.Scan_failure _ -> 
+          Scanf.sscanf l "%s %s %Li" (fun acctype rw addr ->
+            let acctype = match acctype with 
+            | "D" -> Data | "I" -> Instruction
+            | _ -> raise (StubParseFailed "Access type should be D or I") in
+            let rw = match rw with
+            | "R" -> Read | "W" -> Write
+            | _ -> raise (StubParseFailed "Access should be either R (read) or W (write)") in
+            match state with
+            | s :: stbs -> {s with 
+              accesses = (acctype, rw, addr, None) :: s.accesses} :: stbs
+            | _ -> raise (StubParseFailed "Wrong stub format. Expected format:\
+            \nrange 0xe5d 0xe6b\nI R 0xe3c\nD W 0xe3d\nrange ..."))
+      ) lines [] in
     (* Reverse the order of sequence of instructions *)
     let stubs = List.map (fun stub -> 
       {stub with accesses = List.rev stub.accesses}) stubs in

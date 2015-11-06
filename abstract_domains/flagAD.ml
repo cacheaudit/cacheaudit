@@ -17,10 +17,12 @@ module type S =
   val log_var : t -> var -> unit
   val get_var : t -> var -> (t NumMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
+  val set_symbolic : t -> var -> t
   val meet : t -> t -> t (*TODO: should be add_bottom *)
   val update_val : t -> var -> mask -> cons_var -> mask -> abstr_op -> int64 option -> t
   val updval_set : t -> var -> mask -> cc -> t
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
+  val perform_one_arith : X86Types.arith_op -> bool -> var -> var -> var
   end
 
 module Make (V: ValAD.S) = struct
@@ -103,11 +105,12 @@ module Make (V: ValAD.S) = struct
   let delete_var st var = FlagMap.map (fun x -> V.delete_var x var) st
 
   let set_var st var l h = FlagMap.map (fun x -> V.set_var x var l h) st
- 
+  
+  let set_symbolic st var = FlagMap.map (fun x -> V.set_symbolic x var) st
+  
   let log_var env v = let _ = FlagMap.map (fun x -> V.log_var v x; x) env in ()
 
   
-  exception Is_Top
   let get_var st var = try(
     let res = 
       FlagMap.fold (fun flgs vals f_nmap -> 
@@ -165,5 +168,7 @@ module Make (V: ValAD.S) = struct
           ) env FlagMap.empty in
         if is_bottom res then raise Bottom;
         res
+  
+  let perform_one_arith = V.perform_one_arith
 
 end

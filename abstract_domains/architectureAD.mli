@@ -20,7 +20,7 @@ sig
   *)
   val init: X86Headers.t -> 
     (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> 
-    CacheAD.cache_param -> CacheAD.cache_param option -> int64 -> t
+    CacheAD.cache_param_t -> CacheAD.cache_param_t option -> int64 -> t
  
     
   (** For an op32 expression, returns a finite list of possible
@@ -51,6 +51,8 @@ sig
   
   (** Records the touch (read/write) of a data address *)
   val touch_data: t -> int64 -> NumAD.DS.rw_t -> t
+  
+  val set_value: t -> int64 -> int64 -> t
   
   (** Signals from the iterator to the cache the time consumed by an
       instruction *)

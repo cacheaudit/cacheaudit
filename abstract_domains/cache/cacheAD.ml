@@ -12,7 +12,7 @@ type replacement_strategy =
   | FIFO (** first in, first out *)
   | PLRU (** tree-based pseudo LRU *)
 
-type cache_param = { 
+type cache_param_t = { 
   cs: int; 
   ls: int; 
   ass: int; 
@@ -23,7 +23,7 @@ type cache_param = {
 
 module type S = sig
   include AD.S
-  val init : cache_param -> t
+  val init : cache_param_t -> t
   (** initialize an empty cache
    takes arguments cache_size (in bytes), 
   line_size (in bytes) and associativity *)
@@ -36,8 +36,6 @@ module type S = sig
   val elapse : t -> int -> t
   (** Used to keep track of time, if neccessary *)
   val count_cache_states : t -> Big_int.big_int
-  val get_block_addr : t -> int64 -> int64
-  (** Return the block address (tag + set index) *)
 end
 
 (*** Flags for modifying precision ***)
@@ -299,7 +297,6 @@ module Make (A: AgeAD.S) = struct
     end
   
   let print fmt env =
-      Format.fprintf fmt "Final cache state:\n";
       Format.fprintf fmt "@[Set: addr1 in {age1,age2,...} addr2 in ...@.";
       IntMap.iter (fun i all_elts ->
           if not (NumSet.is_empty all_elts) then begin

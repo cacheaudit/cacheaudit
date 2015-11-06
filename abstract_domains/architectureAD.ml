@@ -15,7 +15,7 @@ let address_base = ref Int64.zero
 module type S =
   sig
     include AD.S
-    val init: X86Headers.t -> (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> CacheAD.cache_param -> CacheAD.cache_param option -> int64 -> t
+    val init: X86Headers.t -> (((int64 * int64 * int64) list)*((reg32 * int64 * int64) list)) -> CacheAD.cache_param_t -> CacheAD.cache_param_t option -> int64 -> t
     val get_vals: t -> op32 -> (int,t) finite_set
     val test : t -> condition -> (t add_bottom)*(t add_bottom)
     val call : t -> op32 -> int -> (int,t) finite_set 
@@ -23,7 +23,9 @@ module type S =
     val interpret_instruction : t -> X86Types.instr -> t
     val read_instruction: t -> int64 -> t
     val touch_data: t -> int64 -> NumAD.DS.rw_t -> t
+    val set_value: t -> int64 -> int64 -> t
     val elapse : t -> int -> t
+
   end
 
 
@@ -93,8 +95,13 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
   
   let read_instruction env addr = { env with inst_ad = IC.touch env.inst_ad (Int64.add addr !address_base) NumAD.DS.Read }
   
-  let touch_data env addr rw = {env with call_ad = ST.touch env.call_ad (Int64.add addr !address_base) rw }
+  let touch_data env addr rw = let addr = (Int64.add addr !address_base) in
+    {env with call_ad = ST.touch env.call_ad addr rw }
   
+  let set_value env addr value = 
+    {env with call_ad = ST.set_value env.call_ad addr value }
+
+
 
 end
 
@@ -125,6 +132,8 @@ module MakeShared (ST: StackAD.S) = struct
   let read_instruction env addr = touch env (Int64.add addr !address_base) NumAD.DS.Read
   
   let touch_data = touch
+  
+  let set_value = ST.set_value
 
 end
 

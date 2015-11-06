@@ -186,7 +186,7 @@ let _ =
       if !start_addr = -1 then failwith ("No starting address given");
       Printf.printf "Start address (e.g. of main) is 0x%x\n" !start_addr;
       (* Setting default values *)
-      if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := 139844135157760L;
+      (* if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := 139844135157760L; *)
       if !data_cache_s = 0 then data_cache_s := 16384;
       if !data_line_s = 0 then data_line_s := 64;
       if !data_assoc = 0 then data_assoc := 4;

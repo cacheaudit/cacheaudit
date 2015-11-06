@@ -38,6 +38,9 @@ sig
   (** [set_var env var l h] sets the value of [var] to be in the
       interval [l,h] *)
   val set_var : t -> var -> int64 -> int64 -> t
+  
+  (** [set_symbolic env var] sets the value of [var] to be a fresh symbolic value *)
+  val set_symbolic : t -> var -> t
 
   (** Meet operation *)
   val meet : t -> t -> t 
@@ -54,6 +57,8 @@ sig
   (** Returns a pair of environments overapproximating the
       true/false cases of condition *)
   val test : t -> condition -> (t add_bottom)*(t add_bottom)
+  
+  val perform_one_arith : X86Types.arith_op -> bool -> var -> var -> var
   
 end
 

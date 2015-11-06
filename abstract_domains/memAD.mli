@@ -18,7 +18,7 @@ sig
        - [mem] are initial values of registers
        - [dcp] is the configuration of the data cache, and
   *)
-  val init: (int64 -> int64 option) -> Config.mem_param -> CacheAD.cache_param -> t
+  val init: (int64 -> int64 option) -> Config.mem_param -> CacheAD.cache_param_t -> t
     
  (** [get_vals env op] returns a finite set of possible values for an op32 
       operand (which is a register/memory address/immediate), and the 
@@ -35,6 +35,9 @@ sig
     
   (** Signals to the cache that a memory location has been accessed *)  
   val touch : t -> int64 -> NumAD.DS.rw_t -> t
+
+  val set_value: t -> int64 -> int64 -> t
+
 
   (** Signals from the iterator to the cache the time
       consumed by an instruction *)

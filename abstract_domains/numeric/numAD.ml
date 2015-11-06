@@ -50,7 +50,6 @@ module DS = struct
   module IntSetSet = Set.Make(IntSet)
   module IntListSet = Set.Make(struct type t = int list let compare = compare end)
 
-  
   type flags_t = { cf : bool; zf : bool; }
   let initial_flags = {cf = false; zf = false}
   (* Assumption: Initially no flag is set *)
@@ -67,6 +66,34 @@ module DS = struct
   match a,b with None,None -> None
   | Some x, None -> Some x | None, Some y -> Some y
   | Some x, Some y -> Some (fn x y)) fm1 fm2
+  
+  (* Functions needed for symbolic variables *)
+  (* extract the value encoded in [x] with least significant bit starting at [s] *)
+  (* and length [len]*)
+  let extract_enc x s len = 
+    assert (s >= 0 && len >= 0 && s + len <= 64);
+    let x = Int64.shift_right x s in
+    let mask = Int64.lognot (Int64.shift_left (-1L) len) in
+    Int64.logand x mask 
+  
+  let extract_enc_uid x = Int64.to_int (extract_enc x (32 + 5 + 5) 20)
+  let extract_enc_start x = Int64.to_int (extract_enc x (32 + 5) 5)
+  let extract_enc_num x = Int64.to_int (extract_enc x 32 5)
+  let extract_enc_val x = extract_enc x 0 32
+  
+  let is_symb x = (Int64.shift_right x 62) = 1L  
+  
+  (* change [num] bits in [value], starting at bit [s], by making them be *)
+  (* the same as the [num] least-significant bits in [newval] *)
+  let change_bits value s num newval =
+    assert (num + s <= 64 && num >= 0 && s >= 0);
+    let mask = if num = 64 then (-1L)
+      else Int64.shift_right (Int64.max_int) (63 - num) in
+    let newval = Int64.logand newval mask in
+    let newval = Int64.shift_left newval s in
+    let mask = Int64.shift_left mask s in
+    let newval = Int64.logor (Int64.lognot mask) newval in
+    Int64.logand (Int64.logor value mask) newval
   
 end
 

@@ -52,6 +52,9 @@ module type S = sig
       interval [l,h] *)
   val set_var : t -> var -> int64 -> int64 -> t
 
+  (** [set_symbolic env var] sets the value of [var] to be a fresh symbolic value *)
+  val set_symbolic : t -> var -> t
+
  (** Checks if a variable is represented by the domain *)
   val is_var : t -> var -> bool
 
@@ -74,6 +77,8 @@ module type S = sig
       return a tree *)
   (** [updval_set env flags dst mask op] performs a Set-instruction *)
   val updval_set : t -> flags_t -> var -> mask -> X86Types.cc -> t FlagMap.t
+  
+  val perform_one_arith : X86Types.arith_op -> bool -> var -> var -> var
 end
 
 

@@ -6,6 +6,7 @@ open AbstrInstr
 open AD.DS
 open NumAD.DS
 open Logger
+open Utils
 
 (* We use a module for the options so that we can have different instances in the same analysis *)
 module type VALADOPT = sig
@@ -20,6 +21,8 @@ end
 
 let logFile = ref None
 
+let carry_map = ref NumMap.empty
+
 module type S = sig 
   include AD.S
   val init : (var->string) -> t
@@ -28,12 +31,14 @@ module type S = sig
   val log_var : var -> t -> unit
   val get_var : t -> var -> (t NumMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
+  val set_symbolic : t -> var -> t
   val is_var : t -> var -> bool
   val var_names : t -> NumSet.t
   val meet : t -> t -> t add_bottom 
   val update_val : t -> flags_t -> var -> mask -> cons_var -> mask -> 
     AbstrInstr.abstr_op -> int64 option -> t FlagMap.t 
   val updval_set : t -> flags_t -> var -> mask -> X86Types.cc ->t FlagMap.t 
+  val perform_one_arith : X86Types.arith_op -> bool -> var -> var -> var
 end
 
 
@@ -46,12 +51,69 @@ module Make (O:VALADOPT) = struct
   let min_elt = 0L
   let max_elt = 0xffffffffL
   let two32 = 0x100000000L
+  
+  (* Mask values and shift them to the right *)
+  let apply_mask mask shift x =
+    Int64.shift_right (Int64.logand mask x) shift
+  
+  (* Support for symbolic values *)
+  exception Symb_Overflow
+  let symb_uid = ref 0
+  let max_uid = 0x7ffff
+  let get_fresh_uid () = let uid = !symb_uid in
+    if uid > max_uid then raise Symb_Overflow
+    else incr symb_uid; 
+    uid 
+  
+    
+  
+  (* [encode_symb id s num] will create a symbolic value with id [id] such that *)
+  (* [num] bits are known, and the least significant known bit is the [s]-th; *)
+  (* the known part of the value is contained in [v] *)
+  let encode_symb uid s num v =
+    (* format of the encoded value: 
+  [ 01 | uid (20 bit) | s (5 bit) | num (5 bit) |    value (32bit)          ] *)
+    assert (num + s <= 32 && num >= 0 && s >= 0);
+    assert (uid >= 0 && uid <= max_uid);
+    assert (v >= min_elt && v <= max_elt);
+    if num = 32 then v 
+    else 
+        let pos = 64 - 2 in
+        let res = Int64.shift_left 1L pos in
+        let pos = pos - 20 in
+        let res = Int64.logor (Int64.shift_left (Int64.of_int uid) pos) res in
+        let pos = pos - 5 in
+        let res = Int64.logor (Int64.shift_left (Int64.of_int s) pos) res in
+        let pos = pos - 5 in
+        let res = Int64.logor (Int64.shift_left (Int64.of_int num) pos) res in
+        assert (pos = 32);
+        Int64.logor v res
+  
   let top = Interval(min_elt, max_elt)
-  let is_top l h = l=min_elt && h=max_elt
-
+  
+  (* Tells when the value is top, i.e. the value is not known. *)
+  (* If the value is symbolic, this function will return false, even if *)
+  (* nothing is known about the value. *)
+  let is_top = function
+    | FSet _ -> false
+    | Interval (l, h) -> l=min_elt && h=max_elt
+  
+  let fresh_symb_val () = encode_symb (get_fresh_uid ()) 0 0 0L
+  
+  let get_fresh_symb () = 
+    FSet (NumSet.singleton (fresh_symb_val ())) 
+  
+  
+  (* Check if one of the possible values is symbolic *)
+  let is_symb_vals = function
+    | FSet fs -> NumSet.exists is_symb fs
+    | Interval _ -> false
+  
   let rec interval_to_set l h = if l>h then NumSet.empty
     else NumSet.add l (interval_to_set (Int64.succ l) h)
-  let set_to_interval s = Interval(NumSet.min_elt s, NumSet.max_elt s)
+  let set_to_interval s = 
+    if is_symb_vals (FSet s) then top
+    else Interval(NumSet.min_elt s, NumSet.max_elt s)
   let zero = FSet(NumSet.singleton 0L)
   let range_over (l,h) r =
     let range = Int64.sub h l in
@@ -67,11 +129,34 @@ module Make (O:VALADOPT) = struct
 (* TODO put this into the type t *)
   let variable_naming = ref(fun x -> "")
 
-  let pp_var_vals fmt = function
-  | FSet vals -> Format.fprintf fmt "@[{";
-      NumSet.iter (fun v -> Format.fprintf fmt "%Ld @," v) vals;
+  let int64_to_bitstring x = 
+    let res = List.fold_left (fun l i ->  
+      let s = if Int64.logand (Int64.shift_right x i) 1L = 1L then "1" else "0" in
+      s :: l
+      ) [] (0 -- 64) in
+    String.concat "" res
+  let symb_to_string v = 
+    (* assert (is_symb v); *)
+    if is_symb v then begin 
+      let uid = extract_enc_uid v in
+      let start = extract_enc_start v in
+      let num = extract_enc_num v in
+      let known = String.sub (int64_to_bitstring (extract_enc_val v)) 32 32 in
+      Bytes.fill known (31 - start) start 's';
+      Bytes.fill known 0 (32 - start - num) 's';
+      Printf.sprintf "S(uid = %x, known = [%d, %d), val = %s)" 
+        uid start (start + num) known
+    end else
+      int64_to_bitstring v
+
+  let pp_var_vals fmt avals = match avals with
+  | FSet vals -> Format.fprintf fmt "@[";
+      NumSet.iter (fun v -> 
+        if is_symb v then Format.fprintf fmt "%s" (symb_to_string v)
+        else
+          Format.fprintf fmt "%Ld @," v) vals;
       Format.fprintf fmt "}@]"
-  | Interval(l,h) -> if is_top l h then Format.fprintf fmt "Top"
+  | Interval(l,h) -> if is_top avals then Format.fprintf fmt "Top"
                      else Format.fprintf fmt "@[[%Ld, %Ld]@]" l h
 
   let var_vals_equal x1 x2 = match x1,x2 with
@@ -88,11 +173,14 @@ module Make (O:VALADOPT) = struct
     let file = match !logFile with
       | None -> let f = (open_out "log.txt") in logFile := Some (f); f
       | Some f -> f
-    in let log_var_vals = function
+    in let log_var_vals avals  = match avals with
       | FSet vals -> Printf.fprintf file "{";
-          NumSet.iter (fun v -> Printf.fprintf file "%Ld " v) vals;
+          NumSet.iter (fun v -> 
+            if is_symb v then Printf.fprintf file "%s" (symb_to_string v)
+            else
+              Printf.fprintf file "%Ld " v) vals;
           Printf.fprintf file "}"
-      | Interval(l,h) -> if is_top l h then Printf.fprintf file "Top"
+      | Interval(l,h) -> if is_top avals then Printf.fprintf file "Top"
                          else Printf.fprintf file "[%Ld, %Ld]" l h
     in Printf.fprintf file "%s " (!variable_naming v);
     log_var_vals (VarMap.find v env);
@@ -120,11 +208,7 @@ module Make (O:VALADOPT) = struct
       | _ -> failwith "truncate: wrong argument"
 
   let set_map f set = NumSet.fold (fun x -> NumSet.add (f x)) set NumSet.empty
-
-(* Mask values and shift them to the right *)
-  let apply_mask mask shift x =
-    Int64.shift_right (Int64.logand mask x) shift
-
+  
   let mask_vals mask v = match mask with
   | NoMask -> v
   | Mask msk ->
@@ -176,20 +260,68 @@ module Make (O:VALADOPT) = struct
   ) with Not_found -> failwith  (Printf.sprintf "valAD.get_var: non-existent variable %Lx\n" v)
 
   let set_var m v l h = VarMap.add v (set_or_interval l h) m
+  
+  let set_symbolic env var =
+    let env = VarMap.add var (get_fresh_symb ()) env in
+    begin match (VarMap.find var env) with 
+    | FSet s ->  
+      assert (NumSet.cardinal s = 1);
+      assert (is_symb (NumSet.choose s));
+    | _ -> assert false end;
+    env
 
   let get_vals c m = match c with
-    Cons cs -> FSet (NumSet.singleton (truncate 32 cs))
+    Cons cs -> FSet (NumSet.singleton cs)
+      (* FSet (NumSet.singleton (truncate 32 cs)) *)
   | VarOp v -> try VarMap.find v m
-               with Not_found -> failwith "valAD.get_vals: inexistent variable"
+               with Not_found -> top
+              (* failwith (Printf.sprintf "valAD.get_vals: non-existent variable %Lx\n" v) *)
 
   let same_vars v cv = match cv with VarOp v2 -> v=v2 | Cons _ -> false
 
+  (* lifts to interval representation if needed *)
+  let lift_to_interval s = 
+    if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
+  
+  let interval_lub (l1,h1) (l2,h2) =
+    (min l1 l2, max h1 h2)
+  
+  let interval_union (l1,h1) (l2,h2) =
+    if h1 < l2 || h2 < l1 then (* disjoint intervals *)
+      raise Bottom
+    else interval_lub (l1,h1) (l2,h2)
+    
+  let interval_glb (l1,h1) (l2,h2) = 
+    let l,h = (max l1 l2, min h1 h2) in
+    if l > h then raise Bottom else (l,h) 
+  
+  let interval_diff (l1,h1) (l2,h2) =
+    (* As intervals can represent only a couple of cases: *)
+    if l1 = l2 && h1 > h2 then
+      (h2, h1)
+    else if h1 = h2 && l1 < l2 then
+      (l1, l2)
+    else 
+      raise Bottom
+  
+  let change_uid v uid = 
+    change_bits v (32 + 5 + 5) 20 (Int64.of_int uid)
+  
   let var_join x y = match x,y with
   | FSet s1, FSet s2 -> let s = NumSet.union s1 s2 in
-      if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
-  | Interval(l,h), FSet s | FSet s, Interval(l,h) -> 
+      if NumSet.cardinal s = 2 && (NumSet.for_all (fun v -> is_symb v) s) &&
+        (* joining 2 symbolic values *)
+        NumSet.cardinal (set_map (fun v -> change_uid v 0) s) = 1 then 
+        (* if all is the same but the UID, then take a fresh UID *)
+          let v = NumSet.choose s in 
+          FSet (NumSet.singleton (change_uid v (get_fresh_uid ())))
+      else
+        lift_to_interval s 
+  | Interval(l,h), FSet s | FSet s, Interval(l,h) ->
       Interval(min l (NumSet.min_elt s), max h (NumSet.max_elt s))
-  | Interval(l1,h1), Interval(l2,h2) -> Interval(min l1 l2, max h1 h2)
+  | Interval (l1,h1), Interval (l2,h2) -> 
+    let l,h = (interval_lub (l1,h1) (l2,h2)) in
+    Interval (l,h)
 
   let join (x:t) (y:t) =
     let f k a b = match a,b with
@@ -206,10 +338,8 @@ module Make (O:VALADOPT) = struct
       let rs = NumSet.filter (fun x -> x>=l && x<=h) s in
       if NumSet.is_empty rs then raise Bottom else FSet rs
   | Interval(l1,h1), Interval(l2,h2) ->
-      let l = max l1 l2 in
-      let h = min h1 h2 in
-      if l > h then raise Bottom 
-      else if range_over (l,h) O.max_set_size then Interval(l,h)
+      let l,h = interval_glb (l1,h1) (l2,h2) in
+      if range_over (l,h) O.max_set_size then Interval(l,h)
       else FSet(interval_to_set l h)
 
   let meet x y =
@@ -223,7 +353,7 @@ module Make (O:VALADOPT) = struct
 
   let var_widen x y = match x, y with
   | FSet s1, FSet s2 -> let s = NumSet.union s1 s2 in
-      if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
+      lift_to_interval s
   | Interval(l,h), FSet s | FSet s, Interval(l,h) ->
       Interval(min l (NumSet.min_elt s), max h (NumSet.max_elt s))
   | Interval(l1,h1), Interval(l2,h2) -> 
@@ -262,9 +392,6 @@ module Make (O:VALADOPT) = struct
      with Not_included -> false
   
   
-  (* lifts to interval representation if needed *)
-  let lift_to_interval s = 
-    if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
 
   
   let fmap_find_with_defval key defval fm = try(
@@ -275,13 +402,21 @@ module Make (O:VALADOPT) = struct
   let perform_op op dstset srcset cf_test zf_test = 
     let compute_op dst = NumSet.fold (fun src (dmap,smap,rmap) -> 
       let result = op dst src in
-      let flags = {cf = cf_test dst src result; zf = zf_test result} in
-      let dvals = fmap_find_with_defval flags NumSet.empty dmap in
-      let dstmap = FlagMap.add flags (NumSet.add dst dvals) dmap in
-      let svals = fmap_find_with_defval flags NumSet.empty smap in
-      let srcmap = FlagMap.add flags (NumSet.add src svals) smap in
-      let rvals = fmap_find_with_defval flags NumSet.empty rmap in
-      let resmap = FlagMap.add flags (NumSet.add (truncate 32 (result)) rvals) rmap in
+      let upd_val fmap flag_list value =
+        let value = if is_symb value then value else truncate 32 value in
+        List.fold_left (fun fmap flags -> 
+          let vals = fmap_find_with_defval flags NumSet.empty fmap in
+          FlagMap.add flags (NumSet.add value vals) fmap 
+          ) fmap flag_list in
+      let flag_list = 
+        if is_symb result then 
+          [ {cf = true; zf = true}; {cf = true; zf = false}; 
+            {cf = false; zf = true}; {cf = false; zf = false} ]
+        else
+          [{cf = cf_test dst src result; zf = zf_test result}] in
+      let dstmap = upd_val dmap flag_list dst in
+      let srcmap = upd_val smap flag_list src in
+      let resmap = upd_val rmap flag_list result in
       (dstmap, srcmap,resmap)
     ) srcset (FlagMap.empty,FlagMap.empty,FlagMap.empty) in
     let dstmap,srcmap,resmap = NumSet.fold (fun dst (new_d,new_s,new_r) -> 
@@ -300,7 +435,7 @@ module Make (O:VALADOPT) = struct
     | Add -> Int64.add
     | Addc -> Int64.add
     | And -> Int64.logand
-    | CmpOp -> failwith "CmpOp should be handled by flagop instead of memop"
+    | CmpOp -> assert false (* should be handled by test_cmp *)
     | Or -> Int64.logor
     | Sub -> Int64.sub
     | Subb -> Int64.sub
@@ -403,7 +538,9 @@ module Make (O:VALADOPT) = struct
   (* interval_arith takes a flg : position = {TT,...,FF}, an arith_op aop,
    * the Int64 operation oper and two intervals *)
   let interval_arith env aop oper dstvar dst_vals src_vals = 
-    let dst_vals, src_vals = (to_interval dst_vals), (to_interval src_vals) in
+    if is_symb_vals dst_vals || is_symb_vals src_vals then 
+      raise Is_Top
+    else let dst_vals, src_vals = (to_interval dst_vals), (to_interval src_vals) in
     let retmap = FlagMap.empty in
     (* Interval after operation *)
     let inter = match aop with 
@@ -478,36 +615,268 @@ module Make (O:VALADOPT) = struct
       | Cons _ -> env end in
       VarMap.add dstvar dvals env) dstmap
   
+  (* Check if i lies within the interval [ start, start + num ) *)
+  let in_interval i start num = i >= start && i < start + num 
+  
+  (* return true iff x[i] = 1 *)
+  let get_bit i x = Int64.logand (Int64.shift_right x i) 1L = 1L
+  
+  
+  exception Invalid_interval of int * int
+  
+  (* [symb_compute aop dst src] checks which changes will be made to the *)
+  (* symbolic part of values and returns a function which *)
+  (* performs those changes to [resval]. *)
+  (* [resval] is the resulting value of the operation of the non-symbolic part*)
+  (* (low 32 bits) of the two operands. *)
+  let symb_compute aop dst src resval = 
+    assert (is_symb dst || is_symb src);
+    assert (not (is_symb resval));
+    
+    (* Operations we consider below are commutative *)
+    let symb_val, other_val = 
+      if is_symb dst then dst,src else src,dst in
+    
+    let sval_uid, sval_start, sval_num = (extract_enc_uid symb_val), 
+      (extract_enc_start symb_val), (extract_enc_num symb_val) in
+    
+    let oval_uid, oval_start, oval_num = 
+      if is_symb other_val then (extract_enc_uid other_val), 
+        (extract_enc_start other_val), (extract_enc_num other_val)
+      else -1, 0, 32 in
+    
+    (* The possibility of carry and borrow when doing Add/Sub are handled *)
+    (* conservatively: *)
+    (*   if the known values are not the LSB, a new symbolic value *)
+    (*   & forget known bits;*)
+    (* and below: if there is carry or borrow, change the symbol without *)
+    (*   forgetting the known bits.*)
+    (* Can gain some precision by considering carry & borrow more carefully. *)
+    match aop with
+    | Add | Addc | Sub | Subb 
+      when sval_start <> 0 || oval_start <> 0 -> 
+        fresh_symb_val ()
+    | _ -> 
+      (* Bit-by-bit, apply changes to symbolic bits of the value (if needed). *)
+      let (renew_uid, start, num, carry) = try
+        List.fold_left (fun (renew_uid, start, num, carry) i ->
+          let new_symbol = (true, start, num, carry) in
+          let nsymb_sval_bit, nsymb_oval_bit = 
+            in_interval i sval_start sval_num, in_interval i oval_start oval_num in
+          let update_start start num i =
+            if start + num = 0 then i
+            else if i = start + num then start
+            else (* Cannot represent the non-symbolic part as an interval *)
+              raise (Invalid_interval (start, num)) in
+          if nsymb_sval_bit && nsymb_oval_bit then
+            (* i'th bit is not symbolic in both values, thus do nothing *)
+            (renew_uid, update_start start num i, num + 1, carry)
+          else if nsymb_sval_bit || nsymb_oval_bit then
+            (* one bit is symbolic and the other not *)
+            let concrete_bit = get_bit i (if nsymb_sval_bit then symb_val else other_val) in
+            if (aop = And  && (not concrete_bit)) || (aop = Or && concrete_bit) then
+              (* Learn new bit: if we do an AND with 0 or an OR with 1 *)
+              (renew_uid, update_start start num i, num + 1, carry)
+            else if ((aop = And  && concrete_bit) || (aop = Or && (not concrete_bit)))
+              (* Symbolic bit is retained: AND with 1, OR with 0 *)
+              || ((match aop with | Add | Sub | Xor -> true | _ -> false) &&
+              not concrete_bit && (get_bit i resval) = false (* no carry/borrow *)
+              ) then
+                (* Symbolic bit is retained: ADD, SUB, XOR with 0 *)
+                (renew_uid, start, num, carry)
+            else if aop = Add && (get_bit i resval) (* and with a carry *) 
+              && (i = sval_start + sval_num) then begin
+              assert (change_bits resval 0 (i+1) 0L = 0L);
+              (true, start, num, true)
+            end
+            else
+              (* Nothing known about those bits, take a new symbolic value *)
+              new_symbol
+          else if sval_uid = oval_uid (* the same symbolic bit *) then
+            match aop with 
+            | Sub | Xor 
+              when not (get_bit i resval) (* be sure there is no borrow *) -> 
+              (* Learn new bit: if we do a SUB or XOR with the same symbolic bits *)
+              (renew_uid, update_start start num i, num + 1, carry) (* "updated" -> make this bit concrete *)
+            | And | Or ->
+              (* Symbolic bit is retained: AND or OR with the same symbolic value *)
+              (renew_uid, start, num, carry)
+            | _ -> new_symbol
+          else
+            (* a fresh symbolic part, the concrete part gets retained *)
+            new_symbol
+        ) (false, 0, 0, false) (0 -- 32) 
+        with Invalid_interval (s,n) -> 
+          (* Cannot represent further concrete bits; *)
+          (* take a new symbol and keep the lower bits that are already known *)
+          (true, s, n, false)
+        in
+      let uid = if not renew_uid then sval_uid
+        else if carry  then
+          (* if there is a carry, make sure that *)
+          (* for this (symbol, start, num) + carry there is only one new uid *)
+          let msb = (change_bits symb_val 0 32 0L) in 
+          if NumMap.mem msb !carry_map then
+            NumMap.find msb !carry_map
+          else begin
+            let u = get_fresh_uid () in
+            carry_map := NumMap.add msb u !carry_map;
+            u end
+        else
+          get_fresh_uid () in
+      (* nullify the unknown/symbolic bits *)
+      let resval = change_bits resval 0 start 0L in
+      let resval = change_bits resval (start + num) (32 - start - num) 0L in
+      encode_symb uid start num resval
+    
+
+    
+    (* let sval_uid = extract_enc_uid symb_val in                                      *)
+    (* let sval_start = extract_enc_start symb_val in                                  *)
+    (* let sval_num = extract_enc_num symb_val in                                      *)
+    (* let sval_int = sval_start, sval_start + sval_num in                             *)
+    (* (* When we don't know anything about the resulting symbol, we create a *)       *)
+    (* (* fresh value where the intersection of the symbolic bits is symbolic *)       *)
+    (* let fresh_symb_union i1 i2 =                                                    *)
+    (*   let a,b = i1 in                                                               *)
+    (*   let c,d = i2 in                                                               *)
+    (*   Printf.printf "union (%d,%d) (%d,%d)\n" a b c d;                              *)
+    (*   let l,h = interval_lub i1 i2 in                                               *)
+    (*   encode_symb (get_fresh_uid ()) l (h-l) value in                               *)
+    (* (* This is returned if we know that the symbolic bits will stay the same *)     *)
+    (* let unchanged = encode_symb sval_uid sval_start sval_num value in               *)
+    (* (* Change the [num] bits of symbolic value [v] starting at [s] *)               *)
+    (* (* to 0 or 1 according to [b]'s value *)                                        *)
+    (* let change_symb v s num b =                                                     *)
+    (*   let suid = extract_enc_uid v in                                               *)
+    (*   let sstart = extract_enc_start v in                                           *)
+    (*   let snum = extract_enc_num v in                                               *)
+    (*   let new_int = (s,s+num) in                                                    *)
+    (*   try                                                                           *)
+    (*     let l,h = interval_union (sstart,sstart+snum) new_int in                    *)
+    (*     let newbits = if b then -1L else 0L in                                      *)
+    (*     let newval = change_bits v 32 32 0L in (* clear MSB's *)                    *)
+    (*     let newval = change_bits newval s num newbits in                            *)
+    (*     encode_symb suid l (h-l) newval                                             *)
+    (*   with Bottom -> failwith "need a fresh symbol" in                              *)
+    (*   (* let l,h = interval_glb (sstart,sstart+snum) new_int in *)                  *)
+    (*   (* try                                                        *)              *)
+    (*   (*   let l,h =                                                *)              *)
+    (*   (*     if sval_int = new_int then sval_int else               *)              *)
+    (*   (*       interval_diff (interval_lub sval_int new_int)        *)              *)
+    (*   (*         (l,h) in                                           *)              *)
+    (*   (*   let newbits = if b then -1L else 0L in                   *)              *)
+    (*   (*   let newval = change_bits v 32 32 0L in (* clear MSB's *) *)              *)
+    (*   (*   let newval = change_bits newval s num newbits in         *)              *)
+    (*   (*   encode_symb suid l (h-l) newval                          *)              *)
+    (*   (* with Bottom ->                                             *)              *)
+    (*   (*   (* The symbolic interval cannot contain a hole, *)       *)              *)
+    (*   (*   (* so take a fresh symbolic value*)                      *)              *)
+    (*   (*   fresh_symb_union sval_int new_int in                     *)              *)
+    (* if is_symb other_val then                                                       *)
+    (*   (* Both operands are symbolic *)                                              *)
+    (*   let oval_uid = extract_enc_uid other_val in                                   *)
+    (*   let oval_start = extract_enc_start other_val in                               *)
+    (*   let oval_num = extract_enc_num other_val in                                   *)
+    (*   let oval_int = oval_start, oval_start + oval_num in                           *)
+    (*   if sval_uid = oval_uid && sval_start = oval_start && sval_num = oval_num then *)
+    (*     (* Symbolic parts are the same. *)                                          *)
+    (*     (* For future work: can learn information also if same symbol but not *)    *)
+    (*     (* the same bits *)                                                         *)
+    (*     match aop with                                                              *)
+    (*     | Sub | Subb | Xor ->                                                       *)
+    (*       (* Bits get cleared *)                                                    *)
+    (*       change_symb value oval_start oval_num false                               *)
+    (*     | And | Or -> unchanged                                                     *)
+    (*     | _ -> fresh_symb_union sval_int oval_int                                   *)
+    (*   else                                                                          *)
+    (*     fresh_symb_union sval_int oval_int                                          *)
+    (* else                                                                            *)
+    (*   (* Only the one operand is symbolic *)                                        *)
+    (*   let fresh_symb () = fresh_symb_union sval_int sval_int in                     *)
+    (*   match aop with                                                                *)
+    (*   | And | Or ->                                                                 *)
+    (*     (* Bit by bit apply a change to the resulting symbolic value: *)            *)
+    (*     (* And: 0-bits get cleared, 1-bits get preserved *)                         *)
+    (*     (* Or: 1-bits get set, 0-bits get preserved *)                              *)
+    (*     begin try                                                                   *)
+    (*       List.fold_left (fun newval i ->                                           *)
+    (*         let v = Int64.shift_right other_val i in                                *)
+    (*         let bit_value = if (Int64.logand v 1L) = 1L then true else false in     *)
+    (*         Printf.printf "value: %Lx, v: %Lx\n" other_val v;                       *)
+    (*         Printf.printf "newval[%d]: %s\n%s\n" i (int64_to_bitstring newval)      *)
+    (*           (print_symbolic newval);                                              *)
+    (*         if (aop = And && not bit_value) || (aop = Or && bit_value) then         *)
+    (*           change_symb newval i 1 bit_value                                      *)
+    (*         else                                                                    *)
+    (*           newval                                                                *)
+    (*         ) other_val (0 -- 32)                                                   *)
+    (*      with Bottom ->                                                             *)
+    (*       (* The resulting symbolic bits don't fit into the interval *)             *)
+    (*       (* representation, overapproximate the result *)                          *)
+    (*       fresh_symb () end                                                         *)
+    (*   | Addc | Sub | Subb | Xor                                                     *)
+    (*     when (extract_enc other_val sval_start sval_num) = 0L-> unchanged           *)
+    (*   | _ -> fresh_symb ()                                                          *)
+  
+  let perform_one_arith aop cf x y = 
+        (* If one of the values is symbolic, then *)
+        (* (1) compute the operation on the non-symbolic part of the value*)
+        (* (2) make changes to the symbolic part of the value; this may *)
+        (*     entail learning the value of some symbolic bits (e.g. if we*)
+        (*     have AND with 0-bits. *)
+        (* Part (2) is performed by the following function: *)
+        let symb_changes = if is_symb x || is_symb y then
+            symb_compute aop x y
+          else fun v -> v in
+        (* clear the 32 most-significant bits of both operands *)
+        let x,y = change_bits x 32 32 0L, change_bits y 32 32 0L in
+        let y = match aop with 
+        | Addc | Subb -> 
+          (* Add carry flag value to operation *)
+          Int64.add y (bool_to_int64 cf)
+        | _ -> y in
+        let res = arithop_to_int64op aop x y in
+        symb_changes res
+  
   (* Implements the effects of arithmetic operations *)
   let arith env flgs_init dstvar dst_vals srcvar src_vals aop = 
-    match aop with
-    | Xor when same_vars dstvar srcvar -> (*Then the result is 0 *)
-              FlagMap.singleton {cf = false; zf = true} (VarMap.add dstvar zero env)
-    | _ ->
-    (* Add carry flag value to operation if it's either Addc or Subb *)
-    let oper x y = let y = match aop with 
-      | Addc | Subb -> 
-        Int64.add y (bool_to_int64 flgs_init.cf)
-      | _ -> y in
-      arithop_to_int64op aop x y in
-    match dst_vals, src_vals with
-    | FSet dset, FSet sset ->
-      let _,srcmap,resmap = perform_op oper dset sset is_cf is_zf in
-      store_vals env dstvar resmap srcvar srcmap
-    | _, _ ->
-  (* We convert sets into intervals in order to perform the operations;
-   * interval_arith may return either FSet or Interval *)
-    interval_arith env aop oper dstvar dst_vals src_vals
+    if aop = Xor && (same_vars dstvar srcvar) then
+      (*Then the result is 0 *)
+      FlagMap.singleton {cf = false; zf = true} (VarMap.add dstvar zero env)
+    else
+      let oper = perform_one_arith aop flgs_init.cf in
+      match dst_vals, src_vals with
+      | FSet dset, FSet sset ->
+        let _,srcmap,resmap = perform_op oper dset sset is_cf is_zf in
+        store_vals env dstvar resmap srcvar srcmap
+      | _, _ ->
+      (* Convert sets into intervals in order to perform the operations;
+         interval_arith may return either FSet or Interval *)
+        try
+          interval_arith env aop oper dstvar dst_vals src_vals
+        with Is_Top ->
+          let top_env = VarMap.add dstvar top env in
+          let retmap = FlagMap.singleton {cf = false; zf = false} top_env in
+          let retmap = FlagMap.add {cf = true; zf = false} top_env retmap in
+          let retmap = FlagMap.add {cf = false; zf = true} top_env retmap in 
+          FlagMap.add {cf = true; zf = true} top_env retmap
   
   let imul env flgs_init dstvar dst_vals srcvar src_vals aop arg3 =
-    match dst_vals, src_vals with
+    let imprecise_imul = 
+      let retmap = FlagMap.singleton {cf = false; zf = false} 
+        (VarMap.add dstvar top env) in
+      FlagMap.add {cf = true; zf = false} (VarMap.add dstvar 
+        top env) retmap in
+    
+    if is_symb_vals dst_vals || is_symb_vals src_vals then imprecise_imul
+    else match dst_vals, src_vals with
     | FSet dset, FSet sset ->
       (* zero flag is always not set *)
       let test_zf = (fun _ -> false) in
       (* carry flag is set when result has to be truncated *)
       let test_cf _ _ res =
         res < Int64.of_int32 Int32.min_int || res > Int64.of_int32 Int32.max_int in
-      
       let srcmap,_,resmap = match arg3 with 
         | None -> (* 2 operands: do dst = dst * src *)
           perform_op Int64.mul dset sset test_cf test_zf
@@ -516,11 +885,8 @@ module Make (O:VALADOPT) = struct
           perform_op Int64.mul sset immset test_cf test_zf in
         store_vals env dstvar resmap srcvar srcmap
     | _, _ -> 
-      (* For the time being we return top, *)
-      (* until a more precise solution is implemented*)
-      let top_env = (VarMap.add dstvar top env) in
-      let retmap = FlagMap.singleton {cf = false; zf = false} top_env in
-      FlagMap.add {cf = true; zf = false} top_env retmap
+      imprecise_imul
+      
   
   (* interval_flag_test takes two intervals and a flag combination and returns
    * the corresponding intervals *)
@@ -555,7 +921,8 @@ module Make (O:VALADOPT) = struct
   let test_cmp env flags fop dstvar dvals srcvar svals =
     let arith_op = match fop with
     | Atest -> And | Acmp -> Sub in
-    let oper = arithop_to_int64op arith_op in
+    let oper = perform_one_arith arith_op flags.cf in
+    (* let oper = arithop_to_int64op arith_op in *)
     match dvals,svals with
     | FSet dset, FSet sset ->
         let dstmap,srcmap,_ = perform_op oper dset sset is_cf is_zf in
@@ -594,7 +961,6 @@ module Make (O:VALADOPT) = struct
   let shift env flags sop dstvar vals offs_var off_vals mk = 
     let offsets = mask_vals mk off_vals in
     let oper = shift_operator sop in
-    let top_env = (VarMap.add dstvar top env) in
       match vals, offsets with
       | FSet dset, FSet offs_set ->
           let cf_test = (is_cf_shift sop) in
@@ -608,14 +974,14 @@ module Make (O:VALADOPT) = struct
           (* Flags are not changed at all which is not correct! *)
           begin
             match sop with
-              Ror | Rol -> top_env
+              Ror | Rol -> (VarMap.add dstvar top env)
             | _ -> if ub < lb then env else VarMap.add dstvar (Interval(lb,ub)) env
           end in
         FlagMap.singleton flags newenv
-      | _, _ ->  let fm = FlagMap.singleton {cf = true; zf = true} top_env in
-        let fm = FlagMap.add {cf = true; zf = false} top_env fm in
-        let fm = FlagMap.add {cf = false; zf = true} top_env fm in
-        FlagMap.add {cf = false; zf = false} top_env fm
+      | _, _ ->  let fm = FlagMap.singleton {cf = true; zf = true} (VarMap.add dstvar top env) in
+        let fm = FlagMap.add {cf = true; zf = false} (VarMap.add dstvar top env) fm in
+        let fm = FlagMap.add {cf = false; zf = true} (VarMap.add dstvar top env) fm in
+        FlagMap.add {cf = false; zf = false} (VarMap.add dstvar top env) fm
 
   (* Nullify bits corresponding to the mask *)
   let nullify_mask mask x = 
@@ -623,43 +989,50 @@ module Make (O:VALADOPT) = struct
   
   (* Implements the effects of MOV *)
   let mov env flags dstvar mkvar dst_vals srcvar mkcvar src_vals =
-    let new_env = match mkvar, mkcvar with
+    let res_vals = match mkvar, mkcvar with
     (* 32 bits -> 32 bits MOV and 8 -> 32 : MOVZX *)
+    | NoMask, NoMask -> src_vals
     | NoMask, msk ->
-        let src_vals = mask_vals msk src_vals in
-        (VarMap.add dstvar src_vals env)
+        if is_symb_vals src_vals then
+          (* symbolic source in MOVZX *) 
+          get_fresh_symb ()
+        else
+          mask_vals msk src_vals
     (* 8 -> 8 : MOVB *)
     | Mask mkv, Mask mkc ->
-            begin
-                match dst_vals, src_vals with
-                | FSet ds, FSet ss_unmasked ->
-                    let (c_mask, c_shift) = mask_to_intoff mkc in
-                    (* Nullify everything but the 8 bits corresponding to the mask *)
-                    let ss_shifted = set_map (fun x -> Int64.logand x c_mask) ss_unmasked in
-                    (* Then shift it to the first 8 bits *)
-                    let ss = set_map (fun x -> Int64.shift_right x c_shift) ss_shifted in
-                    let (v_mask, v_shift) = mask_to_intoff mkv in
-                    (* Align cv values in order to write them into v *)
-                    let cvSet = set_map (fun x -> Int64.shift_left x v_shift) ss in
-                    (* Nullify the 8 bits corresponding to the mask *)
-                    let varSet = set_map (fun x -> nullify_mask v_mask x) ds in
-                    (* Create a list of set combining all the posible values with the mask in place *)
-                    let doOp x = set_map (fun y -> Int64.logor x y) varSet in
-                    let setList = NumSet.fold (fun x r -> doOp x :: r) cvSet [] in
-                    (* Unite all the sets *)
-                    let finalSet = List.fold_left NumSet.union NumSet.empty setList in
-                    (VarMap.add dstvar (lift_to_interval finalSet) env)
-                | _, _ -> (VarMap.add dstvar top env)
-              end
-    | _, _ -> failwith "ValAD.move: operation from 32 bits to 8 bits" in 
-  FlagMap.singleton flags new_env
+      if is_symb_vals dst_vals || is_symb_vals src_vals then
+        (* 8-bit MOV with symbolic values *)
+        get_fresh_symb ()
+      else begin
+        match dst_vals, src_vals with
+        | FSet ds, FSet ss_unmasked ->
+            let (c_mask, c_shift) = mask_to_intoff mkc in
+            (* Nullify everything but the 8 bits corresponding to the mask *)
+            let ss_shifted = set_map (fun x -> Int64.logand x c_mask) ss_unmasked in
+            (* Then shift it to the first 8 bits *)
+            let ss = set_map (fun x -> Int64.shift_right x c_shift) ss_shifted in
+            let (v_mask, v_shift) = mask_to_intoff mkv in
+            (* Align cv values in order to write them into v *)
+            let cvSet = set_map (fun x -> Int64.shift_left x v_shift) ss in
+            (* Nullify the 8 bits corresponding to the mask *)
+            let varSet = set_map (fun x -> nullify_mask v_mask x) ds in
+            (* Create a list of set combining all the posible values with the mask in place *)
+            let doOp x = set_map (fun y -> Int64.logor x y) varSet in
+            let setList = NumSet.fold (fun x r -> doOp x :: r) cvSet [] in
+            (* Unite all the sets *)
+            let finalSet = List.fold_left NumSet.union NumSet.empty setList in
+            lift_to_interval finalSet
+        | _, _ -> top
+      end
+    | _, _ -> failwith "ValAD.move: operation from 32 bits to 8 bits" in
+  FlagMap.singleton flags (VarMap.add dstvar res_vals env)
 
 
   let update_val env flags dstvar mkvar srcvar mkcvar op arg3 = 
-    let dvals = VarMap.find dstvar env in
+    let dvals = get_vals (VarOp dstvar) env in
     let svals = get_vals srcvar env in
-    if op = Amov then mov env flags dstvar mkvar dvals srcvar mkcvar svals
-    else match op with
+    match op with
+    | Amov -> mov env flags dstvar mkvar dvals srcvar mkcvar svals
     | Aarith aop -> if (mkvar, mkcvar) <> (NoMask,NoMask) then 
         failwith "ValAD: only 32-bit arithmetic is implemented"
       else arith env flags dstvar dvals srcvar svals aop
@@ -669,7 +1042,7 @@ module Make (O:VALADOPT) = struct
     | _ -> assert false
   
   let updval_set env flags dstvar mask cc = 
-    let dvals = VarMap.find dstvar env in
+    let dvals = get_vals (VarOp dstvar) env in
     match dvals with
     | FSet dset -> 
       let msk = match mask with
@@ -692,7 +1065,6 @@ module Make (O:VALADOPT) = struct
       end
     | _ ->
       (* For SET with intervals we are imprecise and return top *)
-      let top_env = (VarMap.add dstvar top env) in
-      FlagMap.singleton flags top_env
+      FlagMap.singleton flags (VarMap.add dstvar top env)
 
 end
