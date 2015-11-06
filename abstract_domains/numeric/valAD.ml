@@ -21,7 +21,8 @@ end
 
 let logFile = ref None
 
-let carry_map = ref NumMap.empty
+(* let carry_map = ref NumMap.empty *)
+let predecessor_map = ref TupleMap.empty
 
 module type S = sig 
   include AD.S
@@ -31,7 +32,7 @@ module type S = sig
   val log_var : var -> t -> unit
   val get_var : t -> var -> (t NumMap.t) add_top
   val set_var : t -> var -> int64 -> int64 -> t
-  val set_symbolic : t -> var -> t
+  val set_symbolic : t -> var -> int64 option -> t * int64
   val is_var : t -> var -> bool
   val var_names : t -> NumSet.t
   val meet : t -> t -> t add_bottom 
@@ -261,14 +262,18 @@ module Make (O:VALADOPT) = struct
 
   let set_var m v l h = VarMap.add v (set_or_interval l h) m
   
-  let set_symbolic env var =
-    let env = VarMap.add var (get_fresh_symb ()) env in
-    begin match (VarMap.find var env) with 
+  let set_symbolic env var symbol =
+    let svar = match symbol with 
+    | None -> get_fresh_symb ()
+    | Some s -> FSet (NumSet.singleton s) in
+    let env = VarMap.add var svar env in
+    let symb = 
+    begin match svar with 
     | FSet s ->  
       assert (NumSet.cardinal s = 1);
-      assert (is_symb (NumSet.choose s));
-    | _ -> assert false end;
-    env
+      NumSet.choose s
+    | _ -> assert false end; in
+    env, symb
 
   let get_vals c m = match c with
     Cons cs -> FSet (NumSet.singleton cs)
@@ -323,11 +328,13 @@ module Make (O:VALADOPT) = struct
     let l,h = (interval_lub (l1,h1) (l2,h2)) in
     Interval (l,h)
 
-  let join (x:t) (y:t) =
+  let join x y =
     let f k a b = match a,b with
         | Some c, Some d -> Some(var_join c d)
-        (* f should never enter this case *)
-        | _ -> Printf.printf "Missing: %Lx\n" k; assert false (* Disjoint variables *)
+        | Some _, None | None, Some _ -> Some top
+        | _, _ -> assert false
+    (*     (* f should never enter this case *)                                           *)
+    (*     | _ -> Printf.printf "Missing: %Lx\n" k; assert false (* Disjoint variables *) *)
     in
     VarMap.merge f x y
   
@@ -621,6 +628,38 @@ module Make (O:VALADOPT) = struct
   (* return true iff x[i] = 1 *)
   let get_bit i x = Int64.logand (Int64.shift_right x i) 1L = 1L
   
+  let extract_symb_properties value = (extract_enc_uid value), 
+      (extract_enc_start value), (extract_enc_num value)
+  
+  (* Returns the UID and the distance of oldest known predecessor *)
+  (* of this symbolic value. The distance is the difference between*)
+  (* the predecesor's and the descendant's MSB *)
+  let get_predecessor symb_val =
+    let msb = (change_bits symb_val 0 32 0L) in
+    match rev_find msb !predecessor_map with
+    | Some (id, distance) -> (id, distance)
+    | None -> (extract_enc_uid symb_val, 0) 
+  (* Returns the UID of the descendant of symbolic value [sval] which*)
+  (* has dinstance from it [dist] *)
+  let get_descendant sval distance =
+    let puid, current_dist = get_predecessor sval in
+    let distance = distance + current_dist in
+    Printf.printf "pred: %x, dist %d\n" puid distance;
+    let curr_id, start, num = extract_symb_properties sval in
+    try
+      let nval = TupleMap.find (puid, distance) !predecessor_map in
+      let nid, nstart, nnum = extract_symb_properties nval in
+      if (nstart, nnum) = (start, num) then nid
+      else 
+        (* We have a symbolic predecessor, where the symbolic are different. *)
+        (* Currently we overapproximate this situaiton by taking a fresh symbol *)
+        get_fresh_uid ()
+    with Not_found ->
+      let nid = get_fresh_uid () in
+      predecessor_map := 
+        TupleMap.add (puid, distance) (encode_symb nid start num 0L) !predecessor_map;
+      nid 
+  
   
   exception Invalid_interval of int * int
   
@@ -637,12 +676,9 @@ module Make (O:VALADOPT) = struct
     let symb_val, other_val = 
       if is_symb dst then dst,src else src,dst in
     
-    let sval_uid, sval_start, sval_num = (extract_enc_uid symb_val), 
-      (extract_enc_start symb_val), (extract_enc_num symb_val) in
-    
+    let sval_uid, sval_start, sval_num = extract_symb_properties symb_val in
     let oval_uid, oval_start, oval_num = 
-      if is_symb other_val then (extract_enc_uid other_val), 
-        (extract_enc_start other_val), (extract_enc_num other_val)
+      if is_symb other_val then extract_symb_properties other_val
       else -1, 0, 32 in
     
     (* The possibility of carry and borrow when doing Add/Sub are handled *)
@@ -712,16 +748,30 @@ module Make (O:VALADOPT) = struct
           (true, s, n, false)
         in
       let uid = if not renew_uid then sval_uid
-        else if carry  then
-          (* if there is a carry, make sure that *)
-          (* for this (symbol, start, num) + carry there is only one new uid *)
-          let msb = (change_bits symb_val 0 32 0L) in 
-          if NumMap.mem msb !carry_map then
-            NumMap.find msb !carry_map
-          else begin
-            let u = get_fresh_uid () in
-            carry_map := NumMap.add msb u !carry_map;
-            u end
+        else if carry  then begin 
+          (* If there is a carry to the most-significant bits.*)
+          (* make sure that for this (symbol, start, num) + carry there is *)
+          (* only one new uid. *)
+          (* If a symbolic value is derived by adding a constant to another*)
+          (* symbolic value, store the original symbol and the new symbol's*)
+          (* distance, i.e., the new MSB - the old MSB.*)
+          (* For both the new and the old value, the symbolic bits should be*)
+          (* at the same indices. *)
+          Printf.printf "carry ";
+          get_descendant symb_val 1
+          (* if NumMap.mem msb !carry_map then           *)
+          (*   NumMap.find msb !carry_map                *)
+          (* else begin                                  *)
+          (*   let u = get_fresh_uid () in               *)
+          (*   carry_map := NumMap.add msb u !carry_map; *)
+          (*   u end                                     *)
+        end else if is_symb symb_val && (not (is_symb other_val)) &&
+          (aop = Add) && (get_bit 1 other_val = false) then
+            (* The new value can be represented as s + c, where c is *)
+            (* a positive constant.*)
+            (* Make sure that only one such symbolic element exists. *)
+            let distance = extract_enc other_val (start + num) (32 - start - num) in
+            get_descendant symb_val (Int64.to_int distance)
         else
           get_fresh_uid () in
       (* nullify the unknown/symbolic bits *)
@@ -729,95 +779,6 @@ module Make (O:VALADOPT) = struct
       let resval = change_bits resval (start + num) (32 - start - num) 0L in
       encode_symb uid start num resval
     
-
-    
-    (* let sval_uid = extract_enc_uid symb_val in                                      *)
-    (* let sval_start = extract_enc_start symb_val in                                  *)
-    (* let sval_num = extract_enc_num symb_val in                                      *)
-    (* let sval_int = sval_start, sval_start + sval_num in                             *)
-    (* (* When we don't know anything about the resulting symbol, we create a *)       *)
-    (* (* fresh value where the intersection of the symbolic bits is symbolic *)       *)
-    (* let fresh_symb_union i1 i2 =                                                    *)
-    (*   let a,b = i1 in                                                               *)
-    (*   let c,d = i2 in                                                               *)
-    (*   Printf.printf "union (%d,%d) (%d,%d)\n" a b c d;                              *)
-    (*   let l,h = interval_lub i1 i2 in                                               *)
-    (*   encode_symb (get_fresh_uid ()) l (h-l) value in                               *)
-    (* (* This is returned if we know that the symbolic bits will stay the same *)     *)
-    (* let unchanged = encode_symb sval_uid sval_start sval_num value in               *)
-    (* (* Change the [num] bits of symbolic value [v] starting at [s] *)               *)
-    (* (* to 0 or 1 according to [b]'s value *)                                        *)
-    (* let change_symb v s num b =                                                     *)
-    (*   let suid = extract_enc_uid v in                                               *)
-    (*   let sstart = extract_enc_start v in                                           *)
-    (*   let snum = extract_enc_num v in                                               *)
-    (*   let new_int = (s,s+num) in                                                    *)
-    (*   try                                                                           *)
-    (*     let l,h = interval_union (sstart,sstart+snum) new_int in                    *)
-    (*     let newbits = if b then -1L else 0L in                                      *)
-    (*     let newval = change_bits v 32 32 0L in (* clear MSB's *)                    *)
-    (*     let newval = change_bits newval s num newbits in                            *)
-    (*     encode_symb suid l (h-l) newval                                             *)
-    (*   with Bottom -> failwith "need a fresh symbol" in                              *)
-    (*   (* let l,h = interval_glb (sstart,sstart+snum) new_int in *)                  *)
-    (*   (* try                                                        *)              *)
-    (*   (*   let l,h =                                                *)              *)
-    (*   (*     if sval_int = new_int then sval_int else               *)              *)
-    (*   (*       interval_diff (interval_lub sval_int new_int)        *)              *)
-    (*   (*         (l,h) in                                           *)              *)
-    (*   (*   let newbits = if b then -1L else 0L in                   *)              *)
-    (*   (*   let newval = change_bits v 32 32 0L in (* clear MSB's *) *)              *)
-    (*   (*   let newval = change_bits newval s num newbits in         *)              *)
-    (*   (*   encode_symb suid l (h-l) newval                          *)              *)
-    (*   (* with Bottom ->                                             *)              *)
-    (*   (*   (* The symbolic interval cannot contain a hole, *)       *)              *)
-    (*   (*   (* so take a fresh symbolic value*)                      *)              *)
-    (*   (*   fresh_symb_union sval_int new_int in                     *)              *)
-    (* if is_symb other_val then                                                       *)
-    (*   (* Both operands are symbolic *)                                              *)
-    (*   let oval_uid = extract_enc_uid other_val in                                   *)
-    (*   let oval_start = extract_enc_start other_val in                               *)
-    (*   let oval_num = extract_enc_num other_val in                                   *)
-    (*   let oval_int = oval_start, oval_start + oval_num in                           *)
-    (*   if sval_uid = oval_uid && sval_start = oval_start && sval_num = oval_num then *)
-    (*     (* Symbolic parts are the same. *)                                          *)
-    (*     (* For future work: can learn information also if same symbol but not *)    *)
-    (*     (* the same bits *)                                                         *)
-    (*     match aop with                                                              *)
-    (*     | Sub | Subb | Xor ->                                                       *)
-    (*       (* Bits get cleared *)                                                    *)
-    (*       change_symb value oval_start oval_num false                               *)
-    (*     | And | Or -> unchanged                                                     *)
-    (*     | _ -> fresh_symb_union sval_int oval_int                                   *)
-    (*   else                                                                          *)
-    (*     fresh_symb_union sval_int oval_int                                          *)
-    (* else                                                                            *)
-    (*   (* Only the one operand is symbolic *)                                        *)
-    (*   let fresh_symb () = fresh_symb_union sval_int sval_int in                     *)
-    (*   match aop with                                                                *)
-    (*   | And | Or ->                                                                 *)
-    (*     (* Bit by bit apply a change to the resulting symbolic value: *)            *)
-    (*     (* And: 0-bits get cleared, 1-bits get preserved *)                         *)
-    (*     (* Or: 1-bits get set, 0-bits get preserved *)                              *)
-    (*     begin try                                                                   *)
-    (*       List.fold_left (fun newval i ->                                           *)
-    (*         let v = Int64.shift_right other_val i in                                *)
-    (*         let bit_value = if (Int64.logand v 1L) = 1L then true else false in     *)
-    (*         Printf.printf "value: %Lx, v: %Lx\n" other_val v;                       *)
-    (*         Printf.printf "newval[%d]: %s\n%s\n" i (int64_to_bitstring newval)      *)
-    (*           (print_symbolic newval);                                              *)
-    (*         if (aop = And && not bit_value) || (aop = Or && bit_value) then         *)
-    (*           change_symb newval i 1 bit_value                                      *)
-    (*         else                                                                    *)
-    (*           newval                                                                *)
-    (*         ) other_val (0 -- 32)                                                   *)
-    (*      with Bottom ->                                                             *)
-    (*       (* The resulting symbolic bits don't fit into the interval *)             *)
-    (*       (* representation, overapproximate the result *)                          *)
-    (*       fresh_symb () end                                                         *)
-    (*   | Addc | Sub | Subb | Xor                                                     *)
-    (*     when (extract_enc other_val sval_start sval_num) = 0L-> unchanged           *)
-    (*   | _ -> fresh_symb ()                                                          *)
   
   let perform_one_arith aop cf x y = 
         (* If one of the values is symbolic, then *)

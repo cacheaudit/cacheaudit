@@ -49,6 +49,9 @@ module DS = struct
   module VarMap = Map.Make(struct type t=var let compare = compare end)
   module IntSetSet = Set.Make(IntSet)
   module IntListSet = Set.Make(struct type t = int list let compare = compare end)
+  module TupleMap = Map.Make(struct type t = int * int let compare = compare end)
+  let rev_find v m = 
+    TupleMap.fold (fun k v' acc -> if v = v' then Some k else acc) m None
 
   type flags_t = { cf : bool; zf : bool; }
   let initial_flags = {cf = false; zf = false}

@@ -106,7 +106,11 @@ module Make (V: ValAD.S) = struct
 
   let set_var st var l h = FlagMap.map (fun x -> V.set_var x var l h) st
   
-  let set_symbolic st var = FlagMap.map (fun x -> V.set_symbolic x var) st
+  let set_symbolic st var =
+    fst (FlagMap.fold (fun flgs vals (newenv, symbol) -> 
+      let vals, s = V.set_symbolic vals var symbol in
+      FlagMap.add flgs vals newenv, Some s) st (FlagMap.empty, None))
+     (* FlagMap.map (fun x -> V.set_symbolic x var) st *)
   
   let log_var env v = let _ = FlagMap.map (fun x -> V.log_var v x; x) env in ()
 

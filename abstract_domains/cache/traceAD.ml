@@ -357,9 +357,6 @@ module Make (CA : CacheAD.S) =
       
     let subseteq_wblocks wbl1 wbl2 = failwith "subseteq_wblocks: todo"
       
-    (* (subseteq_traces wbl1.node1 wbl2.node1) &&                                                 *)
-    (* (match                                                                                     *)
-    (*      (TupleMap.for_all (fun k v -> IntSet.subset v (TupleMap.find k wbl2.reps)) wbl1.reps) *)
     let subseteq env1 env2 =
       (env1.cache_param = env2.cache_param) &&
       ((subeq_top CA.subseteq env1.cache env2.cache) &&
@@ -375,8 +372,9 @@ module Make (CA : CacheAD.S) =
       | Nt x -> print_fn fmt x
       
     let print fmt env =
-       Format.fprintf fmt "Final cache state:\n";
-       print_top fmt CA.print "Top" env.cache;
+       Format.fprintf fmt "Not printing final cache state.\n";
+       (* Format.fprintf fmt "Final cache state:\n"; *)
+       (* print_top fmt CA.print "Top" env.cache;    *)
        Format.fprintf fmt "\n# traces: ";
        let print_traces count_fn fmt node =
          let num = mult_big_int 

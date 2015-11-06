@@ -53,7 +53,7 @@ module type S = sig
   val set_var : t -> var -> int64 -> int64 -> t
 
   (** [set_symbolic env var] sets the value of [var] to be a fresh symbolic value *)
-  val set_symbolic : t -> var -> t
+  val set_symbolic : t -> var -> int64 option -> t * int64
 
  (** Checks if a variable is represented by the domain *)
   val is_var : t -> var -> bool
