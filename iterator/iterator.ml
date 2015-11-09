@@ -203,7 +203,6 @@ module Make(A:ArchitectureAD.S) = struct
         | None -> assert false 
         (* there should be a stub at addr, or cfg did something wrong *)
         | Some stub -> 
-          assert (List.length stub.accesses <> 0);
           List.fold_left (fun inv (acctype, rw, accaddr, accval) ->
             begin match accval with 
             | None ->

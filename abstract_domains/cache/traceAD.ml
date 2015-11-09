@@ -288,7 +288,29 @@ module Make (CA : CacheAD.S) =
       
     let add_nt fn s1 s2 = Nt (fn s1 s2)
     
+    let print_top fmt print_fn top_string state =
+      match state with
+      | Tp -> Format.fprintf fmt top_string
+      | Nt x -> print_fn fmt x
+    let print_traces count_fn fmt node =
+         let num = mult_big_int 
+           (count_fn node.Trie.node_UID) node.Trie.num_traces in
+         Format.fprintf fmt "%s, %f bits\n"
+           (string_of_big_int num)
+           (Utils.log2 num)
+    
     let join env1 env2 =
+      (* let print_set s =                                  *)
+      (*   Printf.printf "value { ";                        *)
+      (*   NumSet.iter (fun x -> Printf.printf "%Lx " x) s; *)
+      (*   Printf.printf "}\n" in                           *)
+      (* let print_current env =                            *)
+      (*   match env.addr_trace, env.block_trace with       *)
+      (*   | Nt addrs, Nt blks ->                           *)
+      (*     print_set addrs.Trie.value;                    *)
+      (*     print_set blks.Trie.value                      *)
+      (*   | _, _ -> () in                                  *)
+      (* print_current env1; print_current env2;            *)
       { 
         env1 with
         traces = join_top (join_traces count_normal) env1.traces env2.traces;
@@ -365,24 +387,12 @@ module Make (CA : CacheAD.S) =
       ((subeq_top subseteq_traces env1.addr_trace env2.addr_trace) &&
       ((subeq_top subseteq_traces env1.block_trace env2.block_trace) &&
       (subeq_top subseteq_wblocks env1.wblocks env2.wblocks))))))
-      
-    let print_top fmt print_fn top_string state =
-      match state with
-      | Tp -> Format.fprintf fmt top_string
-      | Nt x -> print_fn fmt x
-      
+       
     let print fmt env =
        Format.fprintf fmt "Not printing final cache state.\n";
        (* Format.fprintf fmt "Final cache state:\n"; *)
        (* print_top fmt CA.print "Top" env.cache;    *)
        Format.fprintf fmt "\n# traces: ";
-       let print_traces count_fn fmt node =
-         let num = mult_big_int 
-           (count_fn node.Trie.node_UID) node.Trie.num_traces in
-         Format.fprintf fmt "%s, %f bits\n"
-           (string_of_big_int num)
-           (Utils.log2 num)
-       in
          (print_top fmt (print_traces count_normal) "too imprecise to tell" env.traces;
           Format.fprintf fmt "\n# times: ";
           let print_times fmt tms =

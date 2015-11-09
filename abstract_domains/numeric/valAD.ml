@@ -21,7 +21,6 @@ end
 
 let logFile = ref None
 
-(* let carry_map = ref NumMap.empty *)
 let predecessor_map = ref TupleMap.empty
 
 module type S = sig 
@@ -398,15 +397,84 @@ module Make (O:VALADOPT) = struct
      try (ignore (VarMap.merge f x y); true)
      with Not_included -> false
   
+  let extract_symb_properties value = (extract_enc_uid value), 
+    (extract_enc_start value), (extract_enc_num value)
   
-
+  (* Returns the UID and the distance of oldest known predecessor *)
+  (* of this symbolic value. The distance is the difference between*)
+  (* the predecesor's and the descendant's MSB *)
+  let get_predecessor symb_val =
+    let msb = (change_bits symb_val 0 32 0L) in
+    match rev_find msb !predecessor_map with
+    | Some (id, distance) -> (id, distance)
+    | None -> (extract_enc_uid symb_val, 0) 
+  (* Returns the UID of the descendant of symbolic value [sval] which*)
+  (* has dinstance from it [distance] *)
+  let get_descendant sval distance =
+    let puid, current_dist = get_predecessor sval in
+    let distance = distance + current_dist in
+    let curr_id, start, num = extract_symb_properties sval in
+    try
+      let nval = TupleMap.find (puid, distance) !predecessor_map in
+      let nid, nstart, nnum = extract_symb_properties nval in
+      if (nstart, nnum) = (start, num) then nid
+      else 
+        (* We have a symbolic predecessor, where the symbolic are different. *)
+        (* Currently we overapproximate this situaiton by taking a fresh symbol *)
+        get_fresh_uid ()
+    with Not_found ->
+      let nid = get_fresh_uid () in
+      predecessor_map := 
+        TupleMap.add (puid, distance) (encode_symb nid start num 0L) !predecessor_map;
+      nid 
+  
+  
+  (* From a list of flag combinations, remove combinations not described by *)
+  (* [cf_known] and [zf_known], where a value None means that *)
+  (* the respective flag is unknown (either true or false) *)
+  let remove_flags flist cf_known zf_known =
+    List.fold_left (fun accum flgs -> 
+      match cf_known with 
+      | Some cf when cf <> flgs.cf -> accum 
+      | _ -> match zf_known with
+        | Some zf when zf <> flgs.zf -> accum
+        | _ -> flgs :: accum
+      ) [] flist
+  
+  (* Those functions check whether something about the flags is known, for *)
+  (* symbolic values. A result None means that nothing is known *)
+  (* (flag may be true or false). *)
+  let symb_check_cf src dst res _ = 
+    let uid, start, num = extract_symb_properties res in
+    (* If the symbol hasn't changed and the MSB are symbolic, then there was *)
+    (* no overflow *)
+    if start + num < 32 (* the MSB are symbolic *) &&
+     (is_symb src && uid = (extract_enc_uid src)) ||
+     (is_symb dst && uid = (extract_enc_uid dst)) then Some false
+    else
+      None
+      
+  let symb_check_zf src dst res aop = 
+    (* If the known part of the value is not zero, ZF is false *)
+    if extract_enc_val res <> 0L then Some false
+    else if aop = Some Sub && is_symb src && is_symb dst then
+      (* in case of src SUB dst, we may know that src != dst => ZF is false *)
+      (* e.g. if src = dst + c, where c is a non-zero constant *)
+        let puid_src, distance_src = get_predecessor src in
+        let puid_dst, distance_dst = get_predecessor dst in
+        (* Common predecessor but different distance *)
+        if puid_src = puid_dst && distance_src <> distance_dst then Some false
+        else None
+      else None
   
   let fmap_find_with_defval key defval fm = try(
     FlagMap.find key fm) with Not_found -> defval
   
   (* Returns three maps which hold possible (flags,values)-combinations *)
   (* for the destination, source variables and result *)
-  let perform_op op dstset srcset cf_test zf_test = 
+  (* Signaling the exact [aop] is a quick solution for being able to gain*)
+  (* more precision on flag's values in case we have a symbolic result. *)
+  let perform_op op dstset srcset cf_test zf_test aop = 
     let compute_op dst = NumSet.fold (fun src (dmap,smap,rmap) -> 
       let result = op dst src in
       let upd_val fmap flag_list value =
@@ -417,8 +485,11 @@ module Make (O:VALADOPT) = struct
           ) fmap flag_list in
       let flag_list = 
         if is_symb result then 
-          [ {cf = true; zf = true}; {cf = true; zf = false}; 
-            {cf = false; zf = true}; {cf = false; zf = false} ]
+          let fl = [ {cf = true; zf = true}; {cf = true; zf = false}; 
+            {cf = false; zf = true}; {cf = false; zf = false} ] in
+            let cf_known, zf_known = symb_check_cf src dst result aop,
+               symb_check_zf src dst result aop in
+            remove_flags fl cf_known zf_known
         else
           [{cf = cf_test dst src result; zf = zf_test result}] in
       let dstmap = upd_val dmap flag_list dst in
@@ -628,38 +699,6 @@ module Make (O:VALADOPT) = struct
   (* return true iff x[i] = 1 *)
   let get_bit i x = Int64.logand (Int64.shift_right x i) 1L = 1L
   
-  let extract_symb_properties value = (extract_enc_uid value), 
-      (extract_enc_start value), (extract_enc_num value)
-  
-  (* Returns the UID and the distance of oldest known predecessor *)
-  (* of this symbolic value. The distance is the difference between*)
-  (* the predecesor's and the descendant's MSB *)
-  let get_predecessor symb_val =
-    let msb = (change_bits symb_val 0 32 0L) in
-    match rev_find msb !predecessor_map with
-    | Some (id, distance) -> (id, distance)
-    | None -> (extract_enc_uid symb_val, 0) 
-  (* Returns the UID of the descendant of symbolic value [sval] which*)
-  (* has dinstance from it [dist] *)
-  let get_descendant sval distance =
-    let puid, current_dist = get_predecessor sval in
-    let distance = distance + current_dist in
-    Printf.printf "pred: %x, dist %d\n" puid distance;
-    let curr_id, start, num = extract_symb_properties sval in
-    try
-      let nval = TupleMap.find (puid, distance) !predecessor_map in
-      let nid, nstart, nnum = extract_symb_properties nval in
-      if (nstart, nnum) = (start, num) then nid
-      else 
-        (* We have a symbolic predecessor, where the symbolic are different. *)
-        (* Currently we overapproximate this situaiton by taking a fresh symbol *)
-        get_fresh_uid ()
-    with Not_found ->
-      let nid = get_fresh_uid () in
-      predecessor_map := 
-        TupleMap.add (puid, distance) (encode_symb nid start num 0L) !predecessor_map;
-      nid 
-  
   
   exception Invalid_interval of int * int
   
@@ -757,14 +796,7 @@ module Make (O:VALADOPT) = struct
           (* distance, i.e., the new MSB - the old MSB.*)
           (* For both the new and the old value, the symbolic bits should be*)
           (* at the same indices. *)
-          Printf.printf "carry ";
           get_descendant symb_val 1
-          (* if NumMap.mem msb !carry_map then           *)
-          (*   NumMap.find msb !carry_map                *)
-          (* else begin                                  *)
-          (*   let u = get_fresh_uid () in               *)
-          (*   carry_map := NumMap.add msb u !carry_map; *)
-          (*   u end                                     *)
         end else if is_symb symb_val && (not (is_symb other_val)) &&
           (aop = Add) && (get_bit 1 other_val = false) then
             (* The new value can be represented as s + c, where c is *)
@@ -809,7 +841,7 @@ module Make (O:VALADOPT) = struct
       let oper = perform_one_arith aop flgs_init.cf in
       match dst_vals, src_vals with
       | FSet dset, FSet sset ->
-        let _,srcmap,resmap = perform_op oper dset sset is_cf is_zf in
+        let _,srcmap,resmap = perform_op oper dset sset is_cf is_zf (Some aop) in
         store_vals env dstvar resmap srcvar srcmap
       | _, _ ->
       (* Convert sets into intervals in order to perform the operations;
@@ -829,7 +861,6 @@ module Make (O:VALADOPT) = struct
         (VarMap.add dstvar top env) in
       FlagMap.add {cf = true; zf = false} (VarMap.add dstvar 
         top env) retmap in
-    
     if is_symb_vals dst_vals || is_symb_vals src_vals then imprecise_imul
     else match dst_vals, src_vals with
     | FSet dset, FSet sset ->
@@ -840,10 +871,10 @@ module Make (O:VALADOPT) = struct
         res < Int64.of_int32 Int32.min_int || res > Int64.of_int32 Int32.max_int in
       let srcmap,_,resmap = match arg3 with 
         | None -> (* 2 operands: do dst = dst * src *)
-          perform_op Int64.mul dset sset test_cf test_zf
+          perform_op Int64.mul dset sset test_cf test_zf None
         | Some imm -> (* 3 operands: do dst = src * imm*)
           let immset = NumSet.singleton imm in
-          perform_op Int64.mul sset immset test_cf test_zf in
+          perform_op Int64.mul sset immset test_cf test_zf None in
         store_vals env dstvar resmap srcvar srcmap
     | _, _ -> 
       imprecise_imul
@@ -886,7 +917,7 @@ module Make (O:VALADOPT) = struct
     (* let oper = arithop_to_int64op arith_op in *)
     match dvals,svals with
     | FSet dset, FSet sset ->
-        let dstmap,srcmap,_ = perform_op oper dset sset is_cf is_zf in
+        let dstmap,srcmap,_ = perform_op oper dset sset is_cf is_zf (Some arith_op) in
         store_vals env dstvar dstmap srcvar srcmap
     | _,_ ->
       if fop = Acmp then
@@ -925,7 +956,7 @@ module Make (O:VALADOPT) = struct
       match vals, offsets with
       | FSet dset, FSet offs_set ->
           let cf_test = (is_cf_shift sop) in
-          let _,srcmap,resmap = perform_op oper dset offs_set cf_test is_zf in
+          let _,srcmap,resmap = perform_op oper dset offs_set cf_test is_zf None in
           store_vals env dstvar resmap offs_var srcmap
       | Interval(l,h), FSet offs_set -> (* This doesn't work with rotate; return Top if rotate *)
         let newenv =
