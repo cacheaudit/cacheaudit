@@ -47,7 +47,9 @@ module Make (O:VALADOPT) = struct
   let max_elt = 0xffffffffL
   let two32 = 0x100000000L
   let top = Interval(min_elt, max_elt)
-  let is_top l h = l=min_elt && h=max_elt
+  let is_top = function
+    | FSet _ -> false
+    | Interval (l, h) -> l=min_elt && h=max_elt
 
   let rec interval_to_set l h = if l>h then NumSet.empty
     else NumSet.add l (interval_to_set (Int64.succ l) h)
@@ -67,11 +69,11 @@ module Make (O:VALADOPT) = struct
 (* TODO put this into the type t *)
   let variable_naming = ref(fun x -> "")
 
-  let pp_var_vals fmt = function
+  let pp_var_vals fmt avals = match avals with
   | FSet vals -> Format.fprintf fmt "@[{";
       NumSet.iter (fun v -> Format.fprintf fmt "%Ld @," v) vals;
       Format.fprintf fmt "}@]"
-  | Interval(l,h) -> if is_top l h then Format.fprintf fmt "Top"
+  | Interval(l,h) -> if is_top avals then Format.fprintf fmt "Top"
                      else Format.fprintf fmt "@[[%Ld, %Ld]@]" l h
 
   let var_vals_equal x1 x2 = match x1,x2 with
@@ -88,11 +90,11 @@ module Make (O:VALADOPT) = struct
     let file = match !logFile with
       | None -> let f = (open_out "log.txt") in logFile := Some (f); f
       | Some f -> f
-    in let log_var_vals = function
+    in let log_var_vals avals  = match avals with
       | FSet vals -> Printf.fprintf file "{";
           NumSet.iter (fun v -> Printf.fprintf file "%Ld " v) vals;
           Printf.fprintf file "}"
-      | Interval(l,h) -> if is_top l h then Printf.fprintf file "Top"
+      | Interval(l,h) -> if is_top avals then Printf.fprintf file "Top"
                          else Printf.fprintf file "[%Ld, %Ld]" l h
     in Printf.fprintf file "%s " (!variable_naming v);
     log_var_vals (VarMap.find v env);
@@ -162,9 +164,16 @@ module Make (O:VALADOPT) = struct
   let new_var m v = VarMap.add v top m
 
   let delete_var m v = VarMap.remove v m
-
+  
+  let set_top = delete_var
+  
   let is_var m vn = VarMap.mem vn m
-
+  
+  let upd_var env var values = if is_top values then 
+      set_top env var
+    else
+      VarMap.add var values env
+  
   let get_var m v = try (match VarMap.find v m with
     | FSet l -> Nt (NumSet.fold (fun vl env -> NumMap.add vl (VarMap.add v (FSet (NumSet.singleton vl)) m) env) l NumMap.empty)
     | Interval(l,h) -> if range_over (l,h) O.max_get_var_size then Tp
@@ -621,6 +630,17 @@ module Make (O:VALADOPT) = struct
   let nullify_mask mask x = 
     Int64.logand (Int64.lognot mask) x
   
+  (* Implements the effects of CDQ (copy double to quad): MSB written in EDX *)
+  let cdq env flags dstvar dst_vals srcvar src_vals =
+    let cdq_top = FSet (NumSet.add max_elt (NumSet.singleton 0L)) in
+    let res_vals = cdq_top in
+    (* For now: set result to top *)
+    (* TODO: res_vals = if MSB of EAX known then MSB^32, else {0^32, 1^32} *)
+    FlagMap.singleton flags (upd_var env dstvar res_vals)
+    
+    
+    
+  
   (* Implements the effects of MOV *)
   let mov env flags dstvar mkvar dst_vals srcvar mkcvar src_vals =
     let new_env = match mkvar, mkcvar with
@@ -666,6 +686,13 @@ module Make (O:VALADOPT) = struct
     | Ashift sop -> shift env flags sop dstvar dvals srcvar svals mkcvar
     | Aflag fop -> test_cmp env flags fop dstvar dvals srcvar svals
     | Aimul -> imul env flags dstvar dvals srcvar svals op arg3
+    | Aneg -> (* NEG X is the same as 0 - X *)
+      assert (same_vars dstvar srcvar);
+      arith env flags dstvar (FSet (NumSet.singleton 0L)) srcvar svals Sub
+    | Acdq -> 
+      assert ((mkvar, mkcvar) = (NoMask,NoMask));
+      cdq env flags dstvar dvals srcvar svals
+      (* assert that src is EAX and dst is EDX *)
     | _ -> assert false
   
   let updval_set env flags dstvar mask cc = 
