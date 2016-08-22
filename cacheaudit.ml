@@ -159,6 +159,7 @@ let _ =
     Format.printf "%s: No such file or directory\n" (!bin_name);
     exit 1
   end;
+  (* Default register values before the start of the analysis *)
   let start_values = ref ([],List.map (fun (a,b) -> a,b,b) [(X86Types.EAX, 0L); (X86Types.ECX, 0L); (X86Types.EDX, 0L); (X86Types.EBX, 0L);
                (X86Types.ESP, 0xbffff138L); (X86Types.EBP, 0xbffff2c8L); (X86Types.ESI, 0L); (X86Types.EDI, 0L)]) in
       (try
@@ -186,7 +187,7 @@ let _ =
       if !start_addr = -1 then failwith ("No starting address given");
       Printf.printf "Start address (e.g. of main) is 0x%x\n" !start_addr;
       (* Setting default values *)
-      if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := 139844135157760L;
+      (* if (Int64.compare !instruction_base_addr Int64.zero) = 0 then instruction_base_addr := 139844135157760L; *)
       if !data_cache_s = 0 then data_cache_s := 16384;
       if !data_line_s = 0 then data_line_s := 64;
       if !data_assoc = 0 then data_assoc := 4;
