@@ -18,6 +18,7 @@ type cache_param = {
   ass: int; 
   str: replacement_strategy;
   opt_precision: bool;
+  do_leakage: bool;
  } 
 
 
@@ -49,6 +50,9 @@ let do_concrete_hit = ref false
 (* if do_concrete_miss is false, the following flag determines whether to *)
 (* perform a reduction which removes impossible states with "holes" *)
 let do_reduction = ref true
+
+(*If compute_leakage is true the maximum information leakage will be computed*)		       
+let compute_leakage = ref false
 
 type adversary = Disjoint | Shared
 
@@ -175,6 +179,7 @@ module Make (A: AgeAD.S) = struct
         do_concrete_miss := true;
         do_concrete_hit := true
       end;
+    compute_leakage := cache_param.do_leakage;
     let (cs,ls,ass,strategy) = (cache_param.cs, cache_param.ls,
       cache_param.ass,cache_param.str) in
     let ns = cs / ls / ass in (* number of sets *)
@@ -286,6 +291,140 @@ module Make (A: AgeAD.S) = struct
   let count_cache_states env = count_caches env !adversary
       
 
+  (* apply function f to all elements of a set of states *)
+  let setstate_map f cset = 
+    SetState.fold (fun x st -> SetState.add (f x) st) cset SetState.empty
+  ;;
+	
+  (*Function to update all the states in a set*)
+  let upd_set c_set base_b assoc permut =
+    (*Function to update one cache state*)
+    let update_state c =
+      (*Get base age*)
+      let base_age = NumMap.find base_b c in
+      (*Update depending on the case*)
+      let upd b n =
+	if n = assoc then
+	  if b = base_b then 0
+	  else assoc
+	else
+	  if base_age = assoc && base_b <> b then
+	    n+1
+	  else 
+	    permut assoc base_age n
+      in
+      (*Modify the ages*)
+      NumMap.mapi upd c
+    in
+
+    setstate_map update_state c_set
+  ;;
+
+  (*** Computes the maximum information leakage of a set of states given
+       a set of blocks and a set of flag sets ***)  
+  let rec partition c_set blocks assoc permut flags=
+    let cardinal = SetState.cardinal c_set in
+
+    (*If the knowledge set is singleton or empty, finish*)
+    if cardinal <= 1 then cardinal
+    (*If c_set is in the flags, finish*)
+    else if SetSetState.mem c_set flags then 1
+					       
+    else      
+      (*Function to probe with block q*)
+      let probe b rmax=
+	(*If the leakage is equal to the size of c_set, return rmax*)
+	if rmax = cardinal then
+	  rmax
+	else
+
+	  (*Function that returns true if the block is in the cache*)   
+	  let hit c = (NumMap.find b c < assoc) in
+	  (*Partition the set into the ones that return hit and miss*)
+	  let (cs_h,cs_m) = SetState.partition hit c_set in
+
+	  (*Check for total hits and misses and modify flag set*)
+	  let flags_pass =
+	    if (SetState.is_empty cs_m) then
+	      SetSetState.add cs_h flags
+	    else if (SetState.is_empty cs_h) then
+	      SetSetState.add cs_m flags
+	    else
+	      SetSetState.empty
+	  in
+	  
+	  (*Update both subsets*)
+	  let cs_h = upd_set cs_h b assoc permut in
+	  let cs_m = upd_set cs_m b assoc permut in
+          
+	  (*Recursive call*)
+	  let r_h = partition cs_h blocks assoc permut flags_pass in
+	  let r_m = partition cs_m blocks assoc permut flags_pass in
+
+	  (*Keep the maximum*)
+	  max rmax (r_h+r_m)
+      in
+
+      (*Iterate over all blocks*)
+      NumSet.fold probe blocks 1
+  ;;  
+
+  (*** Counts the number of knowledge sets a shared memory space
+       adversary can make on a single cache set ***)  
+  let count_set_leakage env adversary set =
+    let assoc = env.assoc in
+    let strategy = get_permutation env.strategy in
+    let concr = concretize_set env set in
+
+    (*Function to create abstract blocks*)
+    let rec extra_address addr a =
+      match a with
+	0 -> []
+       |a ->
+	 (*Compute a new address*)
+	 let addr = Int64.sub addr (Int64.one) in
+	  addr :: (extra_address addr (a-1))
+    in
+    (*Produce assoc abstract blocks with negative addresses*)
+    let abs_blocks = extra_address Int64.zero assoc in
+
+    (*Function to include the abstract blocks in every mapping*)
+    let add_abs_blocks cs =
+      (*Get the ages already filled*)
+      let ages = fst (get_ages env cs) in
+      (*Create a set of states with abstract blocks in the ages given by alist*)
+      let create_set_state alist =
+	(*If the mapping of abstract blocks is consistent with the filled ages*)
+	if IntSet.equal (complement assoc alist) ages then
+	  (*Create a set of states with the map plus the abstract blocks in *)
+	  (*their corresponding ages given in alist*)
+          SetState.singleton (List.fold_left2 (fun cs b a -> NumMap.add b a cs) cs abs_blocks alist)
+	(*If the mapping is not consistent return an empty set of states*)
+	else SetState.empty
+      in
+      (*Create a set of states with all valid combinations of abstract blocks for a given state*)
+      IntListSet.fold (fun alist c_set -> SetState.union (create_set_state alist) c_set) env.poss_init_ages SetState.empty
+    in
+
+    (*Create set of states*)
+    let states = List.fold_left (fun c_set cs -> SetState.union c_set (add_abs_blocks cs)) SetState.empty concr in
+    (*Create set of blocks*)
+    let blocks = match adversary with
+	Shared   -> NumSet.union set (NumSet.of_list abs_blocks)
+       |Disjoint -> NumSet.of_list abs_blocks
+    in
+    (*Compute maximum information leakage*)
+    partition states blocks assoc strategy SetSetState.empty
+  ;;
+
+  (*** Lifts counting from sets to cache states by taking the
+       product ***)
+  let count_cache_leakage env adversary =
+    let sets =  IntMap.fold (fun _ x xs -> x::xs) env.cache_sets [] in
+    let set_counter = count_set_leakage env adversary in
+    Utils.prod (List.rev_map (fun x -> Int64.of_int (set_counter x)) sets)
+  ;;
+					    
   (*** Printing ***)
 
      
@@ -318,13 +457,27 @@ module Make (A: AgeAD.S) = struct
             Format.fprintf fmt "@]"
           end
         ) env.cache_sets;
-    Format.printf "\n";
+    Format.printf "@.";
+      
+    (*Results for shared memory*)
     let sh_num = count_caches env Shared in
-    let dj_num = count_caches env Disjoint in
     Format.fprintf fmt "\nNumber of valid cache configurations (shared memory): ";
     print_num fmt sh_num;
+    if !compute_leakage then begin
+      let sh_leak = count_cache_leakage env Shared in
+      Format.fprintf fmt "Number of distinguishable subsets (shared memory): ";
+      print_num fmt sh_leak
+    end;
+
+    (*Results for disjoint memory*)
+    let dj_num = count_caches env Disjoint in		       
     Format.fprintf fmt "\nNumber of valid cache configurations (disjoint memory): ";
-    print_num fmt dj_num
+    print_num fmt dj_num;
+    if !compute_leakage then begin
+      let dj_leak = count_cache_leakage env Disjoint in
+      Format.fprintf fmt "Number of distinguishable subsets (disjoint memory): ";
+      print_num fmt dj_leak
+    end	
 
     let print_delta c1 fmt c2 = match get_log_level CacheLL with
     | Debug->

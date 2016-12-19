@@ -17,6 +17,7 @@ type cache_param = {
   ass: int; (** associativity *)
   str: replacement_strategy; (** strategy *)
   opt_precision: bool; (** optimize precision (may run slower) *)
+  do_leakage: bool; (** compute maximum information leakage *)
  } (** the cache parameters are given in bytes *) 
 
 (** The signature of the cache abstract domain *)

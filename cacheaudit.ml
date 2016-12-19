@@ -23,6 +23,7 @@ let print_cfg = ref false
 let analyze = ref true
 let interval_cache = ref false
 let do_traces = ref true
+let do_leakage = ref false		    
 let opt_precision = ref false
 
 let stub_rules_file = ref ""
@@ -120,7 +121,9 @@ let speclist = [
       stub_rules_file := s), 
       "specify file which controls stubbing: skipping analysis for a code 
       segment and emulating the memory accesses indicated by the file.
-      Use this feature with care, it makes the analysis unsound."
+      Use this feature with care, it makes the analysis unsound.");
+    ("--do-leakage", Arg.Unit (fun () -> do_leakage := true),
+      "enable maximum information leakage"
       ^"\n\n  Logging:");
     ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
       "set the general log level. Options are quiet, normal and debug. 
@@ -209,12 +212,12 @@ let _ =
       (read_from_file !bin_name), None 
     ) in
   let data_cache_params = {CacheAD.cs = !data_cache_s; CacheAD.ls = !data_line_s;
-    CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy; opt_precision = !opt_precision} in
+    CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy; opt_precision = !opt_precision; CacheAD.do_leakage = !do_leakage} in
   let inst_cache_strategy = match !inst_cache_strategy_opt with
     | Some v -> ref v 
     | None -> data_cache_strategy in
   let inst_cache_params = {CacheAD.cs = !inst_cache_s; CacheAD.ls = !inst_line_s;
-    CacheAD.ass = !inst_assoc; CacheAD.str = !inst_cache_strategy; opt_precision = !opt_precision} in
+    CacheAD.ass = !inst_assoc; CacheAD.str = !inst_cache_strategy; opt_precision = !opt_precision; CacheAD.do_leakage = !do_leakage} in
   let inst_cache_analysis = match !inst_cache_analysis_opt with
     | Some v -> ref v
     | None -> data_cache_analysis in
