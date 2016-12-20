@@ -173,11 +173,11 @@ let _ =
         if !end_addr == -1 && configs.end_addr <> None then end_addr := un_option configs.end_addr;
         if configs.inst_base_addr <> None then instruction_base_addr := un_option configs.inst_base_addr;
         if !data_cache_s <= 0 && configs.cache_s <> None then data_cache_s := un_option configs.cache_s;
-        if !data_line_s <= 0 && configs.cache_s <> None then data_line_s := un_option configs.line_s;
-        if !data_assoc <= 0 && configs.cache_s <> None then data_assoc := un_option configs.assoc;
-        if !inst_cache_s <= 0 && configs.cache_s <> None then inst_cache_s := un_option configs.inst_cache_s;
-        if !inst_line_s <= 0 && configs.cache_s <> None then inst_line_s := un_option configs.inst_line_s;
-        if !inst_assoc <= 0 && configs.cache_s <> None then inst_assoc := un_option configs.inst_assoc;
+        if !data_line_s <= 0 && configs.line_s <> None then data_line_s := un_option configs.line_s;
+        if !data_assoc <= 0 && configs.assoc <> None then data_assoc := un_option configs.assoc;
+        if !inst_cache_s <= 0 && configs.inst_cache_s <> None then inst_cache_s := un_option configs.inst_cache_s;
+        if !inst_line_s <= 0 && configs.inst_line_s <> None then inst_line_s := un_option configs.inst_line_s;
+        if !inst_assoc <= 0 && configs.inst_assoc <> None then inst_assoc := un_option configs.inst_assoc;
         if configs.mem_params <> ([],[]) then start_values := configs.mem_params
       with Sys_error _ ->
         Printf.printf "Configuration file %s.conf not found\nUsing default values\n" !bin_name);
