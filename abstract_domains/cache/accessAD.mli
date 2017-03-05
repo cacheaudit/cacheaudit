@@ -1,4 +1,4 @@
-(* Copyright (c) 2013-2015, IMDEA Software Institute.             *)
+(* Copyright (c) 2013-2017, IMDEA Software Institute.             *)
 (* See ../../LICENSE for authorship and licensing information     *)
 
 (** Access abstract domain: keeps track of possible access sequences to sets in the cache. Can keep track of all accesses or only to changes by preventing stuttering *)

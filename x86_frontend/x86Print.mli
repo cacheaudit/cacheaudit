@@ -1,4 +1,4 @@
-(* Copyright (c) 2013-2015, IMDEA Software Institute.          *)
+(* Copyright (c) 2013-2017, IMDEA Software Institute.          *)
 (* See ../LICENSE for authorship and licensing information     *)
 
 (* Copyright (c) 2005, Regents of the University of California

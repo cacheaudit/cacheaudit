@@ -1,4 +1,3 @@
-
 EXECUTABLE= cacheaudit 
 
 ifneq ($(or $(opt),$(OPT)),)

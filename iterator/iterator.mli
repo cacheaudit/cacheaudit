@@ -1,4 +1,4 @@
-(* Copyright (c) 2013-2015, IMDEA Software Institute.          *)
+(* Copyright (c) 2013-2017, IMDEA Software Institute.          *)
 (* See ../LICENSE for authorship and licensing information     *)
 
 (** An iterator module for analysis of executables. Based on "Efficient Chaotic Iteration Strategies With Widenings" by F. Bourdoncle *)
