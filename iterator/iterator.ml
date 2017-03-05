@@ -6,7 +6,7 @@
 open Config
 
 (*number of times loops are unrolled before fp computation begins *)
-let unroll_count = ref 300
+let unroll_count = ref 1024
 (* if set to false, then we don't unroll the outer loops *)
 let unroll_outer_loop = ref true
 
@@ -182,7 +182,11 @@ module Make(A:ArchitectureAD.S) = struct
       let inv = A.read_instruction inv (Int64.of_int addr) in
       let ftrace inv2 = match get_log_level IteratorLL with
         | Quiet -> instructions_interpreted := !instructions_interpreted + 1;
-                   Format.printf "\r %6d instructions interpreted%! %a" !instructions_interpreted (A.print_delta inv) inv2; inv2
+          Format.printf "@?\r                                                                                @?";
+          Format.printf "\r %6d interpreted. " !instructions_interpreted ;
+          Format.printf "Last: %a %a %! "
+               pp_block_addr addr X86Print.pp_instr inst; inv2
+          (* Format.printf "\r %6d instructions interpreted%! %a" !instructions_interpreted (A.print_delta inv) inv2; inv2 *)
         | Normal -> Format.printf "@[<v 2>%a %a @, %a@]@."
                pp_block_addr addr X86Print.pp_instr inst (A.print_delta inv) inv2; inv2
         | Debug -> Format.printf "@[<v 0>@[<v 2>%a %a @, %a@]@;@;#######################@;@;@;@;@]@."

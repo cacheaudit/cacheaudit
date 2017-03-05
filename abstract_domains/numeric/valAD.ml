@@ -109,8 +109,12 @@ module Make (O:VALADOPT) = struct
     | FSet fs -> NumSet.exists is_symb fs
     | Interval _ -> false
   
-  let rec interval_to_set l h = if l>h then NumSet.empty
-    else NumSet.add l (interval_to_set (Int64.succ l) h)
+  let interval_to_set l h = 
+    let rec loop l h accum =
+      if l>h then accum
+      else loop (Int64.succ l) h (NumSet.add l accum) in
+    loop l h NumSet.empty
+    
   let set_to_interval s = 
     if is_symb_vals (FSet s) then top
     else Interval(NumSet.min_elt s, NumSet.max_elt s)
@@ -150,9 +154,9 @@ module Make (O:VALADOPT) = struct
       int64_to_bitstring v
 
   let pp_var_vals fmt avals = match avals with
-  | FSet vals -> Format.fprintf fmt "@[";
+  | FSet vals -> Format.fprintf fmt "@[{ ";
       NumSet.iter (fun v -> 
-        if is_symb v then Format.fprintf fmt "%s" (symb_to_string v)
+        if is_symb v then Format.fprintf fmt "%s " (symb_to_string v)
         else
           Format.fprintf fmt "%Ld @," v) vals;
       Format.fprintf fmt "}@]"
@@ -164,7 +168,8 @@ module Make (O:VALADOPT) = struct
   | Interval(l1,h1), Interval(l2,h2) -> l1=l2 && h1=h2
   | FSet s1, Interval(l2,h2) | Interval(l2,h2), FSet s1 ->
       NumSet.min_elt s1 = l2 && NumSet.max_elt s1 = h2 && 
-      NumSet.equal s1 (interval_to_set l2 h2)
+      NumSet.cardinal s1 = Int64.to_int (Int64.sub h2 l2)
+      (* NumSet.equal s1 (interval_to_set l2 h2) *)
 
   let print_one_var fmt v vals  = Format.fprintf fmt "@[%s in %a@]@;"
     (!variable_naming v) pp_var_vals vals
@@ -202,10 +207,12 @@ module Make (O:VALADOPT) = struct
 
   (* truncate a [number] to its [numbits] least significant bits *)
   let truncate numbits number = 
-    match numbits with
-      | 32 -> Int64.logand number 0xFFFFFFFFL
-      | 8 -> Int64.logand number 0xFFL
-      | _ -> failwith "truncate: wrong argument"
+    assert (numbits >= 0 && numbits <= 63);
+    Int64.logand number (Int64.shift_right Int64.max_int (63 - numbits))
+    (* match numbits with                           *)
+    (*   | 32 -> Int64.logand number 0xFFFFFFFFL    *)
+    (*   | 8 -> Int64.logand number 0xFFL           *)
+    (*   | _ -> failwith "truncate: wrong argument" *)
 
   let set_map f set = NumSet.fold (fun x -> NumSet.add (f x)) set NumSet.empty
   
@@ -243,12 +250,20 @@ module Make (O:VALADOPT) = struct
 
   let init v2s = variable_naming:=v2s; VarMap.empty
 
-  let new_var m v = VarMap.add v top m
+  let new_var m v = m 
+  (* VarMap.add v top m *)
 
   let delete_var m v = VarMap.remove v m
-
+  
+  let set_top = delete_var
+  
   let is_var m vn = VarMap.mem vn m
-
+  
+  let upd_var env var values = if is_top values then 
+      set_top env var
+    else
+      VarMap.add var values env
+  
   let get_var m v = try (match VarMap.find v m with
     | FSet l -> Nt (NumSet.fold (fun vl env -> NumMap.add vl (VarMap.add v (FSet (NumSet.singleton vl)) m) env) l NumMap.empty)
     | Interval(l,h) -> if range_over (l,h) O.max_get_var_size then Tp
@@ -257,7 +272,8 @@ module Make (O:VALADOPT) = struct
             else NumMap.add l (VarMap.add v (FSet (NumSet.singleton l)) m) 
                    (f (Int64.succ l) h) in
           Nt(f l h)
-  ) with Not_found -> failwith  (Printf.sprintf "valAD.get_var: non-existent variable %Lx\n" v)
+  ) with Not_found -> Tp
+    (* failwith  (Printf.sprintf "valAD.get_var: non-existent variable %Lx\n" v) *)
 
   let set_var m v l h = VarMap.add v (set_or_interval l h) m
   
@@ -286,6 +302,12 @@ module Make (O:VALADOPT) = struct
   (* lifts to interval representation if needed *)
   let lift_to_interval s = 
     if NumSet.cardinal s > O.max_set_size then set_to_interval s else FSet s
+  
+  (* return interval to set if small enough *)
+  let unlift v = match v with 
+  | Interval(l, h) ->  
+    if Int64.sub h l <= Int64.of_int O.max_set_size then FSet (NumSet.of_list (range64 l (Int64.succ h))) else v
+  | fs -> fs
   
   let interval_lub (l1,h1) (l2,h2) =
     (min l1 l2, max h1 h2)
@@ -329,11 +351,10 @@ module Make (O:VALADOPT) = struct
 
   let join x y =
     let f k a b = match a,b with
-        | Some c, Some d -> Some(var_join c d)
+        | Some c, Some d -> let newvar = var_join c d in
+          if is_top newvar then None else Some newvar
         | Some _, None | None, Some _ -> Some top
         | _, _ -> assert false
-    (*     (* f should never enter this case *)                                           *)
-    (*     | _ -> Printf.printf "Missing: %Lx\n" k; assert false (* Disjoint variables *) *)
     in
     VarMap.merge f x y
   
@@ -677,7 +698,7 @@ module Make (O:VALADOPT) = struct
       | _ -> retmap end
     | _ -> retmap in
     
-    FlagMap.map (fun nums -> VarMap.add dstvar nums env) retmap
+    FlagMap.map (fun nums -> upd_var env dstvar nums) retmap
     
 
   let bool_to_int64 = function true -> 1L | false -> 0L
@@ -711,7 +732,6 @@ module Make (O:VALADOPT) = struct
     assert (is_symb dst || is_symb src);
     assert (not (is_symb resval));
     
-    (* Operations we consider below are commutative *)
     let symb_val, other_val = 
       if is_symb dst then dst,src else src,dst in
     
@@ -730,6 +750,10 @@ module Make (O:VALADOPT) = struct
     match aop with
     | Add | Addc | Sub | Subb 
       when sval_start <> 0 || oval_start <> 0 -> 
+        fresh_symb_val ()
+    (* constant minus symbol *)
+    | Sub | Subb
+      when (is_symb dst) && not (is_symb src) -> 
         fresh_symb_val ()
     | _ -> 
       (* Bit-by-bit, apply changes to symbolic bits of the value (if needed). *)
@@ -759,9 +783,8 @@ module Make (O:VALADOPT) = struct
               ) then
                 (* Symbolic bit is retained: ADD, SUB, XOR with 0 *)
                 (renew_uid, start, num, carry)
-            else if aop = Add && (get_bit i resval) (* and with a carry *) 
+            else if aop = Add && (get_bit i resval) (* add with a carry *) 
               && (i = sval_start + sval_num) then begin
-              assert (change_bits resval 0 (i+1) 0L = 0L);
               (true, start, num, true)
             end
             else
@@ -849,7 +872,8 @@ module Make (O:VALADOPT) = struct
         try
           interval_arith env aop oper dstvar dst_vals src_vals
         with Is_Top ->
-          let top_env = VarMap.add dstvar top env in
+          (* let top_env = VarMap.add dstvar top env in *)
+          let top_env = set_top env dstvar in
           let retmap = FlagMap.singleton {cf = false; zf = false} top_env in
           let retmap = FlagMap.add {cf = true; zf = false} top_env retmap in
           let retmap = FlagMap.add {cf = false; zf = true} top_env retmap in 
@@ -858,9 +882,8 @@ module Make (O:VALADOPT) = struct
   let imul env flgs_init dstvar dst_vals srcvar src_vals aop arg3 =
     let imprecise_imul = 
       let retmap = FlagMap.singleton {cf = false; zf = false} 
-        (VarMap.add dstvar top env) in
-      FlagMap.add {cf = true; zf = false} (VarMap.add dstvar 
-        top env) retmap in
+        (set_top env dstvar) in
+      FlagMap.add {cf = true; zf = false} (set_top env dstvar) retmap in
     if is_symb_vals dst_vals || is_symb_vals src_vals then imprecise_imul
     else match dst_vals, src_vals with
     | FSet dset, FSet sset ->
@@ -952,7 +975,7 @@ module Make (O:VALADOPT) = struct
   (* Shift the values of the variable dst using the offsets given by soff *)
   let shift env flags sop dstvar vals offs_var off_vals mk = 
     let offsets = mask_vals mk off_vals in
-    let oper = shift_operator sop in
+    let oper = fun x y -> truncate 33 (shift_operator sop x y) in
       match vals, offsets with
       | FSet dset, FSet offs_set ->
           let cf_test = (is_cf_shift sop) in
@@ -966,18 +989,29 @@ module Make (O:VALADOPT) = struct
           (* Flags are not changed at all which is not correct! *)
           begin
             match sop with
-              Ror | Rol -> (VarMap.add dstvar top env)
-            | _ -> if ub < lb then env else VarMap.add dstvar (Interval(lb,ub)) env
+              Ror | Rol -> set_top env dstvar
+            | _ -> if ub < lb then env else VarMap.add dstvar (unlift(Interval(lb,ub))) env
           end in
         FlagMap.singleton flags newenv
-      | _, _ ->  let fm = FlagMap.singleton {cf = true; zf = true} (VarMap.add dstvar top env) in
-        let fm = FlagMap.add {cf = true; zf = false} (VarMap.add dstvar top env) fm in
-        let fm = FlagMap.add {cf = false; zf = true} (VarMap.add dstvar top env) fm in
-        FlagMap.add {cf = false; zf = false} (VarMap.add dstvar top env) fm
+      | _, _ ->  let fm = FlagMap.singleton {cf = true; zf = true} (set_top env dstvar) in
+        let fm = FlagMap.add {cf = true; zf = false} (set_top env dstvar) fm in
+        let fm = FlagMap.add {cf = false; zf = true} (set_top env dstvar) fm in
+        FlagMap.add {cf = false; zf = false} (set_top env dstvar) fm
 
   (* Nullify bits corresponding to the mask *)
   let nullify_mask mask x = 
     Int64.logand (Int64.lognot mask) x
+  
+  (* Implements the effects of CDQ (copy double to quad): MSB written in EDX *)
+  let cdq env flags dstvar dst_vals srcvar src_vals =
+    let cdq_top = FSet (NumSet.add max_elt (NumSet.singleton 0L)) in
+    let res_vals = cdq_top in
+    (* For now: set result to top *)
+    (* TODO: res_vals = if MSB of EAX known then MSB^32, else {0^32, 1^32} *)
+    FlagMap.singleton flags (upd_var env dstvar res_vals)
+    
+    
+    
   
   (* Implements the effects of MOV *)
   let mov env flags dstvar mkvar dst_vals srcvar mkcvar src_vals =
@@ -1017,7 +1051,7 @@ module Make (O:VALADOPT) = struct
         | _, _ -> top
       end
     | _, _ -> failwith "ValAD.move: operation from 32 bits to 8 bits" in
-  FlagMap.singleton flags (VarMap.add dstvar res_vals env)
+  FlagMap.singleton flags (upd_var env dstvar res_vals)
 
 
   let update_val env flags dstvar mkvar srcvar mkcvar op arg3 = 
@@ -1031,6 +1065,13 @@ module Make (O:VALADOPT) = struct
     | Ashift sop -> shift env flags sop dstvar dvals srcvar svals mkcvar
     | Aflag fop -> test_cmp env flags fop dstvar dvals srcvar svals
     | Aimul -> imul env flags dstvar dvals srcvar svals op arg3
+    | Aneg -> (* NEG X is the same as 0 - X *)
+      assert (same_vars dstvar srcvar);
+      arith env flags dstvar (FSet (NumSet.singleton 0L)) srcvar svals Sub
+    | Acdq -> 
+      assert ((mkvar, mkcvar) = (NoMask,NoMask));
+      cdq env flags dstvar dvals srcvar svals
+      (* assert that src is EAX and dst is EDX *)
     | _ -> assert false
   
   let updval_set env flags dstvar mask cc = 
@@ -1041,10 +1082,11 @@ module Make (O:VALADOPT) = struct
       | NoMask -> assert false
       | Mask msk -> msk in
       let (v_mask, v_shift) = mask_to_intoff msk in
-      begin match cc with
-        | (true,B)| (true,Z) ->
-          let flag = if cc = (true,B) then flags.cf else flags.zf in 
-          let newval = bool_to_int64 flag in
+      let (tv, flg) = cc in
+      begin match flg with
+        | B | Z ->
+          let flag = if flg == B then flags.cf else flags.zf in 
+          let newval = bool_to_int64 (flag == tv) in
           (* shift the result according to the mask *)
           let newval = Int64.shift_left newval v_shift in
           (* clear the byte referred to by the mask and put the result there *)
@@ -1057,6 +1099,6 @@ module Make (O:VALADOPT) = struct
       end
     | _ ->
       (* For SET with intervals we are imprecise and return top *)
-      FlagMap.singleton flags (VarMap.add dstvar top env)
+      FlagMap.singleton flags (set_top env dstvar)
 
 end

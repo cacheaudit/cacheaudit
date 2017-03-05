@@ -239,6 +239,7 @@ type instr =
     Arith of arith_op * op32 * op32
   | Arithb of arith_op * op8 * op8
   | Call of op32
+  | Cdq
   | Cmp of op32 * op32 (* Obtained by substraction of the arguments *)
   | Test of op32 * op32 (* tests the logical AND of the arguments *)
   | Inc of op32

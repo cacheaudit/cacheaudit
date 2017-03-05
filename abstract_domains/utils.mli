@@ -20,3 +20,9 @@ val partition : NumSet.t -> (NumSet.elt -> int) -> NumSet.t IntMap.t
 
 (** [i -- j] returns the list [\[i; i+1; ... ; j-1\]] *)
 val (--) : int -> int -> int list
+(** [range64 i j] works as i -- j for Int64 values *)
+val range64 : int64 -> int64 -> int64 list
+
+(**[reg_to_var r]  rturns the variable number that corresponds to register r *)
+val reg_to_var: X86Types.reg32 -> int64
+

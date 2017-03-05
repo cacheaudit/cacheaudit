@@ -85,10 +85,10 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   let reg_to_var x = Int64.of_int (-(X86Util.reg32_to_int x) - 1)
 
   (* Gives variables a specific name if they have one (i.e. registers) *)
-  let var_to_string v = match v with
-    n -> try(
-        X86Util.reg32_to_string (X86Util.int_to_reg32(-1-(Int64.to_int n)))
-      ) with Invalid_argument "int_to_reg32" -> Format.sprintf "V%Lx" n
+  let var_to_string v = 
+    let n = Int64.to_int v in 
+    try( X86Util.reg32_to_string (X86Util.int_to_reg32(-1 - n))
+      ) with Invalid_argument _ -> Format.sprintf "V%Lx" v
 
   (* Adds variables and values for registers and values in the value domain *)
   let init_vals v memList =
@@ -288,12 +288,12 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
       let do_op (s,smask,es) = List.map (fun (d,dmask,ed) -> 
         let access_env = (get_access_env dst src ed es) in
          { access_env with vals = 
-          F.update_val access_env.vals (consvar_to_var d) dmask s smask op arg3}
+          (F.update_val access_env.vals (consvar_to_var d) dmask s smask op arg3)}
         ) dlist in
       list_join (List.concat (List.map do_op slist)) in
     let res = 
       match op with
-      | Aarith _ | Ashift _ | Amov | Aflag _ -> 
+      | Aarith _ | Ashift _ | Amov | Aflag _ | Aneg | Acdq -> 
           perform_op op dst dlist src slist arg3
       | Aexchg -> 
           let s_to_d_vals = perform_op Amov dst dlist src slist arg3 in
@@ -360,6 +360,8 @@ module Make (F : FlagAD.S) (C:CacheAD.S) = struct
   | Inc x -> interpret_instruction env (Arith (Add, x, Imm 1L)) (*TODO: check that the effect on flags is correct *)
   | Dec x -> interpret_instruction env (Arith (Sub, x, Imm 1L))
   | Set (cc,dst) -> updmem_set env (Op8 dst) cc
+  | Neg dst -> update_mem env Aneg (Op32 dst) (Op32 dst) None 
+  | Cdq -> update_mem env Acdq (Op32 (Reg EDX)) (Op32 (Reg EAX)) None
   | i -> Format.printf "@[Unexpected instruction %a @, 
     in MemAD.interpret_instruction@]@." X86Print.pp_instr i;
     failwith "MemAD.interpret_instruction unexpected instruction"

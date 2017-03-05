@@ -9,7 +9,7 @@ type flag_op = Acmp | Atest
 
 type abstr_op = Aarith of X86Types.arith_op | Amov | Aexchg | 
   Ashift of X86Types.shift_op | Aflag of flag_op
-  | Aimul | Aset
+  | Aimul | Aset | Aneg | Acdq
 
 type stack_op = Apop | Apush
 

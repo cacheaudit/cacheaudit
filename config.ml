@@ -3,6 +3,7 @@
 
 open X86Types
 open NumAD.DS
+open Utils
 
 let logged_addresses = ref []
 
@@ -167,18 +168,22 @@ let parse_stubfile filename =
         Scanf.sscanf l "range %i %i" (fun start next -> 
           {first_addr = start; next_addr = next; accesses = []} :: state)
       with Scanf.Scan_failure _ -> 
-        try (* Quick fix: setting values of variables. *)
-          (* TODO: allow inputting sth like "EAX 5"; now the same is "-1 5", *)
-          (* and is passed down as "data write access" *)
-          (* first integer is the memory location/register, second is the value; -1 means symbolic *)
+        try
           Scanf.sscanf l "M %Li %Li" (fun addr value -> 
             match state with
             | s :: stbs -> {s with 
               accesses = (Data, Write, addr, Some value) :: s.accesses} :: stbs
             | _ -> raise (StubParseFailed "Wrong stub format. \n
-            Memory expected to be set as\nM -1 123\n (EAX is set to 123; value -1 would mean symbolic)"))
+            Memory is expeted to be set as\nM addr 123"))
         with Scanf.Scan_failure _ -> 
-          Scanf.sscanf l "%s %s %Li" (fun acctype rw addr ->
+          try Scanf.sscanf l "M %s %Li" (fun reg value -> 
+            match state with
+            | s :: stbs -> {s with 
+              accesses = (Data, Write, Utils.reg_to_var (X86Util.string_to_reg32 reg), Some value) :: s.accesses} :: stbs
+            | _ -> raise (StubParseFailed "Wrong stub format. \n
+            Registers are expeted to be set as\nM EAX 123\n (EAX is set to 123; value -1 would mean symbolic)"))
+          with Scanf.Scan_failure _ -> 
+            Scanf.sscanf l "%s %s %Li" (fun acctype rw addr ->
             let acctype = match acctype with 
             | "D" -> Data | "I" -> Instruction
             | _ -> raise (StubParseFailed "Access type should be D or I") in

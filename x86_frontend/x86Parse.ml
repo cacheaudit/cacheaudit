@@ -69,7 +69,10 @@ let rec read_instr_body bits seg_override =
     read_instr_body bits (Some GS)
   else if byte = 0x66 then
     (* 16-bit mode instruction *)
-    raise (Parse (Printf.sprintf "Unsupported 16-bit instruction at position 0x%x" position))
+    let opc,bits = read_uint bits 8 in
+    match opc with 0x90 -> Skip, bits
+    | _ -> 
+      raise (Parse (Printf.sprintf "Unsupported 16-bit instruction at position 0x%x" position))
  else if byte >= 0x40 && byte < 0x40 + nRegs32 then
     Inc (Reg (int_to_reg32 (byte - 0x40))), bits
   else if byte >= 0x48 && byte < 0x48 + nRegs32 then
@@ -187,6 +190,7 @@ let rec read_instr_body bits seg_override =
       | _ -> raise (Parse "Weird LEA operand")
       end
   | 0x90 -> Skip, bits
+  | 0x99 -> Cdq, bits
   | 0xA0 ->
       let imm, bits = read_uint32 bits 32 in
       Movb (Reg AL, Address {addrDisp = imm; addrBase = None; addrIndex = None; segBase = None}), bits

@@ -8,7 +8,7 @@ open Logger
   
 open NumAD.DS
   
-type cache_st = | H | M | N
+(* type cache_st = | H | M | N
 
 (* Hit, Miss, No access, Hit or Miss *)
 let cachest_to_int64 = function | H -> 1L | M -> 2L | N -> 3L
@@ -18,9 +18,9 @@ let int64_to_cachest =
   
 let (duration_H, duration_M, duration_N) = (3, 20, 1)
   
-let max_times = 10000000
+let max_times = 10000000 *)
   
-let delta = 4
+let delta = 20
     
 module Make (CA : CacheAD.S) =
   struct
@@ -60,8 +60,10 @@ module Make (CA : CacheAD.S) =
     
     (* stores number of occurrences of elements *)
     type t =
-      { traces : (NumSet.t Trie.t) add_top; cache : CA.t add_top;
-        times : IntSet.t add_top; addr_trace : (NumSet.t Trie.t) add_top;
+      { 
+        (* traces : (NumSet.t Trie.t) add_top; cache : CA.t add_top;
+        times : IntSet.t add_top;*)
+        addr_trace : (NumSet.t Trie.t) add_top;
         block_trace : (NumSet.t Trie.t) add_top; 
         wblocks : wblocks_t add_top;
         cache_param : CacheAD.cache_param_t
@@ -95,7 +97,8 @@ module Make (CA : CacheAD.S) =
       match parents with
       | Root -> unit_big_int
       | Single p -> (count p)
-      | Couple (p1, p2) -> add_big_int (count p1) (count p2)
+      | Couple (p1, p2) -> 
+        add_big_int (count p1) (count p2)
       
     let uid = ref 0L
       
@@ -117,7 +120,8 @@ module Make (CA : CacheAD.S) =
          end)
       
     (* A hash table holding all nodes exactly once *)
-    let hitmiss_hashtbl = TrieHashtbl.create 500
+
+    (* let hitmiss_hashtbl = TrieHashtbl.create 500 *)
       
     let addr_hashtbl = TrieHashtbl.create 500
       
@@ -144,10 +148,14 @@ module Make (CA : CacheAD.S) =
     
     let create_node count_fn hashtbl parents value =
       (uid := Int64.succ !uid; 
-       let num_tr =
-         mult_int_big_int (let n = NumSet.cardinal value in if n = 0 then 1 else n)
+      let this_num = NumSet.cardinal value in 
+      let this_num = if this_num = 0 then 1 else this_num in 
+      let num_tr =
+         mult_int_big_int this_num
            (get_parent_num_traces count_fn parents) in
-       let parent_UIDs = get_parent_UIDs parents in
+      if get_log_level IteratorLL = Debug && this_num <> 1 then
+        Format.printf "Traces increased because multiple values.\n"; 
+      let parent_UIDs = get_parent_UIDs parents in
        let newnode =
          {
            Trie.parents = parents;
@@ -158,14 +166,14 @@ module Make (CA : CacheAD.S) =
          }
        in find_or_add hashtbl newnode)
       
-    let init_cache = ref Tp
+    (* let init_cache = ref Tp *)
       
     let init cache_param =
-      (init_cache := Nt (CA.init cache_param);
+      (* (init_cache := Nt (CA.init cache_param); *)
        {
-         traces = Nt (create_node count_normal hitmiss_hashtbl Root NumSet.empty);
+         (* traces = Nt (create_node count_normal hitmiss_hashtbl Root NumSet.empty);
          cache = !init_cache;
-         times = Nt (IntSet.singleton 0);
+         times = Nt (IntSet.singleton 0); *)
          addr_trace = Nt (create_node count_normal addr_hashtbl Root NumSet.empty);
          block_trace = Nt (create_node count_normal block_hashtbl Root NumSet.empty);
          wblocks =
@@ -178,7 +186,7 @@ module Make (CA : CacheAD.S) =
                       NumMap.singleton node.Trie.node_UID (IntSet.singleton 1);
                 });
          cache_param = cache_param;
-       })
+       }
       
     (* Update node's value*)
     let update_value count_fn hashtbl node value =
@@ -196,7 +204,7 @@ module Make (CA : CacheAD.S) =
       
     let add_dummy hashtbl parents = create_node count_normal hashtbl parents NumSet.empty
       
-    let join_traces count_fn node1 node2 = (* Same trie *)
+    let join_traces count_fn hashtbl node1 node2 = (* Same trie *)
       if node1.Trie.node_UID = node2.Trie.node_UID
       then Nt node1
       else (* Same parents *)
@@ -206,14 +214,14 @@ module Make (CA : CacheAD.S) =
           (assert (node1.Trie.value <> node2.Trie.value);
            (* if node1.Trie.value <> (Some N) && node2.Trie.value <> (Some N) then begin *)
            Nt
-             (update_value count_fn hitmiss_hashtbl node1
+             (update_value count_fn hashtbl node1
                 (NumSet.union node1.Trie.value node2.Trie.value)))
         else
           (* end else failwith "TraceAD: Joining 'N' not implemented" end *)
           (let parents = Couple (node1, node2)
            in
              (* A dummy node whose parents are the nodes we are joining *)
-             Nt (add_dummy hitmiss_hashtbl parents))
+             Nt (add_dummy hashtbl parents))
     
     (* Handle Top in a join-like fashion: if any of the two states [s1], [s2] *)
     (* is Top, go to Top, otherwise apply [join_fn] *)
@@ -240,10 +248,14 @@ module Make (CA : CacheAD.S) =
         (IntSet.union s1 s2))) reps1 reps2
     
     (* adds a new node to reps, with initial count of 1 *)
+    (* If node already in reps, do not change anything *)
     let add_to_reps x reps = match x with 
     | Tp -> reps
-    | Nt node -> NumMap.add node.Trie.node_UID (IntSet.singleton 1) reps
-    
+    | Nt node -> if not (NumMap.mem node.Trie.node_UID reps) then
+        NumMap.add node.Trie.node_UID (IntSet.singleton 1) reps
+      else
+        reps
+        
     let join_wblocks wblocks1 wblocks2 =
       let u1, v1, u2, v2 = wblocks1.node1, wblocks1.node2, wblocks2.node1, wblocks2.node2 in
       let uids = NumSet.add u1.Trie.node_UID (NumSet.singleton u2.Trie.node_UID) in
@@ -252,18 +264,11 @@ module Make (CA : CacheAD.S) =
       let uids = add_if_some v1 (add_if_some v2 uids) in 
       let reps = join_reps wblocks1.reps wblocks2.reps in
       if NumSet.cardinal uids > 2 then 
-        let n1 = join_none_top (Some u1) v1 (join_traces (count_wbl reps)) in
-        let n2 = join_none_top (Some u2) v2 (join_traces (count_wbl reps)) in
+        let n1 = join_none_top (Some u1) v1 (join_traces (count_wbl reps) wblock_hashtbl) in
+        let n2 = join_none_top (Some u2) v2 (join_traces (count_wbl reps) wblock_hashtbl) in
         let reps = add_to_reps n1 (add_to_reps n2 reps) in
-        let newnode = join_top (join_traces (count_wbl reps)) n1 n2 in
+        let newnode = join_top (join_traces (count_wbl reps) wblock_hashtbl) n1 n2 in
         let reps = add_to_reps newnode reps in
-        (* let node = join_none_top (Some u1) v1 (join_traces (count_wbl reps)) in *)
-        (* let reps = add_to_reps node reps in                                     *)
-        (* let node = join_top (join_traces (count_wbl reps)) node (Nt u2) in      *)
-        (* let reps = add_to_reps node reps in                                     *)
-        (* let newnode = match node with Tp -> Tp                                  *)
-        (* | Nt n -> join_none_top (Some n) v2 (join_traces (count_wbl reps)) in   *)
-        (* let reps = add_to_reps newnode reps in                                  *)
         match newnode with 
         | Tp -> Tp
         | Nt n -> Nt { node1 = n; node2 = None; reps = reps }
@@ -282,9 +287,9 @@ module Make (CA : CacheAD.S) =
             Nt { node1 = node1; node2 = join_same_wnode v1 v1_in; 
               reps = reps }
  
-    let join_times times1 times2 =
+    (* let join_times times1 times2 =
       let tms = IntSet.union times1 times2
-      in if (IntSet.cardinal tms) < max_times then Nt tms else Tp
+      in if (IntSet.cardinal tms) < max_times then Nt tms else Tp *)
       
     let add_nt fn s1 s2 = Nt (fn s1 s2)
     
@@ -295,34 +300,26 @@ module Make (CA : CacheAD.S) =
     let print_traces count_fn fmt node =
          let num = mult_big_int 
            (count_fn node.Trie.node_UID) node.Trie.num_traces in
-         Format.fprintf fmt "%s, %f bits\n"
-           (string_of_big_int num)
-           (Utils.log2 num)
+         Format.fprintf fmt "%s" (string_of_big_int num);
+         let numbits = Utils.log2 num in
+         if numbits <> infinity then
+           Format.fprintf fmt ", %f bits\n" (Utils.log2 num)
+         else
+           Format.fprintf fmt " [bit-number printing not supported for big integers]\n"
     
     let join env1 env2 =
-      (* let print_set s =                                  *)
-      (*   Printf.printf "value { ";                        *)
-      (*   NumSet.iter (fun x -> Printf.printf "%Lx " x) s; *)
-      (*   Printf.printf "}\n" in                           *)
-      (* let print_current env =                            *)
-      (*   match env.addr_trace, env.block_trace with       *)
-      (*   | Nt addrs, Nt blks ->                           *)
-      (*     print_set addrs.Trie.value;                    *)
-      (*     print_set blks.Trie.value                      *)
-      (*   | _, _ -> () in                                  *)
-      (* print_current env1; print_current env2;            *)
       { 
         env1 with
-        traces = join_top (join_traces count_normal) env1.traces env2.traces;
+        (* traces = join_top (join_traces count_normal) env1.traces env2.traces;
         cache = join_top (add_nt CA.join) env1.cache env2.cache;
-        times = join_top join_times env1.times env2.times;
-        addr_trace = join_top (join_traces count_normal) env1.addr_trace env2.addr_trace;
-        block_trace = join_top (join_traces count_normal) env1.block_trace env2.block_trace;
+        times = join_top join_times env1.times env2.times;*)
+        addr_trace = join_top (join_traces count_normal addr_hashtbl) env1.addr_trace env2.addr_trace;
+        block_trace = join_top (join_traces count_normal block_hashtbl) env1.block_trace env2.block_trace;
         wblocks = join_top join_wblocks env1.wblocks env2.wblocks
       }
       
     let widen env1 env2 =
-      let cache = join_top (add_nt CA.widen) env1.cache env2.cache in
+      (* let cache = join_top (add_nt CA.widen) env1.cache env2.cache in
       (* join_times goes to top at some point *)
       let times = join_top join_times env1.times env2.times in
       let traces =
@@ -331,19 +328,19 @@ module Make (CA : CacheAD.S) =
             if node1.Trie.node_UID = node2.Trie.node_UID
             then Nt node1
             else Tp
-        | (_, _) -> Tp in
+        | (_, _) -> Tp in *)
       let addr_trace =
-        join_top (join_traces count_normal) env1.addr_trace env2.addr_trace in
+        join_top (join_traces count_normal addr_hashtbl) env1.addr_trace env2.addr_trace in
       let block_trace =
-        join_top (join_traces count_normal) env1.block_trace env2.block_trace in
-      let wblocks = failwith "widen: todo"
+        join_top (join_traces count_normal block_hashtbl) env1.block_trace env2.block_trace in
+      let wblocks = failwith "Widen not implemented for wblocks. Try unrolling more."
       in
         {
           (env1)
           with
-          cache = cache;
+          (* cache = cache;
           traces = traces;
-          times = times;
+          times = times; *)
           addr_trace = addr_trace;
           block_trace = block_trace;
           wblocks = wblocks;
@@ -381,18 +378,29 @@ module Make (CA : CacheAD.S) =
       
     let subseteq env1 env2 =
       (env1.cache_param = env2.cache_param) &&
-      ((subeq_top CA.subseteq env1.cache env2.cache) &&
+      (* ((subeq_top CA.subseteq env1.cache env2.cache) &&
       ((subeq_top IntSet.subset env1.times env2.times) &&
-      ((subeq_top subseteq_traces env1.traces env2.traces) &&
+      ((subeq_top subseteq_traces env1.traces env2.traces) && *)
       ((subeq_top subseteq_traces env1.addr_trace env2.addr_trace) &&
       ((subeq_top subseteq_traces env1.block_trace env2.block_trace) &&
-      (subeq_top subseteq_wblocks env1.wblocks env2.wblocks))))))
+      (subeq_top subseteq_wblocks env1.wblocks env2.wblocks)))
        
+    let is_custom_visible_bits env =
+        (env.cache_param.CacheAD.nb >= 0) && 
+          (env.cache_param.CacheAD.nb <= 32) 
+
+    let get_invisible_bits env = if is_custom_visible_bits env then
+          env.cache_param.CacheAD.nb
+        else
+          (* infer block size from line size *)
+          int_of_float
+            (ceil (Utils.log2 (big_int_of_int env.cache_param.CacheAD.ls))) 
+
     let print fmt env =
-       Format.fprintf fmt "Not printing final cache state.\n";
-       (* Format.fprintf fmt "Final cache state:\n"; *)
+          ( 
+   (* Format.fprintf fmt "Final cache state:\n"; *)
        (* print_top fmt CA.print "Top" env.cache;    *)
-       Format.fprintf fmt "\n# traces: ";
+       (* Format.fprintf fmt "\n# traces: ";
          (print_top fmt (print_traces count_normal) "too imprecise to tell" env.traces;
           Format.fprintf fmt "\n# times: ";
           let print_times fmt tms =
@@ -401,58 +409,48 @@ module Make (CA : CacheAD.S) =
               Format.fprintf fmt "%d, %f bits\n" numtimes
                 (Utils.log2 (big_int_of_int numtimes))
           in
-          ( print_top fmt print_times "too imprecise to tell" env.times;
-            Format.fprintf fmt "\naddress-traces: ";
+          ( print_top fmt print_times "too imprecise to tell" env.times; *)
+            Format.fprintf fmt "\nNumber of traces w.r.t. adversary observing:\n";
+            Format.fprintf fmt "\nwhole addresses: ";
             print_top fmt (print_traces count_normal) "too imprecise to tell"
               env.addr_trace;
-            Format.fprintf fmt "\nblock-traces: ";
+            Format.fprintf fmt "\n";
+            if is_custom_visible_bits env then
+              Format.fprintf fmt "all but the %d LSB: " (get_invisible_bits env)
+            else
+              Format.fprintf fmt "block addresses: ";
             print_top fmt (print_traces count_normal) "too imprecise to tell"
               env.block_trace;
-            Format.fprintf fmt "\nwblock-traces: ";
-            let node, count_fn = match env.wblocks with Tp -> Tp, count_normal
-            | Nt wbl -> begin match wbl.node2 with
+            Format.fprintf fmt "\nmodulo repetitions (stuttering): ";
+            let node, count_fn = match env.wblocks with 
+            | Tp -> Tp, count_normal
+            | Nt wbl -> begin 
+              match wbl.node2 with
               | None -> Nt wbl.node1, (count_wbl wbl.reps)
               | Some node2 -> 
-                join_traces (count_wbl wbl.reps) wbl.node1 node2, (count_wbl wbl.reps) end in  
+                join_traces (count_wbl wbl.reps) wblock_hashtbl wbl.node1 node2, (count_wbl wbl.reps) end in  
              print_top fmt (print_traces count_fn) "too imprecise to tell" node
-            ))
+            )
             
-    let print_delta env1 fmt env2 =
-      (* TODO: implement printing of delta of traces and times *)
-      match ((env1.cache), (env2.cache)) with
+    let print_delta env1 fmt env2 = ()
+      (* match ((env1.cache), (env2.cache)) with
       | (Nt c1, Nt c2) -> CA.print_delta c1 fmt c2
-      | (_, _) -> Format.fprintf fmt "\nCache environment: Top.\n"
-      
-    let add_time time times =
-      match times with
-      | Tp -> Tp
-      | Nt tms ->
-          Nt
-            (IntSet.fold (fun x tms -> IntSet.add (x + time) tms) tms IntSet.
-               empty)
-      
-    let add_time_status status times =
-      match status with
-      | H -> add_time duration_H times
-      | M -> add_time duration_M times
-      | N -> add_time duration_N times
+      | (_, _) -> Format.fprintf fmt "\nCache environment: Top.\n"*)
       
     (* returns a unique identifier of the address, assuming the address is *)
     (* either symbolic (like something on the heap), *)
     (* or relative (like something on the stack with unknown offset) *)
     let get_block_id env a =
-      let num_line_bits =
-         int_of_float
-           (ceil (Utils.log2 (big_int_of_int env.cache_param.CacheAD.ls))) in
-      (* if not (is_symb a) *)
-      (* then a *)
-      (* else  *)
+      let num_line_bits = get_invisible_bits env in
         (* two symbolic addresses will be considered equal if *)
         (*  - the symbolic uid is the same *)
         (*  - the same bit indices are known *)
         (*  - the least-significant bits are the same *)
-         (* change_bits a 0 num_line_bits 0L *)
+      (* This is the normal block adversary: *)
       change_bits a 0 num_line_bits 0L
+      (* And this is the bank-adversary *)
+      (* let num_bank_bits = 2 in         *)
+      (* change_bits a 0 num_bank_bits 0L *)
     
     let update_wblocks wblocks block =
       match wblocks with
@@ -462,45 +460,50 @@ module Make (CA : CacheAD.S) =
           let nums = (NumMap.find uid reps) in
           NumMap.add uid (IntSet.fold (fun n nms ->
             IntSet.add (n + 1) nms) nums IntSet.empty) reps in
-        if wblocks.node2 = None then
-          let value = wblocks.node1.Trie.value in
+        (* Add block to node: increment count if accessing the same block,*)
+        (*  or add a new child *)
+        let add_to_node node = 
+          let value = node.Trie.value in
           if (NumSet.cardinal value = 1) && (NumSet.choose value) = block then begin 
             (* we are accessing the same block once again *)
             (* => increment number of repetitions *)
-            Nt { wblocks with reps = increment_reps wblocks.reps wblocks.node1.Trie.node_UID }
-          end else begin
-            match add (count_wbl wblocks.reps) wblock_hashtbl (Nt wblocks.node1) (NumSet.singleton block) with
+            Nt { wblocks with reps = increment_reps wblocks.reps node.Trie.node_UID }
+          end else
+            match add (count_wbl wblocks.reps) wblock_hashtbl (Nt node) (NumSet.singleton block) with
             | Tp -> Tp
             | Nt node1 ->
               (* standard addition of a new node; the count is set to 1 *)
               Nt { node1 = node1;
                 node2 = None;
-                reps = NumMap.add node1.Trie.node_UID (IntSet.singleton 1) wblocks.reps}
-        end else 
+                reps = add_to_reps (Nt node1) wblocks.reps} in
+        
+        if wblocks.node2 = None then
+          add_to_node wblocks.node1
+        else begin
           (* Here we have two possible traces for which we delayed the join. *)
           (* We will update both and join them *)
           let node2 = match wblocks.node2 with 
           | None -> assert false
           | Some n -> n in
-          match add (count_wbl wblocks.reps) wblock_hashtbl (Nt wblocks.node1) (NumSet.singleton block),
-              add (count_wbl wblocks.reps) wblock_hashtbl (Nt node2) (NumSet.singleton block) with
+          match add_to_node wblocks.node1, add_to_node node2 with
+          (* add (count_wbl wblocks.reps) wblock_hashtbl (Nt wblocks.node1) (NumSet.singleton block), *)
+          (*     add (count_wbl wblocks.reps) wblock_hashtbl (Nt node2) (NumSet.singleton block) with *)
             | Tp, _ | _ , Tp -> Tp
-            | Nt node1, Nt node2 ->
-              let newnode = join_traces (count_wbl wblocks.reps) node1 node2 in
+            | Nt wbl1, Nt wbl2 ->
+              let node1, node2 = wbl1.node1, wbl2.node1 in
+              let newnode = join_traces (count_wbl wblocks.reps) wblock_hashtbl node1 node2 in
               match newnode with 
               | Tp -> Tp
               | Nt newnode ->
-                let reps = if node1.Trie.node_UID = node2.Trie.node_UID then begin
-                    assert (newnode.Trie.node_UID = node1.Trie.node_UID);
-                    increment_reps wblocks.reps newnode.Trie.node_UID
-                  end else
-                    NumMap.add newnode.Trie.node_UID (IntSet.singleton 1) wblocks.reps in
+                let reps = join_reps wbl1.reps wbl2.reps in
+                let reps = add_to_reps (Nt newnode) reps in
                   Nt { node1 = newnode;
                        node2 = None;
                        reps = reps }
+        end
       
     (* Hitmiss tracking for touch_hm *)
-    let touch_hm env addr rw =
+    (* let touch_hm env addr rw =
       match env.cache with
       | Tp ->
           let tp_env = { (env) with traces = Tp; times = Tp; }
@@ -513,17 +516,17 @@ module Make (CA : CacheAD.S) =
             let status = if (rw = Write) && (status = H) then M else status
             in
               (match c_env with
-               | Nb c ->
+               | Nb c -> *)
+    let touch env addr _ =
                    let block_addr = get_block_id env addr
                    in
-                     Nb
                        {
                          env with
-                         traces =
+                         (* traces =
                            add count_normal hitmiss_hashtbl env.traces
                              (NumSet.singleton (cachest_to_int64 status));
                          cache = Nt c;
-                         times = add_time_status status env.times;
+                         times = add_time_status status env.times; *)
                          addr_trace =
                            add count_normal addr_hashtbl env.addr_trace
                              (NumSet.singleton addr);
@@ -532,7 +535,7 @@ module Make (CA : CacheAD.S) =
                              (NumSet.singleton block_addr);
                          wblocks = update_wblocks env.wblocks block_addr;
                        }
-               | Bot -> Bot)
+(*               | Bot -> Bot)
           in ((record_status H c_hit), (record_status M c_miss))
       
     let touch env addr rw =
@@ -556,7 +559,11 @@ module Make (CA : CacheAD.S) =
     let count_cache_states env =
       match env.cache with
       | Nt cache -> CA.count_cache_states cache
-      | Tp -> Big_int.zero_big_int
+      | Tp -> Big_int.zero_big_int *)
+      
+    let touch_hm _ _ _ = failwith "Function not necessary for this version"
+    let count_cache_states _ = failwith "Function not necessary for this version" 
+    let elapse env time = env
       
   end
   

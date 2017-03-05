@@ -53,8 +53,10 @@ module MakeSeparate (ST: StackAD.S) (IC: CacheAD.S) = struct
 
   
   let join env env2 = 
-    let call_ad = ST.join env.call_ad env2.call_ad in
-    let inst_ad = IC.join env.inst_ad env2.inst_ad in
+    let call_ad = if get_log_level ArchitectureLL == Debug then Printf.printf "join D-Cache\n";
+      ST.join env.call_ad env2.call_ad in
+    let inst_ad = if get_log_level ArchitectureLL == Debug then Printf.printf "join I-Cache\n";
+      IC.join env.inst_ad env2.inst_ad in
     {call_ad = call_ad; inst_ad = inst_ad}
   
   let widen env env2 =

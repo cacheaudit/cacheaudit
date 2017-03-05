@@ -17,6 +17,7 @@ type cache_param_t = {
   ass: int; (** associativity *)
   str: replacement_strategy; (** strategy *)
   opt_precision: bool; (** optimize precision (may run slower) *)
+  nb: int; (** number of bits from addresses invisible to adversaries *)
  } (** the cache parameters are given in bytes *) 
 
 (** The signature of the cache abstract domain *)

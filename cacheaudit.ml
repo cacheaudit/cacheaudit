@@ -26,6 +26,7 @@ let do_traces = ref true
 let opt_precision = ref false
 
 let stub_rules_file = ref ""
+let num_unknown_bits = ref (-1)
 
 
 type cache_age_analysis = IntAges | SetAges
@@ -49,7 +50,7 @@ let attacker = ref Final
 
 type architecture_model = Joint | Split | NoInstructionCache
 
-let architecture = ref NoInstructionCache
+let architecture = ref Split
 
 let usage = "Usage: " ^ Sys.argv.(0) ^ " BINARY [OPTION]"
 (* function which handles binary names (anonymous arguments) *)
@@ -60,7 +61,7 @@ let speclist = [
     (* ("-f", Arg.String anon_fun, "give the name of the binary file"); *)
     ("--start", Arg.String (fun s -> try
         start_addr := int_of_string s
-      with Failure "int_of_string" -> failwith (Printf.sprintf "Start address \
+      with Failure _ -> failwith (Printf.sprintf "Start address \
       %s not recognized as a number. Expecting a decimal or hexadecimal (0x...) \
       representation" s)), 
       "set the address (in bytes) where we start parsing");
@@ -84,9 +85,8 @@ let speclist = [
     ("--interval-cache", Arg.Unit (fun () -> data_cache_analysis := IntAges), 
       "use the interval abstract domain for the cache"
       ^"\n\n  Options for instruction caches (default are data cache options):");
-    ("--inst-cache", Arg.Unit (fun () -> architecture := Split),
-     "enable instruction cache tracking (separate caches for data 
-    and instructions)");
+    ("--data-cache-only", Arg.Unit (fun () -> architecture := NoInstructionCache),
+     "only track the data cache");
     ("--shared-cache", Arg.Unit (fun () -> architecture := Joint), 
      "enable instruction cache tracking (shared caches for data 
     and instructions");
@@ -119,8 +119,11 @@ let speclist = [
     ("--stub-config", Arg.String (fun s -> 
       stub_rules_file := s), 
       "specify file which controls stubbing: skipping analysis for a code 
-      segment and emulating the memory accesses indicated by the file.
-      Use this feature with care, it makes the analysis unsound."
+      segment and emulating the memory accesses indicated by the file.");
+    ("--unknown-bits", (Arg.Int (fun n -> num_unknown_bits := n)),
+     "consider an adversary who cannot observe the 
+      N least-significant bits of memory accesses.
+      Default behavior is to infer this according to the line-size."
       ^"\n\n  Logging:");
     ("--log",Arg.String (fun level -> Logger.set_global_ll level), 
       "set the general log level. Options are quiet, normal and debug. 
@@ -159,6 +162,7 @@ let _ =
     Format.printf "%s: No such file or directory\n" (!bin_name);
     exit 1
   end;
+  (* Default register values before the start of the analysis *)
   let start_values = ref ([],List.map (fun (a,b) -> a,b,b) [(X86Types.EAX, 0L); (X86Types.ECX, 0L); (X86Types.EDX, 0L); (X86Types.EBX, 0L);
                (X86Types.ESP, 0xbffff138L); (X86Types.EBP, 0xbffff2c8L); (X86Types.ESI, 0L); (X86Types.EDI, 0L)]) in
       (try
@@ -169,16 +173,18 @@ let _ =
         if !end_addr == -1 && configs.end_addr <> None then end_addr := un_option configs.end_addr;
         if configs.inst_base_addr <> None then instruction_base_addr := un_option configs.inst_base_addr;
         if !data_cache_s <= 0 && configs.cache_s <> None then data_cache_s := un_option configs.cache_s;
-        if !data_line_s <= 0 && configs.cache_s <> None then data_line_s := un_option configs.line_s;
-        if !data_assoc <= 0 && configs.cache_s <> None then data_assoc := un_option configs.assoc;
-        if !inst_cache_s <= 0 && configs.cache_s <> None then inst_cache_s := un_option configs.inst_cache_s;
-        if !inst_line_s <= 0 && configs.cache_s <> None then inst_line_s := un_option configs.inst_line_s;
-        if !inst_assoc <= 0 && configs.cache_s <> None then inst_assoc := un_option configs.inst_assoc;
+        if !data_line_s <= 0 && configs.line_s <> None then data_line_s := un_option configs.line_s;
+        if !data_assoc <= 0 && configs.assoc <> None then data_assoc := un_option configs.assoc;
+        if !inst_cache_s <= 0 && configs.inst_cache_s <> None then inst_cache_s := un_option configs.inst_cache_s;
+        if !inst_line_s <= 0 && configs.inst_line_s <> None then inst_line_s := un_option configs.inst_line_s;
+        if !inst_assoc <= 0 && configs.inst_assoc <> None then inst_assoc := un_option configs.inst_assoc;
         if configs.mem_params <> ([],[]) then start_values := configs.mem_params
       with Sys_error _ ->
         Printf.printf "Configuration file %s.conf not found\nUsing default values\n" !bin_name);
 
-    let stubs = if !stub_rules_file = "" then [] else Config.parse_stubfile !stub_rules_file in
+    if !stub_rules_file = "" then stub_rules_file := (!bin_name^".stubs");
+    let stubs = try Config.parse_stubfile !stub_rules_file
+      with Sys_error _ -> [] in
 
   let bits, mem =
     try (
@@ -194,11 +200,10 @@ let _ =
       if !inst_line_s = 0 then inst_line_s := !data_line_s;
       if !inst_assoc = 0 then inst_assoc := !data_assoc;
       Printf.printf "Cache size %d, line size %d, associativity %d\n" !data_cache_s !data_line_s !data_assoc;
-      let rep_strat = match !data_cache_strategy with 
+      (*let rep_strat = match !data_cache_strategy with 
       | CacheAD.LRU -> "LRU"
       | CacheAD.FIFO -> "FIFO"
-      | CacheAD.PLRU -> "PLRU" in
-      Printf.printf "Data cache replacement strategy: %s\n" rep_strat;
+      | CacheAD.PLRU -> "PLRU" in*)
       Printf.printf "Offset of first instruction is 0x%x (%d bytes in the file)\n" 
         !start_addr !start_addr;
       (get_bits mem), Some mem) 
@@ -208,12 +213,14 @@ let _ =
       (read_from_file !bin_name), None 
     ) in
   let data_cache_params = {CacheAD.cs = !data_cache_s; CacheAD.ls = !data_line_s;
-    CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy; opt_precision = !opt_precision} in
+    CacheAD.ass = !data_assoc; CacheAD.str = !data_cache_strategy; 
+    opt_precision = !opt_precision; CacheAD.nb = !num_unknown_bits} in
   let inst_cache_strategy = match !inst_cache_strategy_opt with
     | Some v -> ref v 
     | None -> data_cache_strategy in
   let inst_cache_params = {CacheAD.cs = !inst_cache_s; CacheAD.ls = !inst_line_s;
-    CacheAD.ass = !inst_assoc; CacheAD.str = !inst_cache_strategy; opt_precision = !opt_precision} in
+    CacheAD.ass = !inst_assoc; CacheAD.str = !inst_cache_strategy; 
+    opt_precision = !opt_precision; CacheAD.nb = !num_unknown_bits} in
   let inst_cache_analysis = match !inst_cache_analysis_opt with
     | Some v -> ref v
     | None -> data_cache_analysis in

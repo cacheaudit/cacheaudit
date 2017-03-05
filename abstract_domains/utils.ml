@@ -22,3 +22,12 @@ let (--) i j =
   let rec aux n acc =
     if n < i then acc else aux (n-1) (n :: acc)
   in aux (j-1) []
+
+let range64 i j = 
+  let rec aux n acc =
+    if n < i then acc else aux (Int64.pred n) (n :: acc)
+  in aux (Int64.pred j) []
+
+let reg_to_var x = Int64.of_int (-(X86Util.reg32_to_int x) - 1)
+
+

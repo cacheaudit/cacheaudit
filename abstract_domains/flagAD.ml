@@ -146,7 +146,8 @@ module Make (V: ValAD.S) = struct
     | BE -> FlagMap.partition (fun flgs _ -> flgs.cf || flgs.zf) st
     (* Z <-> ZF set *)  
     | Z -> FlagMap.partition (fun flgs _ -> flgs.zf) st
-    | _ -> failwith "Unsupported flag in test" in
+    | _ -> failwith "Unsupported flags in test. 
+      Possible solution: use unsigned integers in for-loops." in
     test_bot part1, test_bot part2
 
 

@@ -164,6 +164,8 @@ let getedges sections bs endaddr stubs =
       if get_log_level CfgLL = Debug then 
           Format.printf "Context %a @<6>%x %a@." pp_context 
             context (get_byte b) X86Print.pp_instr (X86Types.Simulate);
+      if s.first_addr = s.next_addr then 
+        failwith "stub configuration must specify distinct start and end addresses.";
       getaux context ret (goto b s.next_addr) edges
     | None ->
       if not (more b) then edges else

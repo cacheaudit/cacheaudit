@@ -18,6 +18,7 @@ type cache_param_t = {
   ass: int; 
   str: replacement_strategy;
   opt_precision: bool;
+  nb: int; 
  } 
 
 
